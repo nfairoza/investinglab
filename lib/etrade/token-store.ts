@@ -1,19 +1,17 @@
-// Server-only in-memory store for E*TRADE OAuth tokens.
-// Same pattern as lib/connectors/runtime.ts — nothing ever leaves the server.
-// Tokens expire at midnight ET; caller detects 401 and surfaces a reconnect button.
+// E*TRADE OAuth token store — PERSISTED to data/db.json (not in-memory).
+//
+// Why persisted: Next.js dev mode reloads route modules between requests, which
+// resets module-level variables. With an in-memory store, the access token saved
+// during /verify would vanish before /status or /positions ran — which is why
+// "select account" did nothing and Holdings showed "no account selected".
+// db.json is gitignored, so tokens still never leave your machine or hit GitHub.
+// Tokens expire at midnight ET; callers detect 401 and surface a reconnect prompt.
+//
+// Writes are SYNCHRONOUS (getDb().write()) because within a single request the
+// code writes then immediately reads (e.g. /verify sets the access token then
+// calls the accounts endpoint). E*TRADE writes are low-frequency and sequential.
 
-interface TokenState {
-  // Step 1 temporary tokens (discarded after access token exchange)
-  requestToken: string | null;
-  requestTokenSecret: string | null;
-  // Step 4 long-lived tokens (until midnight ET or inactivity)
-  accessToken: string | null;
-  accessTokenSecret: string | null;
-  // Cached account list from first successful auth
-  accounts: EtradeAccount[];
-  selectedAccountIdKey: string | null;
-  connectedAt: string | null; // ISO — shown in the UI
-}
+import { getDb, EMPTY_ETRADE } from "@/lib/db";
 
 export interface EtradeAccount {
   accountId: string;
@@ -23,69 +21,78 @@ export interface EtradeAccount {
   institutionType: string;
 }
 
-const state: TokenState = {
-  requestToken: null,
-  requestTokenSecret: null,
-  accessToken: null,
-  accessTokenSecret: null,
-  accounts: [],
-  selectedAccountIdKey: null,
-  connectedAt: null,
-};
+function writeEtrade(mutate: (e: typeof EMPTY_ETRADE) => void): void {
+  const db = getDb();
+  mutate(db.data.etrade);
+  db.write();
+}
 
 export function setRequestToken(token: string, secret: string): void {
-  state.requestToken = token;
-  state.requestTokenSecret = secret;
+  writeEtrade((e) => {
+    e.requestToken = token;
+    e.requestTokenSecret = secret;
+  });
 }
 
 export function getRequestToken(): { token: string; secret: string } | null {
-  if (!state.requestToken || !state.requestTokenSecret) return null;
-  return { token: state.requestToken, secret: state.requestTokenSecret };
+  const e = getDb().data.etrade;
+  if (!e.requestToken || !e.requestTokenSecret) return null;
+  return { token: e.requestToken, secret: e.requestTokenSecret };
 }
 
 export function setAccessTokens(token: string, secret: string): void {
-  state.accessToken = token;
-  state.accessTokenSecret = secret;
-  state.requestToken = null;
-  state.requestTokenSecret = null;
-  state.connectedAt = new Date().toISOString();
+  writeEtrade((e) => {
+    e.accessToken = token;
+    e.accessTokenSecret = secret;
+    e.requestToken = null;
+    e.requestTokenSecret = null;
+    e.connectedAt = new Date().toISOString();
+  });
 }
 
 export function getAccessTokens(): { token: string; secret: string } | null {
-  if (!state.accessToken || !state.accessTokenSecret) return null;
-  return { token: state.accessToken, secret: state.accessTokenSecret };
+  const e = getDb().data.etrade;
+  if (!e.accessToken || !e.accessTokenSecret) return null;
+  return { token: e.accessToken, secret: e.accessTokenSecret };
 }
 
 export function setAccounts(accounts: EtradeAccount[]): void {
-  state.accounts = accounts;
+  writeEtrade((e) => {
+    e.accounts = accounts;
+  });
 }
 
 export function getAccounts(): EtradeAccount[] {
-  return state.accounts;
+  return (getDb().data.etrade.accounts as EtradeAccount[]) ?? [];
 }
 
 export function setSelectedAccount(accountIdKey: string): void {
-  state.selectedAccountIdKey = accountIdKey;
+  writeEtrade((e) => {
+    e.selectedAccountIdKey = accountIdKey;
+  });
 }
 
 export function getSelectedAccountIdKey(): string | null {
-  return state.selectedAccountIdKey;
+  return getDb().data.etrade.selectedAccountIdKey;
 }
 
 export function isConnected(): boolean {
-  return Boolean(state.accessToken && state.accessTokenSecret);
+  const e = getDb().data.etrade;
+  return Boolean(e.accessToken && e.accessTokenSecret);
 }
 
 export function getConnectedAt(): string | null {
-  return state.connectedAt;
+  return getDb().data.etrade.connectedAt;
 }
 
 export function clearAll(): void {
-  state.requestToken = null;
-  state.requestTokenSecret = null;
-  state.accessToken = null;
-  state.accessTokenSecret = null;
-  state.accounts = [];
-  state.selectedAccountIdKey = null;
-  state.connectedAt = null;
+  writeEtrade((e) => {
+    e.requestToken = null;
+    e.requestTokenSecret = null;
+    e.accessToken = null;
+    e.accessTokenSecret = null;
+    e.accounts = [];
+    e.selectedAccountIdKey = null;
+    e.connectedAt = null;
+  });
 }

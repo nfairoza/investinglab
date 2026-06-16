@@ -45,15 +45,40 @@ export interface JournalEntry {
   updatedAt: string;
 }
 
+// E*TRADE OAuth + account state. Persisted (not in-memory) because Next.js dev
+// mode reloads route modules between requests, which would wipe module-level
+// state — breaking the connect → verify → select flow. Tokens are still LOCAL
+// (data/db.json is gitignored) and never sent to the browser.
+export interface EtradeState {
+  requestToken: string | null;
+  requestTokenSecret: string | null;
+  accessToken: string | null;
+  accessTokenSecret: string | null;
+  accounts: any[];
+  selectedAccountIdKey: string | null;
+  connectedAt: string | null;
+}
+
 interface Schema {
   holdings: Holding[];
   watchlist: WatchItem[];
   journal: JournalEntry[];
+  etrade: EtradeState;
 }
 
 // ---- Singleton --------------------------------------------------------------
 
-const DEFAULT: Schema = { holdings: [], watchlist: [], journal: [] };
+const EMPTY_ETRADE: EtradeState = {
+  requestToken: null,
+  requestTokenSecret: null,
+  accessToken: null,
+  accessTokenSecret: null,
+  accounts: [],
+  selectedAccountIdKey: null,
+  connectedAt: null,
+};
+
+const DEFAULT: Schema = { holdings: [], watchlist: [], journal: [], etrade: { ...EMPTY_ETRADE } };
 
 const dbPath = join(process.cwd(), "data", "db.json");
 const adapter = new JSONFileSync<Schema>(dbPath);
@@ -61,8 +86,18 @@ const db = new LowSync<Schema>(adapter, DEFAULT);
 
 db.read();
 
+export { EMPTY_ETRADE };
+
+function ensureShape() {
+  if (!db.data.holdings) db.data.holdings = [];
+  if (!db.data.watchlist) db.data.watchlist = [];
+  if (!db.data.journal) db.data.journal = [];
+  if (!db.data.etrade) db.data.etrade = { ...EMPTY_ETRADE };
+}
+
 export function getDb(): LowSync<Schema> {
   db.read(); // refresh from disk on every call
+  ensureShape(); // backfill keys for older db.json files
   return db;
 }
 

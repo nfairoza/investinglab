@@ -4,28 +4,38 @@ import { setConnectorValues, runtimeHas } from "@/lib/connectors/runtime";
 
 export const dynamic = "force-dynamic";
 
+// Connectors with their own dedicated card (not in the generic registry) but
+// that still store credentials through the shared runtime store.
+const EXTRA: Record<string, { fields: string[]; envVars: string[] }> = {
+  etrade: {
+    fields: ["ETRADE_CONSUMER_KEY", "ETRADE_CONSUMER_SECRET"],
+    envVars: ["ETRADE_CONSUMER_KEY", "ETRADE_CONSUMER_SECRET"],
+  },
+};
+
 // POST { connectorId, values: { FIELD: value } }  -> set runtime values
 // POST { connectorId, clear: true }                -> clear that connector
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}));
-  const connector = CONNECTORS.find((c) => c.id === body?.connectorId);
-  if (!connector) return NextResponse.json({ error: "unknown connector" }, { status: 400 });
+  const registry = CONNECTORS.find((c) => c.id === body?.connectorId);
+  const fieldIds = registry ? registry.fields.map((f) => f.id) : EXTRA[body?.connectorId]?.fields;
+  const envVars = registry ? registry.envVars : EXTRA[body?.connectorId]?.envVars;
+  if (!fieldIds || !envVars) return NextResponse.json({ error: "unknown connector" }, { status: 400 });
 
   if (body?.clear) {
-    setConnectorValues(Object.fromEntries(connector.fields.map((f) => [f.id, null])));
+    setConnectorValues(Object.fromEntries(fieldIds.map((f) => [f, null])));
   } else {
     const values = (body?.values ?? {}) as Record<string, string>;
-    // only accept fields that belong to this connector
     const allowed = Object.fromEntries(
-      connector.fields.filter((f) => typeof values[f.id] === "string").map((f) => [f.id, values[f.id]]),
+      fieldIds.filter((f) => typeof values[f] === "string").map((f) => [f, values[f]]),
     );
     setConnectorValues(allowed);
   }
 
-  const hasRuntime = connector.fields.some((f) => runtimeHas(f.id));
-  const hasEnv = connector.envVars.some((e) => Boolean(process.env[e]));
+  const hasRuntime = fieldIds.some((f) => runtimeHas(f));
+  const hasEnv = envVars.some((e) => Boolean(process.env[e]));
   return NextResponse.json({
-    id: connector.id,
+    id: body?.connectorId,
     configured: hasRuntime || hasEnv,
     source: hasRuntime ? "runtime" : hasEnv ? "env" : "none",
   });

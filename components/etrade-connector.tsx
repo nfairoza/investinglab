@@ -12,6 +12,14 @@ interface Status {
   sandbox: boolean;
 }
 
+// E*TRADE returns accountId already masked (e.g. "XXXX1234"). Show the last 4
+// so identical account descriptions can be told apart.
+function accountLabel(a: EtradeAccount): string {
+  const tail = (a.accountId || "").replace(/[^0-9]/g, "").slice(-4);
+  const suffix = tail ? ` ••${tail}` : "";
+  return `${a.accountName} (${a.accountType})${suffix}`;
+}
+
 export function EtradeConnector() {
   const [status, setStatus] = useState<Status | null>(null);
   const [busy, setBusy] = useState(false);
@@ -149,7 +157,6 @@ export function EtradeConnector() {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <span className="font-medium text-slate-100">E*TRADE — Portfolio sync</span>
-          <span className="rounded-full border border-emerald-500/40 px-2 py-0.5 text-[10px] text-emerald-300">Phase 1</span>
           <span className="rounded-full border border-slate-600 px-2 py-0.5 text-[10px] text-slate-400">Read-only</span>
           {status?.sandbox && (
             <span className="rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10px] text-amber-300">SANDBOX</span>
@@ -214,7 +221,12 @@ export function EtradeConnector() {
       {/* Step 2: OAuth connect (out-of-band code flow) */}
       {status?.hasCredentials && !status.connected && (
         <div className="space-y-3 rounded-lg border border-slate-800 bg-slate-900/60 p-4">
-          <div className="text-xs font-medium text-slate-400 uppercase tracking-wide">Step 2 — Authorize access</div>
+          <div className="text-xs font-medium text-slate-400 uppercase tracking-wide">Authorize access</div>
+          <p className="text-xs text-slate-500">
+            Your developer key is set, so this app is registered with E*TRADE. You still need to
+            <span className="text-slate-300"> log in once</span> so E*TRADE can grant this app read access to
+            <span className="text-slate-300"> your</span> account — the consumer key only identifies the app, not you.
+          </p>
           {status?.sandbox && (
             <p className="text-xs text-amber-400/80">
               Sandbox mode — uses test account data, not your real portfolio. To switch to production, remove <code className="rounded bg-slate-800 px-1">ETRADE_SANDBOX=true</code> from <code className="rounded bg-slate-800 px-1">.env.local</code>.
@@ -272,7 +284,7 @@ export function EtradeConnector() {
             <option value="">Pick an account…</option>
             {status.accounts.map((a) => (
               <option key={a.accountIdKey} value={a.accountIdKey}>
-                {a.accountName} ({a.accountType})
+                {accountLabel(a)}
               </option>
             ))}
           </select>
@@ -291,8 +303,9 @@ export function EtradeConnector() {
         <div className="space-y-3 rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
-              <div className="text-sm font-medium text-emerald-200">{selectedAccount?.accountName ?? status.selectedAccountIdKey}</div>
-              <div className="text-xs text-slate-500">{selectedAccount?.accountType}</div>
+              <div className="text-sm font-medium text-emerald-200">
+                {selectedAccount ? accountLabel(selectedAccount) : status.selectedAccountIdKey}
+              </div>
             </div>
             {status.connectedAt && (
               <div className="text-xs text-slate-500">
@@ -316,7 +329,7 @@ export function EtradeConnector() {
             >
               {status.accounts.map((a) => (
                 <option key={a.accountIdKey} value={a.accountIdKey}>
-                  {a.accountName}
+                  {accountLabel(a)}
                 </option>
               ))}
             </select>
