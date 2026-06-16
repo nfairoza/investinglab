@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { MessageCircle, X, Send, RotateCcw } from "lucide-react";
 import useSWR from "swr";
-import { useLocalList, type Holding, type WatchItem } from "@/lib/local-store";
+import type { Holding, WatchItem } from "@/lib/db";
 import type { DataResult, Quote } from "@/lib/providers/types";
 
 // ── types ────────────────────────────────────────────────────────────────────
@@ -83,8 +83,8 @@ export function ChatWidget() {
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const pathname = usePathname();
 
-  const { items: holdings } = useLocalList<Holding>("stockpilot.holdings");
-  const { items: watchlist } = useLocalList<WatchItem>("stockpilot.watchlist");
+  const { data: holdings = [] } = useSWR<Holding[]>("/api/holdings", (url: string) => fetch(url).then((r) => r.json()), { revalidateOnFocus: false });
+  const { data: watchlist = [] } = useSWR<WatchItem[]>("/api/watchlist", (url: string) => fetch(url).then((r) => r.json()), { revalidateOnFocus: false });
 
   const symbols = holdings.map((h) => h.symbol);
   const { data: quotes } = useSWR(

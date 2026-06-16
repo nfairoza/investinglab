@@ -1,10 +1,20 @@
 "use client";
 
 import { useState } from "react";
-import { useLocalList, newId, type JournalEntry } from "@/lib/local-store";
+import useSWR from "swr";
+import type { JournalEntry } from "@/lib/db";
+
+async function fetchJson<T>(url: string): Promise<T> {
+  const r = await fetch(url);
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  return r.json();
+}
 
 export function Journal() {
-  const { items, ready, add, remove, update } = useLocalList<JournalEntry>("stockpilot.journal");
+  const { data: items = [], mutate } = useSWR<JournalEntry[]>("/api/journal", fetchJson, {
+    revalidateOnFocus: true,
+  });
+
   const [symbol, setSymbol] = useState("");
   const [side, setSide] = useState<"buy" | "sell">("buy");
   const [reason, setReason] = useState("");
@@ -12,21 +22,44 @@ export function Journal() {
   const [stop, setStop] = useState("");
   const [exit, setExit] = useState("");
 
-  function addEntry() {
+  async function addEntry() {
     const sym = symbol.trim().toUpperCase();
     if (!sym || !reason.trim()) return;
-    add({
-      id: newId(),
-      symbol: sym,
-      side,
-      entryReason: reason.trim(),
-      targetPrice: Number(target) > 0 ? Number(target) : undefined,
-      stopLoss: Number(stop) > 0 ? Number(stop) : undefined,
-      exitCriteria: exit.trim() || undefined,
-      status: "open",
-      createdAt: new Date().toISOString(),
+    await fetch("/api/journal", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        symbol: sym, side, entryReason: reason.trim(),
+        targetPrice: Number(target) > 0 ? Number(target) : undefined,
+        stopLoss: Number(stop) > 0 ? Number(stop) : undefined,
+        exitCriteria: exit.trim() || undefined,
+      }),
     });
     setSymbol(""); setReason(""); setTarget(""); setStop(""); setExit("");
+    mutate();
+  }
+
+  async function toggleStatus(e: JournalEntry) {
+    await fetch("/api/journal", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: e.id, status: e.status === "open" ? "closed" : "open" }),
+    });
+    mutate();
+  }
+
+  async function updateResult(id: string, field: "result1w" | "result1m", value: string) {
+    await fetch("/api/journal", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, [field]: value }),
+    });
+    mutate();
+  }
+
+  async function removeEntry(id: string) {
+    await fetch(`/api/journal?id=${id}`, { method: "DELETE" });
+    mutate();
   }
 
   const input = "rounded-md border border-slate-700 bg-slate-900/60 px-3 py-2 text-sm text-slate-200 placeholder:text-slate-600 focus:border-brand-500 focus:outline-none";
@@ -46,14 +79,14 @@ export function Journal() {
         </div>
         <textarea value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Why did you enter?" rows={2} className={`${input} w-full`} />
         <input value={exit} onChange={(e) => setExit(e.target.value)} placeholder="What would make you exit?" className={`${input} w-full`} />
-        <button onClick={addEntry} className="rounded-md bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-600">
+        <button onClick={addEntry} className="rounded-md bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-500">
           Log trade
         </button>
       </div>
 
-      {ready && items.length === 0 && (
+      {items.length === 0 && (
         <div className="rounded-lg border border-slate-800 bg-slate-900/30 p-6 text-center text-sm text-slate-500">
-          No trades logged yet. Logging your reasoning, target, and exit plan is how you get better over time.
+          No trades logged yet. Logging your reasoning, target, and exit plan is how you improve over time.
         </div>
       )}
 
@@ -71,10 +104,10 @@ export function Journal() {
               </span>
             </div>
             <div className="flex items-center gap-2">
-              <button onClick={() => update(e.id, { status: e.status === "open" ? "closed" : "open" })} className="text-xs text-slate-400 hover:text-slate-200">
+              <button onClick={() => toggleStatus(e)} className="text-xs text-slate-400 hover:text-slate-200">
                 {e.status === "open" ? "Mark closed" : "Reopen"}
               </button>
-              <button onClick={() => remove(e.id)} className="text-xs text-slate-500 hover:text-rose-300">Remove</button>
+              <button onClick={() => removeEntry(e.id)} className="text-xs text-slate-500 hover:text-rose-300">Remove</button>
             </div>
           </div>
 
@@ -85,17 +118,16 @@ export function Journal() {
             <Field label="Stop-loss" value={e.stopLoss != null ? `$${e.stopLoss}` : "—"} />
           </div>
 
-          {/* Result tracking */}
           <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
             <input
               defaultValue={e.result1w ?? ""}
-              onBlur={(ev) => update(e.id, { result1w: ev.target.value })}
+              onBlur={(ev) => updateResult(e.id, "result1w", ev.target.value)}
               placeholder="Result after 1 week…"
               className={input}
             />
             <input
               defaultValue={e.result1m ?? ""}
-              onBlur={(ev) => update(e.id, { result1m: ev.target.value })}
+              onBlur={(ev) => updateResult(e.id, "result1m", ev.target.value)}
               placeholder="Result after 1 month…"
               className={input}
             />
@@ -104,8 +136,7 @@ export function Journal() {
       ))}
 
       <p className="text-[11px] text-slate-600">
-        Saved in your browser for now; moves to your account once sign-in is wired. Research and
-        educational analysis, not financial advice.
+        Saved to <code>data/db.json</code> — persists across restarts. Research and educational analysis, not financial advice.
       </p>
     </div>
   );

@@ -2,7 +2,7 @@
 
 import useSWR from "swr";
 import Link from "next/link";
-import { useLocalList, type Holding } from "@/lib/local-store";
+import type { Holding } from "@/lib/db";
 import { DataBadge, DataTimestamp } from "./data-state";
 import { ScoreCard } from "./score-card";
 import { PriceHistoryChart } from "./charts/PriceHistoryChart";
@@ -47,8 +47,8 @@ const ACTION_ROWS: { key: keyof ResearchReport["actionTable"]; label: string }[]
 ];
 
 export function HoldingDetail({ symbol }: { symbol: string }) {
-  const { items } = useLocalList<Holding>("stockpilot.holdings");
-  const holding = items.find((h) => h.symbol === symbol);
+  const { data: holdings = [] } = useSWR<Holding[]>("/api/holdings", (url: string) => fetch(url).then((r) => r.json()));
+  const holding = holdings.find((h) => h.symbol === symbol);
 
   const { data: quoteResult } = useSWR<DataResult<Quote>>(
     `/api/quote?symbol=${symbol}`,

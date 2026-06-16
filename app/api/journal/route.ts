@@ -1,0 +1,56 @@
+import { NextRequest, NextResponse } from "next/server";
+import { getDb, newId, now } from "@/lib/db";
+
+export const dynamic = "force-dynamic";
+
+export async function GET() {
+  const db = getDb();
+  return NextResponse.json(db.data.journal);
+}
+
+export async function POST(req: NextRequest) {
+  const db = getDb();
+  const body = await req.json().catch(() => ({}));
+
+  // Patch existing entry (status toggle or result update)
+  if (body?.id) {
+    const entry = db.data.journal.find((e) => e.id === body.id);
+    if (!entry) return NextResponse.json({ error: "not found" }, { status: 404 });
+    if (body.status !== undefined) entry.status = body.status;
+    if (body.result1w !== undefined) entry.result1w = body.result1w;
+    if (body.result1m !== undefined) entry.result1m = body.result1m;
+    entry.updatedAt = now();
+    db.write();
+    return NextResponse.json(entry);
+  }
+
+  // New entry
+  const symbol = String(body?.symbol ?? "").toUpperCase();
+  if (!symbol || !body?.entryReason) {
+    return NextResponse.json({ error: "symbol and entryReason required" }, { status: 400 });
+  }
+  const entry = {
+    id: newId(),
+    symbol,
+    side: (body.side === "sell" ? "sell" : "buy") as "buy" | "sell",
+    entryReason: String(body.entryReason),
+    targetPrice: body.targetPrice != null ? Number(body.targetPrice) : undefined,
+    stopLoss: body.stopLoss != null ? Number(body.stopLoss) : undefined,
+    exitCriteria: body.exitCriteria ?? undefined,
+    status: "open" as const,
+    createdAt: now(),
+    updatedAt: now(),
+  };
+  db.data.journal.push(entry);
+  db.write();
+  return NextResponse.json(entry);
+}
+
+export async function DELETE(req: NextRequest) {
+  const id = req.nextUrl.searchParams.get("id");
+  if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
+  const db = getDb();
+  db.data.journal = db.data.journal.filter((e) => e.id !== id);
+  db.write();
+  return NextResponse.json({ ok: true });
+}

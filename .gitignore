@@ -7,3 +7,6 @@ out
 *.log
 .DS_Store
 .vercel
+
+# Local database — your data, never committed
+data/db.json

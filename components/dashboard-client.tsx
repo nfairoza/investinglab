@@ -1,7 +1,7 @@
 "use client";
 
 import useSWR from "swr";
-import { useLocalList, type Holding, type WatchItem } from "@/lib/local-store";
+import type { Holding, WatchItem } from "@/lib/db";
 import { DataBadge, DataTimestamp } from "./data-state";
 import { AllocationDonut } from "./charts/AllocationDonut";
 import { GainLossBar } from "./charts/GainLossBar";
@@ -23,9 +23,14 @@ async function fetchQuotes(symbols: string[]): Promise<Record<string, DataResult
   return Object.fromEntries(entries);
 }
 
+async function fetchJson<T>(url: string): Promise<T> {
+  const r = await fetch(url);
+  return r.json();
+}
+
 export function DashboardClient() {
-  const { items: holdings } = useLocalList<Holding>("stockpilot.holdings");
-  const { items: watchlist } = useLocalList<WatchItem>("stockpilot.watchlist");
+  const { data: holdings = [] } = useSWR<Holding[]>("/api/holdings", fetchJson, { revalidateOnFocus: true });
+  const { data: watchlist = [] } = useSWR<WatchItem[]>("/api/watchlist", fetchJson, { revalidateOnFocus: true });
 
   const symbols = holdings.map((h) => h.symbol);
   const { data: quotes } = useSWR(

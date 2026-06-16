@@ -4,7 +4,7 @@ import useSWR from "swr";
 import { DataBadge } from "./data-state";
 import type { DataResult } from "@/lib/providers/types";
 import type { StockScore, Horizon } from "@/lib/scoring/score";
-import { useLocalList, type Holding, type WatchItem } from "@/lib/local-store";
+import type { Holding, WatchItem } from "@/lib/db";
 
 // A starter universe to rank when you have few holdings. Full US-universe
 // ranking needs FMP screener/bulk endpoints + a cache (the PostgreSQL "memory"
@@ -60,8 +60,8 @@ function ScoreList({ title, subtitle, rows, horizon }: { title: string; subtitle
 }
 
 export function Rankings() {
-  const { items: holdings } = useLocalList<Holding>("stockpilot.holdings");
-  const { items: watch } = useLocalList<WatchItem>("stockpilot.watchlist");
+  const { data: holdings = [] } = useSWR<Holding[]>("/api/holdings", (url: string) => fetch(url).then((r) => r.json()));
+  const { data: watch = [] } = useSWR<WatchItem[]>("/api/watchlist", (url: string) => fetch(url).then((r) => r.json()));
 
   const owned = new Set(holdings.map((h) => h.symbol));
   const universe = Array.from(new Set([...SEED, ...holdings.map((h) => h.symbol), ...watch.map((w) => w.symbol)]));
