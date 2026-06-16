@@ -1,0 +1,31 @@
+{
+  "name": "stockpilot-ai",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "next": "14.2.15",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "@supabase/supabase-js": "2.45.4",
+    "recharts": "2.12.7",
+    "lucide-react": "0.441.0",
+    "clsx": "2.1.1",
+    "swr": "2.2.5"
+  },
+  "devDependencies": {
+    "typescript": "5.6.2",
+    "@types/node": "20.16.5",
+    "@types/react": "18.3.5",
+    "@types/react-dom": "18.3.0",
+    "tailwindcss": "3.4.12",
+    "postcss": "8.4.47",
+    "autoprefixer": "10.4.20"
+  }
+}

@@ -1,0 +1,110 @@
+"use client";
+
+import useSWR from "swr";
+import { DataBadge } from "./data-state";
+import type { DataResult, AnalystData } from "@/lib/providers/types";
+
+async function get(url: string): Promise<DataResult<AnalystData>> {
+  const r = await fetch(url);
+  return (await r.json()) as DataResult<AnalystData>;
+}
+
+export function AnalystPanel({ symbol }: { symbol: string }) {
+  const { data, isLoading } = useSWR<DataResult<AnalystData>>(
+    `/api/analyst?symbol=${symbol}`,
+    get,
+    { keepPreviousData: true },
+  );
+
+  const a = data?.data;
+  const total = a ? a.strongBuy + a.buy + a.hold + a.sell + a.strongSell : 0;
+
+  return (
+    <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-5">
+      <div className="flex items-center justify-between">
+        <h2 className="text-sm font-semibold text-slate-100">{symbol} — Analyst consensus</h2>
+        {data && <DataBadge source={data.source} />}
+      </div>
+      <p className="mt-0.5 text-xs text-slate-500">
+        Aggregated ratings from major investment banks. Not financial advice — analysts are often wrong.
+      </p>
+
+      {isLoading && <div className="mt-4 h-20 animate-pulse rounded bg-slate-800" />}
+      {!isLoading && !a && (
+        <p className="mt-3 text-sm text-slate-500">{data?.note ?? "Analyst data unavailable."}</p>
+      )}
+
+      {a && (
+        <div className="mt-4 space-y-4">
+          {/* Price targets */}
+          {a.priceTargetConsensus != null && (
+            <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm sm:grid-cols-4">
+              <Fact label="Consensus target" value={`$${a.priceTargetConsensus.toFixed(2)}`} highlight />
+              <Fact label="Average target" value={a.priceTargetAvg != null ? `$${a.priceTargetAvg.toFixed(2)}` : "—"} />
+              <Fact label="High target" value={a.priceTargetHigh != null ? `$${a.priceTargetHigh.toFixed(2)}` : "—"} />
+              <Fact label="Low target" value={a.priceTargetLow != null ? `$${a.priceTargetLow.toFixed(2)}` : "—"} />
+            </div>
+          )}
+
+          {/* Rating breakdown bar */}
+          {total > 0 && (
+            <div>
+              <div className="mb-1 text-xs text-slate-500">Rating breakdown ({total} analysts)</div>
+              <div className="flex h-4 w-full overflow-hidden rounded-full">
+                <Bar count={a.strongBuy} total={total} color="bg-emerald-500" label="Strong buy" />
+                <Bar count={a.buy} total={total} color="bg-emerald-400/70" label="Buy" />
+                <Bar count={a.hold} total={total} color="bg-slate-500" label="Hold" />
+                <Bar count={a.sell} total={total} color="bg-amber-500/70" label="Sell" />
+                <Bar count={a.strongSell} total={total} color="bg-rose-500" label="Strong sell" />
+              </div>
+              <div className="mt-1 flex flex-wrap gap-x-4 gap-y-0.5 text-[11px] text-slate-500">
+                {a.strongBuy > 0 && <span><span className="text-emerald-400">■</span> Strong buy: {a.strongBuy}</span>}
+                {a.buy > 0 && <span><span className="text-emerald-300">■</span> Buy: {a.buy}</span>}
+                {a.hold > 0 && <span><span className="text-slate-400">■</span> Hold: {a.hold}</span>}
+                {a.sell > 0 && <span><span className="text-amber-400">■</span> Sell: {a.sell}</span>}
+                {a.strongSell > 0 && <span><span className="text-rose-400">■</span> Strong sell: {a.strongSell}</span>}
+              </div>
+            </div>
+          )}
+
+          {/* Latest grade */}
+          {a.latestGrade && (
+            <div className="rounded-lg border border-slate-700 bg-slate-800/40 p-3 text-sm">
+              <div className="text-xs text-slate-500 mb-1">Latest analyst action</div>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-medium text-slate-200">{a.latestGrade.firm}</span>
+                <span className="rounded-md border border-slate-600 px-2 py-0.5 text-xs text-slate-300">
+                  {a.latestGrade.action}
+                </span>
+                {a.latestGrade.fromGrade && (
+                  <span className="text-slate-500 text-xs">{a.latestGrade.fromGrade} → <span className="text-slate-200">{a.latestGrade.toGrade}</span></span>
+                )}
+                <span className="text-xs text-slate-600">{a.latestGrade.date}</span>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Fact({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
+  return (
+    <div className="flex justify-between gap-3 border-b border-slate-800/60 py-1">
+      <span className="text-slate-500 shrink-0">{label}</span>
+      <span className={`text-right font-medium ${highlight ? "text-brand-300" : "text-slate-300"}`}>{value}</span>
+    </div>
+  );
+}
+
+function Bar({ count, total, color, label }: { count: number; total: number; color: string; label: string }) {
+  if (!count) return null;
+  return (
+    <div
+      className={`${color} h-full`}
+      style={{ width: `${(count / total) * 100}%` }}
+      title={`${label}: ${count}`}
+    />
+  );
+}

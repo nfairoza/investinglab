@@ -1,0 +1,43 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+
+  /* Jasmine-inspired brand palette — accessible via Tailwind brand-* utilities */
+  --brand-50:  #fefdf7;
+  --brand-100: #fdf9e7;
+  --brand-200: #f9f0c4;
+  --brand-300: #f2e090;
+  --brand-400: #e8cc5a;
+  --brand-500: #d4a82a;  /* jasmine gold — primary accent */
+  --brand-600: #b88a18;
+  --brand-700: #8f6a10;
+  --brand-800: #664c0b;
+  --brand-900: #3d2d06;
+  --brand-950: #221904;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  /* Deep botanical dark — richer than plain slate-950 */
+  background-color: #0b0f0a;
+  color: #e8e4d8; /* warm off-white, not cold blue-white */
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Subtle gradient on the sidebar */
+aside {
+  background: linear-gradient(160deg, #0f1410 0%, #0b0f0a 60%, #0e120b 100%) !important;
+}
+
+/* Thin botanical scrollbar */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #2d3829; border-radius: 99px; }
+::-webkit-scrollbar-thumb:hover { background: #4a5e42; }
