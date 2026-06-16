@@ -18,7 +18,7 @@ function fmt(n: number) {
 export function GainLossBar({ holdings, title = "Gain / loss by holding" }: { holdings: HoldingGain[]; title?: string }) {
   if (!holdings.length) {
     return (
-      <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-4">
+      <div className="card-hover rounded-xl border border-slate-800 bg-slate-900/40 p-4">
         <div className="text-sm font-semibold text-slate-100">{title}</div>
         <div className="mt-4 flex h-32 items-center justify-center text-sm text-slate-500">
           Add holdings to see gains and losses.

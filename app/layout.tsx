@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { Sidebar } from "@/components/sidebar";
 import { ChatWidget } from "@/components/chat-widget";
+import { PageTransition } from "@/components/page-transition";
 
 export const metadata: Metadata = {
   title: "Noor Investing Lab",
@@ -14,7 +15,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="font-sans">
         <div className="flex min-h-screen">
           <Sidebar />
-          <main className="flex-1 px-5 py-6 md:px-8">{children}</main>
+          <main className="flex-1 px-5 py-6 md:px-8">
+            <PageTransition>{children}</PageTransition>
+          </main>
         </div>
         <ChatWidget />
       </body>

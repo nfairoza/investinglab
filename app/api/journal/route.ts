@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getDb, newId, now } from "@/lib/db";
+import { getDb, withDbWrite, newId, now } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
@@ -9,19 +9,21 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const db = getDb();
   const body = await req.json().catch(() => ({}));
 
   // Patch existing entry (status toggle or result update)
   if (body?.id) {
-    const entry = db.data.journal.find((e) => e.id === body.id);
-    if (!entry) return NextResponse.json({ error: "not found" }, { status: 404 });
-    if (body.status !== undefined) entry.status = body.status;
-    if (body.result1w !== undefined) entry.result1w = body.result1w;
-    if (body.result1m !== undefined) entry.result1m = body.result1m;
-    entry.updatedAt = now();
-    db.write();
-    return NextResponse.json(entry);
+    const result = await withDbWrite((db) => {
+      const entry = db.data.journal.find((e) => e.id === body.id);
+      if (!entry) return null;
+      if (body.status !== undefined) entry.status = body.status;
+      if (body.result1w !== undefined) entry.result1w = body.result1w;
+      if (body.result1m !== undefined) entry.result1m = body.result1m;
+      entry.updatedAt = now();
+      return entry;
+    });
+    if (!result) return NextResponse.json({ error: "not found" }, { status: 404 });
+    return NextResponse.json(result);
   }
 
   // New entry
@@ -41,16 +43,17 @@ export async function POST(req: NextRequest) {
     createdAt: now(),
     updatedAt: now(),
   };
-  db.data.journal.push(entry);
-  db.write();
+  await withDbWrite((db) => {
+    db.data.journal.push(entry);
+  });
   return NextResponse.json(entry);
 }
 
 export async function DELETE(req: NextRequest) {
   const id = req.nextUrl.searchParams.get("id");
   if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
-  const db = getDb();
-  db.data.journal = db.data.journal.filter((e) => e.id !== id);
-  db.write();
+  await withDbWrite((db) => {
+    db.data.journal = db.data.journal.filter((e) => e.id !== id);
+  });
   return NextResponse.json({ ok: true });
 }

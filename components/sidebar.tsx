@@ -35,10 +35,13 @@ const NAV = [
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 
-// Minimal jasmine blossom SVG mark
+// Minimal jasmine blossom SVG mark — gently floats
 function JasmineMark() {
   return (
-    <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden>
+    <svg
+      width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden
+      style={{ animation: "floatPetal 4s ease-in-out infinite" }}
+    >
       {/* Five petals */}
       {[0, 72, 144, 216, 288].map((deg) => (
         <ellipse
@@ -79,13 +82,19 @@ export function Sidebar() {
               key={href}
               href={href}
               className={clsx(
-                "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
+                "group flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-all duration-200",
                 active
                   ? "bg-brand-500/10 text-brand-300 font-medium"
-                  : "text-slate-400 hover:bg-white/[0.04] hover:text-slate-200",
+                  : "text-slate-400 hover:bg-white/[0.04] hover:text-slate-200 hover:translate-x-0.5",
               )}
             >
-              <Icon size={16} className={active ? "text-brand-400" : ""} />
+              <Icon
+                size={16}
+                className={clsx(
+                  "transition-transform duration-200 group-hover:scale-110",
+                  active ? "text-brand-400" : "",
+                )}
+              />
               {label}
             </Link>
           );

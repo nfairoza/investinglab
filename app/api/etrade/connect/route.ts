@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { fetchRequestToken, AUTH_URL, hasConsumerKey } from "@/lib/etrade/client";
+import { fetchRequestToken, AUTH_URL, hasConsumerKey, getConsumerKey } from "@/lib/etrade/client";
 import { setRequestToken } from "@/lib/etrade/token-store";
 
 export const dynamic = "force-dynamic";
@@ -21,7 +21,7 @@ export async function GET(req: Request) {
     const { token, secret } = await fetchRequestToken(callbackUrl);
     setRequestToken(token, secret);
 
-    const authorizeUrl = `${AUTH_URL}?key=${process.env.ETRADE_CONSUMER_KEY}&token=${token}`;
+    const authorizeUrl = `${AUTH_URL}?key=${encodeURIComponent(getConsumerKey())}&token=${encodeURIComponent(token)}`;
     return NextResponse.json({ authorizeUrl });
   } catch (e) {
     return NextResponse.json(

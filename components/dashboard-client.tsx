@@ -88,7 +88,7 @@ export function DashboardClient() {
 
       {/* Portfolio summary */}
       {hasHoldings && (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <div className="stagger grid grid-cols-1 gap-4 sm:grid-cols-3">
           <SummaryCard
             label="Portfolio value"
             value={total > 0 ? `$${total.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : "—"}
@@ -160,7 +160,7 @@ function SummaryCard({
   label: string; value: string; sub?: React.ReactNode; valueClass?: string;
 }) {
   return (
-    <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-4">
+    <div className="card-hover rounded-xl border border-slate-800 bg-slate-900/40 p-4">
       <div className="text-xs text-slate-500 uppercase tracking-wide">{label}</div>
       <div className={`mt-1 text-xl font-semibold ${valueClass}`}>{value}</div>
       {sub && <div className="mt-1">{sub}</div>}
@@ -176,7 +176,7 @@ function RankCard({
   positive: boolean;
 }) {
   return (
-    <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-4">
+    <div className="card-hover rounded-xl border border-slate-800 bg-slate-900/40 p-4">
       <div className="text-sm font-semibold text-slate-100">{title}</div>
       {rows.length === 0 ? (
         <p className="mt-2 text-sm text-slate-500">No data.</p>

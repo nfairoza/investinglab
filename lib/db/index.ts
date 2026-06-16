@@ -66,6 +66,23 @@ export function getDb(): LowSync<Schema> {
   return db;
 }
 
+// Serialize read-modify-write operations so overlapping requests can't clobber
+// each other's writes (last-writer-wins on the whole JSON file). Single-user
+// app, but a sync POST can overlap a manual add — this makes that safe.
+let writeChain: Promise<unknown> = Promise.resolve();
+
+export function withDbWrite<T>(fn: (db: LowSync<Schema>) => T): Promise<T> {
+  const run = writeChain.then(() => {
+    db.read();
+    const result = fn(db);
+    db.write();
+    return result;
+  });
+  // keep the chain alive regardless of individual failures
+  writeChain = run.catch(() => undefined);
+  return run;
+}
+
 export function newId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 }

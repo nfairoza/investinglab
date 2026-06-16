@@ -25,19 +25,90 @@ body {
 }
 
 body {
-  /* Deep botanical dark — richer than plain slate-950 */
+  /* Deep botanical base with a faint jasmine-gold radial glow up top —
+     creates depth and a soft floral ambiance without being distracting. */
   background-color: #0b0f0a;
-  color: #e8e4d8; /* warm off-white, not cold blue-white */
+  background-image:
+    radial-gradient(900px 500px at 78% -8%, rgba(212, 168, 42, 0.06), transparent 60%),
+    radial-gradient(700px 600px at -5% 105%, rgba(74, 94, 66, 0.10), transparent 55%);
+  background-attachment: fixed; /* parallax: glow stays put as content scrolls */
+  color: #e8e4d8;
   -webkit-font-smoothing: antialiased;
 }
 
-/* Subtle gradient on the sidebar */
+/* Sidebar gradient */
 aside {
   background: linear-gradient(160deg, #0f1410 0%, #0b0f0a 60%, #0e120b 100%) !important;
 }
 
 /* Thin botanical scrollbar */
-::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: #2d3829; border-radius: 99px; }
 ::-webkit-scrollbar-thumb:hover { background: #4a5e42; }
+
+/* ── Global smooth transitions ──────────────────────────────────────────────
+   Interactive elements ease their color/background/border/transform changes.
+   Charts (svg) are excluded so Recharts animations stay crisp. */
+a, button, input, select, textarea,
+[class*="rounded"], [class*="border"] {
+  transition-property: color, background-color, border-color, box-shadow, transform, opacity;
+  transition-duration: 200ms;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ── Keyframes ──────────────────────────────────────────────────────────── */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.96); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+@keyframes floatPetal {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50%      { transform: translateY(-3px) rotate(4deg); }
+}
+
+/* ── Animation utilities ───────────────────────────────────────────────── */
+.animate-fade-in-up { animation: fadeInUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.animate-fade-in    { animation: fadeIn 0.4s ease-out both; }
+.animate-scale-in   { animation: scaleIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) both; }
+
+/* Stagger helpers — apply to siblings for a cascading entrance */
+.stagger > *          { animation: fadeInUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.stagger > *:nth-child(1) { animation-delay: 0.04s; }
+.stagger > *:nth-child(2) { animation-delay: 0.10s; }
+.stagger > *:nth-child(3) { animation-delay: 0.16s; }
+.stagger > *:nth-child(4) { animation-delay: 0.22s; }
+.stagger > *:nth-child(5) { animation-delay: 0.28s; }
+.stagger > *:nth-child(6) { animation-delay: 0.34s; }
+
+/* Card hover lift — subtle elevation + jasmine-gold border glow */
+.card-hover {
+  transition: transform 220ms cubic-bezier(0.16, 1, 0.3, 1),
+              border-color 220ms ease, box-shadow 220ms ease;
+}
+.card-hover:hover {
+  transform: translateY(-2px);
+  border-color: rgba(212, 168, 42, 0.35);
+  box-shadow: 0 8px 28px -12px rgba(212, 168, 42, 0.18);
+}
+
+/* Respect users who prefer reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+  body { background-attachment: scroll; }
+}

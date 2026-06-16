@@ -215,7 +215,7 @@ export function ChatWidget() {
       {/* Floating button */}
       <button
         onClick={() => setOpen((o) => !o)}
-        className={`fixed bottom-5 right-5 z-50 flex h-13 w-13 items-center justify-center rounded-full shadow-lg transition-all
+        className={`fixed bottom-5 right-5 z-50 flex items-center justify-center rounded-full shadow-lg transition-all duration-200 hover:scale-110 active:scale-95
           ${open ? "bg-slate-700 hover:bg-slate-600" : "bg-brand-600 hover:bg-brand-500"}`}
         style={{ width: 52, height: 52 }}
         aria-label="Open AI chat"
@@ -223,10 +223,10 @@ export function ChatWidget() {
         {open ? <X size={20} className="text-white" /> : <MessageCircle size={20} className="text-white" />}
       </button>
 
-      {/* Chat panel — slides up from button */}
+      {/* Chat panel — scales up from the button */}
       {open && (
-        <div className="fixed bottom-20 right-4 z-50 flex w-[360px] flex-col rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl"
-          style={{ height: 520 }}>
+        <div className="animate-scale-in fixed bottom-20 right-4 z-50 flex w-[360px] flex-col rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl"
+          style={{ height: 520, transformOrigin: "bottom right" }}>
 
           {/* Header */}
           <div className="flex items-center justify-between rounded-t-2xl border-b border-slate-800 bg-slate-900/80 px-4 py-3">

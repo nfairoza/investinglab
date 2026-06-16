@@ -20,7 +20,7 @@ export function AnalystPanel({ symbol }: { symbol: string }) {
   const total = a ? a.strongBuy + a.buy + a.hold + a.sell + a.strongSell : 0;
 
   return (
-    <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-5">
+    <div className="card-hover rounded-xl border border-slate-800 bg-slate-900/40 p-5">
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-semibold text-slate-100">{symbol} — Analyst consensus</h2>
         {data && <DataBadge source={data.source} />}

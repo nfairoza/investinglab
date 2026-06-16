@@ -42,7 +42,7 @@ export function PriceHistoryChart({ symbol }: { symbol: string }) {
   const chartable = rows.length > 0;
 
   return (
-    <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-4">
+    <div className="card-hover rounded-xl border border-slate-800 bg-slate-900/40 p-4">
       <div className="flex items-center justify-between">
         <div>
           <div className="text-sm font-semibold text-slate-100">{symbol} — Moving averages</div>

@@ -15,7 +15,7 @@ const COLORS = [
 export function AllocationDonut({ slices, title = "Portfolio allocation" }: { slices: Slice[]; title?: string }) {
   if (!slices.length) {
     return (
-      <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-4">
+      <div className="card-hover rounded-xl border border-slate-800 bg-slate-900/40 p-4">
         <div className="text-sm font-semibold text-slate-100">{title}</div>
         <div className="mt-4 flex h-40 items-center justify-center text-sm text-slate-500">
           Add holdings to see your allocation.

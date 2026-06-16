@@ -34,7 +34,7 @@ export function InsiderFeed({ symbol }: { symbol: string }) {
   const trades = data?.data ?? [];
 
   return (
-    <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-5">
+    <div className="card-hover rounded-xl border border-slate-800 bg-slate-900/40 p-5">
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-semibold text-slate-100">{symbol} — Insider transactions</h2>
         {data && <DataBadge source={data.source} />}

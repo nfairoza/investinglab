@@ -20,7 +20,9 @@ function apiBase(): string {
 
 export { AUTH_URL };
 
-function getConsumerKey(): string {
+// Exported so routes (e.g. the authorize-URL builder) resolve the key the same
+// way every call site does: runtime (Connectors UI) first, then env.
+export function getConsumerKey(): string {
   return getConnectorValue("ETRADE_CONSUMER_KEY") ?? process.env.ETRADE_CONSUMER_KEY ?? "";
 }
 function getConsumerSecret(): string {
@@ -95,20 +97,39 @@ export async function fetchAccessToken(
 /**
  * Authenticated GET against the E*TRADE v1 API.
  * Throws on HTTP error (including 401 = token expired).
+ *
+ * OAuth 1.0a requires that query-string params be part of the signature base
+ * string (sorted alongside the oauth_* params), and that the base-string URL
+ * EXCLUDE the query string. So we split the path here.
  */
 export async function etradeGet<T>(path: string): Promise<T> {
   const tokens = getAccessTokens();
   if (!tokens) throw new Error("Not authenticated — connect E*TRADE first");
 
-  const url = `${apiBase()}/v1${path}`;
-  const authHeader = buildAuthHeader("GET", url, {
-    consumerKey: getConsumerKey(),
-    consumerSecret: getConsumerSecret(),
-    token: tokens.token,
-    tokenSecret: tokens.secret,
-  });
+  const fullUrl = `${apiBase()}/v1${path}`;
+  // Split base URL from query params for correct OAuth signing.
+  const qIndex = fullUrl.indexOf("?");
+  const baseUrl = qIndex === -1 ? fullUrl : fullUrl.slice(0, qIndex);
+  const extraParams: Record<string, string> = {};
+  if (qIndex !== -1) {
+    for (const [k, v] of new URLSearchParams(fullUrl.slice(qIndex + 1))) {
+      extraParams[k] = v;
+    }
+  }
 
-  const res = await fetch(url, {
+  const authHeader = buildAuthHeader(
+    "GET",
+    baseUrl,
+    {
+      consumerKey: getConsumerKey(),
+      consumerSecret: getConsumerSecret(),
+      token: tokens.token,
+      tokenSecret: tokens.secret,
+    },
+    extraParams,
+  );
+
+  const res = await fetch(fullUrl, {
     headers: { Authorization: authHeader },
     cache: "no-store",
   });

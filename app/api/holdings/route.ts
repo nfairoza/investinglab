@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getDb, newId, now, type Holding } from "@/lib/db";
+import { getDb, withDbWrite, newId, now, type Holding } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
@@ -11,9 +11,8 @@ export async function GET() {
 
 // POST /api/holdings
 // Body: { symbol, shares, avgCost, note?, source? }  → upsert by symbol
-// Body: { replace: true, holdings: Holding[] }        → bulk replace (E*TRADE sync)
+// Body: { replace: true, holdings: Holding[] }        → bulk replace E*TRADE rows
 export async function POST(req: NextRequest) {
-  const db = getDb();
   const body = await req.json().catch(() => ({}));
 
   // Bulk replace from E*TRADE sync
@@ -24,50 +23,59 @@ export async function POST(req: NextRequest) {
       shares: Number(h.shares),
       avgCost: Number(h.avgCost),
       note: h.note ?? undefined,
-      source: h.source ?? "etrade",
+      source: "etrade",
       createdAt: h.createdAt ?? now(),
       updatedAt: now(),
     }));
+    const incomingSymbols = new Set(incoming.map((h) => h.symbol));
 
-    // Keep manual entries, replace all etrade-sourced ones
-    const manual = db.data.holdings.filter((h) => h.source !== "etrade");
-    db.data.holdings = [...manual, ...incoming];
-    db.write();
-    return NextResponse.json(db.data.holdings);
+    const result = await withDbWrite((db) => {
+      // Keep manual entries, but drop any manual row whose symbol is now coming
+      // from E*TRADE (E*TRADE is authoritative for owned positions) — avoids
+      // duplicate rows for the same ticker.
+      const manual = db.data.holdings.filter(
+        (h) => h.source !== "etrade" && !incomingSymbols.has(h.symbol),
+      );
+      db.data.holdings = [...manual, ...incoming];
+      return db.data.holdings;
+    });
+    return NextResponse.json(result);
   }
 
   // Single upsert
   const symbol = String(body?.symbol ?? "").toUpperCase();
   if (!symbol) return NextResponse.json({ error: "symbol required" }, { status: 400 });
 
-  const existing = db.data.holdings.find((h) => h.symbol === symbol);
-  if (existing) {
-    existing.shares = Number(body.shares ?? existing.shares);
-    existing.avgCost = Number(body.avgCost ?? existing.avgCost);
-    existing.note = body.note ?? existing.note;
-    existing.updatedAt = now();
-  } else {
-    db.data.holdings.push({
-      id: newId(),
-      symbol,
-      shares: Number(body.shares ?? 0),
-      avgCost: Number(body.avgCost ?? 0),
-      note: body.note ?? undefined,
-      source: body.source ?? "manual",
-      createdAt: now(),
-      updatedAt: now(),
-    });
-  }
-  db.write();
-  return NextResponse.json(db.data.holdings);
+  const result = await withDbWrite((db) => {
+    const existing = db.data.holdings.find((h) => h.symbol === symbol);
+    if (existing) {
+      existing.shares = Number(body.shares ?? existing.shares);
+      existing.avgCost = Number(body.avgCost ?? existing.avgCost);
+      existing.note = body.note ?? existing.note;
+      existing.updatedAt = now();
+    } else {
+      db.data.holdings.push({
+        id: newId(),
+        symbol,
+        shares: Number(body.shares ?? 0),
+        avgCost: Number(body.avgCost ?? 0),
+        note: body.note ?? undefined,
+        source: body.source ?? "manual",
+        createdAt: now(),
+        updatedAt: now(),
+      });
+    }
+    return db.data.holdings;
+  });
+  return NextResponse.json(result);
 }
 
 // DELETE /api/holdings?id=xxx
 export async function DELETE(req: NextRequest) {
   const id = req.nextUrl.searchParams.get("id");
   if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
-  const db = getDb();
-  db.data.holdings = db.data.holdings.filter((h) => h.id !== id);
-  db.write();
+  await withDbWrite((db) => {
+    db.data.holdings = db.data.holdings.filter((h) => h.id !== id);
+  });
   return NextResponse.json({ ok: true });
 }

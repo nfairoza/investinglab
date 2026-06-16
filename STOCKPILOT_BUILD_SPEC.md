@@ -1,6 +1,8 @@
-# StockPilot AI — Build Specification (v3, aligned to original)
+# Noor Investing Lab — Build Specification (v4)
 
-> **How to use this doc:** This is the complete, current build prompt for StockPilot AI. A runnable foundation already exists (see **§3 Current state**). This spec preserves the original v3 brief and folds in the extensions built since (Congress tracker, refresh/caching model, in-app Claude key, local-first holdings). Paste this whole file into Claude Code at the repo root and build phase by phase. Where this spec and the existing code disagree, the existing *patterns* win — extend them.
+> **Product name:** The app is **Noor Investing Lab** (formerly "StockPilot AI"). GitHub: `nfairoza/investinglab`.
+>
+> **How to use this doc:** This is the complete, current build prompt. A runnable, building foundation already exists (see **§3 Current state**). This spec preserves the original brief and folds in everything built since (Congress tracker, refresh/caching model, in-app Claude key, charts, dashboard, holdings detail, expanded FMP endpoints, E*TRADE read-only sync, AI chat widget, persistent file database, and the jasmine theme). Where this spec and the existing code disagree, the existing *patterns* win — extend them.
 
 ---
 
@@ -346,12 +348,40 @@ A **Journal** tab logs each trade: **why you entered, target price, stop-loss, w
 
 **UX details:**
 - Empty state shows 4 suggested questions ("Why am I down today?", "Which holding has the most risk?", etc.)
-- User messages: right-aligned sky-blue bubbles. Assistant: left-aligned slate bubbles with streaming cursor `▌`
+- User messages: right-aligned brand-gold bubbles. Assistant: left-aligned slate bubbles with streaming cursor `▌`
 - Enter sends, Shift+Enter = newline. Clear button resets conversation.
 - No Claude key → amber banner with link to Connectors tab
-- Sandbox/production mode: inherits whichever Claude key is configured in `lib/ai/anthropic.ts`
+- Reads holdings/watchlist via `/api/holdings` + `/api/watchlist` (the persistent DB, see §15.10)
 
 **Rules baked into the system prompt:** be concise (chat, not a report), honest about uncertainty, never give specific price targets without caveats, always mention the biggest risk, end analysis with the educational disclaimer. No trade execution of any kind.
 
-### 15.9 Updated tab list & build order
-Tabs (13): Dashboard, Holdings, Watchlist, Research, **Rankings**, Portfolio Doctor, Predictions, Congress, Alerts, **Journal**, Glossary, **Connectors**, Settings. Work remaining: (a) scoring engine — add `/key-metrics-ttm` factors (debt/equity, PEG, forward P/E); (b) Alerts + Portfolio Doctor (Phase 7); (c) Supabase auth + move local-first data to DB (Phase 4/5); (d) full-universe screener + nightly scoring cache; (e) real Congress data source.
+### 15.10 Persistent file database (lowdb)
+
+**Status: DONE.** Replaces browser localStorage with a server-side JSON file so data survives restarts, browser clears, and works identically on a laptop or an EC2 instance. No external database, no cost, no extra service to manage. Chosen over SQLite because `better-sqlite3` needs a native C++ build toolchain (unavailable on the target Windows box); `lowdb` is pure JS and installs cleanly.
+
+**Key files:**
+- `lib/db/index.ts` — `LowSync` singleton over `data/db.json`. Exports typed `Holding`, `WatchItem`, `JournalEntry` interfaces, `getDb()` (read-fresh accessor), and `withDbWrite(fn)` — a promise-chained mutex that serializes read-modify-write so overlapping requests (e.g. an E*TRADE sync overlapping a manual add) can't clobber each other.
+- `app/api/holdings/route.ts` — GET / POST (single upsert by symbol, or `{replace:true, holdings}` bulk for E*TRADE) / DELETE. Replace mode keeps manual rows, drops manual rows whose symbol now comes from E*TRADE (no duplicate tickers), and replaces all prior E*TRADE rows.
+- `app/api/watchlist/route.ts` and `app/api/journal/route.ts` — same GET/POST/DELETE pattern.
+
+**Storage:** `data/db.json`, gitignored — your data never goes to GitHub. Back it up by copying that one file. `next.config.mjs` marks `lowdb` as a `serverExternalPackage`.
+
+**All UI reads/writes go through these routes** via SWR (`HoldingsManager`, `WatchlistManager`, `Journal`, `DashboardClient`, `Rankings`, `HoldingDetail`, `ChatWidget`). `lib/local-store.ts` was deleted. The Supabase schema in `supabase/migrations/0001_init.sql` is retained as a future option but is NOT used — there is no Supabase dependency, account, or cost.
+
+### 15.11 Branding & theme (Noor Investing Lab — jasmine)
+
+**Status: DONE.** Renamed from StockPilot AI to **Noor Investing Lab** throughout (title, sidebar wordmark, chat header, AI system prompt).
+
+- **Palette:** jasmine-gold `brand-*` scale defined as CSS variables in `app/globals.css` and exposed through `tailwind.config.ts` (`brand-50…950`, primary `#d4a82a`). All former `sky-*` accents were swapped to `brand-*`. Base background is a deep botanical green-black `#0b0f0a`.
+- **Logo:** a five-petal jasmine blossom SVG (`JasmineMark` in `sidebar.tsx`) that gently floats (`floatPetal` keyframe). Wordmark uses a Playfair Display serif (`font-display`).
+- **Motion (all in `globals.css`, all respect `prefers-reduced-motion`):**
+  - `animate-fade-in-up`, `animate-fade-in`, `animate-scale-in` keyframe utilities
+  - `.stagger` — cascading entrance for card grids
+  - `.card-hover` — subtle lift + jasmine-gold border glow on hover, applied to all chart/panel cards
+  - Global 200ms ease transitions on interactive elements
+  - **Parallax:** soft jasmine-gold radial glow via `background-attachment: fixed` so it stays put as content scrolls
+  - `PageTransition` (`components/page-transition.tsx`) re-keys on pathname to fade each page in
+  - Sidebar nav items slide + icon-scale on hover; chat button scales on hover/press, panel scales in from its corner
+
+### 15.12 Updated tab list & remaining work
+Tabs (13): Dashboard, Holdings, Watchlist, Research, **Rankings**, Portfolio Doctor, Predictions, Congress, Alerts, **Journal**, Glossary, **Connectors**, Settings. Work remaining: (a) scoring engine — add `/key-metrics-ttm` factors (debt/equity, PEG, forward P/E); (b) Alerts + Portfolio Doctor (Phase 7); (c) Predictions (Phase 8) + real Congress data source; (d) full-universe screener + nightly scoring cache; (e) optional: deploy to EC2 (update E*TRADE OAuth callback URL from `localhost:3000` to the live host).

@@ -1,9 +1,22 @@
 import { NextResponse } from "next/server";
 import { etradeGet } from "@/lib/etrade/client";
 import { getSelectedAccountIdKey, getAccounts } from "@/lib/etrade/token-store";
-import type { Holding } from "@/lib/local-store";
 
 export const dynamic = "force-dynamic";
+
+// Shape returned to the client; the holdings POST route backfills createdAt/etc.
+interface SyncedHolding {
+  symbol: string;
+  shares: number;
+  avgCost: number;
+  note?: string;
+  source: "etrade";
+}
+
+function asArray<T>(v: T | T[] | undefined | null): T[] {
+  if (v == null) return [];
+  return Array.isArray(v) ? v : [v];
+}
 
 // GET /api/etrade/positions
 // Fetches real portfolio positions for the selected account and maps them
@@ -15,35 +28,41 @@ export async function GET() {
     return NextResponse.json({ error: "No account selected — pick one in the Connectors tab." }, { status: 400 });
   }
 
-  const accounts = getAccounts();
-  const account = accounts.find((a) => a.accountIdKey === accountIdKey);
+  const account = getAccounts().find((a) => a.accountIdKey === accountIdKey);
   const accountLabel = account?.accountName ?? accountIdKey;
 
   try {
-    // Paginate: fetch up to 250 positions (count=250 is the max E*TRADE supports)
+    // view=COMPLETE so cost-basis fields (pricePaid / costPerShare) are returned.
     const data = await etradeGet<any>(
-      `/accounts/${accountIdKey}/portfolio.json?count=250&totalsRequired=true&view=QUICK`,
+      `/accounts/${accountIdKey}/portfolio.json?count=250&totalsRequired=true&view=COMPLETE`,
     );
 
-    const portfolios: any[] = data?.PortfolioResponse?.Portfolio ?? [];
-    const rawPositions: any[] = portfolios.flatMap((p: any) => {
-      const pos = p?.Position ?? [];
-      return Array.isArray(pos) ? pos : [pos];
-    });
+    // E*TRADE nesting: PortfolioResponse.AccountPortfolio[].Position[]
+    // Either level can come back as a single object instead of an array.
+    const accountPortfolios = asArray<any>(data?.PortfolioResponse?.AccountPortfolio);
+    const rawPositions: any[] = accountPortfolios.flatMap((ap) => asArray<any>(ap?.Position));
 
-    // Map to Holding shape — only equity positions with a symbol
-    const holdings: Holding[] = rawPositions
+    const holdings: SyncedHolding[] = rawPositions
       .filter((pos: any) => {
         const sec = pos?.Product?.securityType ?? "";
         return sec === "EQ" && pos?.Product?.symbol;
       })
-      .map((pos: any) => ({
-        id: `etrade-${accountIdKey}-${pos.Product.symbol}`,
-        symbol: String(pos.Product.symbol).toUpperCase(),
-        shares: Number(pos.quantity ?? 0),
-        avgCost: Number(pos.costPerShare ?? pos.pricePaid ?? 0),
-        note: `Synced from E*TRADE (${accountLabel})`,
-      }));
+      .map((pos: any) => {
+        const shares = Number(pos.quantity ?? 0);
+        // Prefer per-share cost; fall back to total cost / shares.
+        const complete = pos.Complete ?? pos;
+        let avgCost = Number(complete.costPerShare ?? complete.pricePaid ?? 0);
+        if (!avgCost && complete.totalCost && shares) {
+          avgCost = Number(complete.totalCost) / shares;
+        }
+        return {
+          symbol: String(pos.Product.symbol).toUpperCase(),
+          shares,
+          avgCost: Number.isFinite(avgCost) ? +avgCost.toFixed(4) : 0,
+          note: `Synced from E*TRADE (${accountLabel})`,
+          source: "etrade" as const,
+        };
+      });
 
     return NextResponse.json({
       holdings,

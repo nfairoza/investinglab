@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchAccessToken, etradeGet } from "@/lib/etrade/client";
-import { getRequestToken, setAccessTokens, setAccounts, type EtradeAccount } from "@/lib/etrade/token-store";
+import { getRequestToken, setAccessTokens, setAccounts, clearAll, type EtradeAccount } from "@/lib/etrade/token-store";
 
 export const dynamic = "force-dynamic";
 
@@ -39,7 +39,12 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.redirect(new URL("/connectors?etrade=connected", req.url));
   } catch (e) {
-    const msg = e instanceof Error ? encodeURIComponent(e.message.slice(0, 100)) : "unknown";
-    return NextResponse.redirect(new URL(`/connectors?etrade=error&reason=${msg}`, req.url));
+    // Clear the spent request token so a retry starts a fresh flow.
+    clearAll();
+    const reason = e instanceof Error ? e.message.slice(0, 100) : "unknown";
+    const target = new URL("/connectors", req.url);
+    target.searchParams.set("etrade", "error");
+    target.searchParams.set("reason", reason); // URL handles encoding once
+    return NextResponse.redirect(target);
   }
 }
