@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useSearchParams } from "next/navigation";
 import type { EtradeAccount } from "@/lib/etrade/token-store";
 
 interface Status {
@@ -23,7 +22,9 @@ export function EtradeConnector() {
   const [consumerKey, setConsumerKey] = useState("");
   const [consumerSecret, setConsumerSecret] = useState("");
 
-  const searchParams = useSearchParams();
+  // Out-of-band verification code (E*TRADE shows this after you authorize)
+  const [awaitingCode, setAwaitingCode] = useState(false);
+  const [code, setCode] = useState("");
 
   async function refresh() {
     try {
@@ -38,12 +39,7 @@ export function EtradeConnector() {
 
   useEffect(() => {
     refresh();
-    // Show feedback from OAuth redirect
-    const result = searchParams.get("etrade");
-    const reason = searchParams.get("reason");
-    if (result === "connected") setMsg("Connected to E*TRADE successfully.");
-    else if (result === "error") setMsg(`Connection failed${reason ? `: ${decodeURIComponent(reason)}` : "."}`);
-  }, [searchParams]);
+  }, []);
 
   async function saveCredentials() {
     if (!consumerKey.trim() || !consumerSecret.trim()) return;
@@ -73,14 +69,42 @@ export function EtradeConnector() {
 
   async function connect() {
     setBusy(true);
-    setMsg("Starting OAuth flow…");
+    setMsg(null);
     try {
       const r = await fetch("/api/etrade/connect");
       const j = (await r.json()) as { authorizeUrl?: string; error?: string };
       if (j.error) { setMsg(`Error: ${j.error}`); return; }
-      if (j.authorizeUrl) window.location.href = j.authorizeUrl;
+      if (j.authorizeUrl) {
+        // Open E*TRADE in a new tab; user authorizes, copies the code, comes back.
+        window.open(j.authorizeUrl, "_blank", "noopener");
+        setAwaitingCode(true);
+        setMsg("A new tab opened. Log in, click Accept, then paste the code E*TRADE shows you below.");
+      }
     } catch (e) {
       setMsg(e instanceof Error ? e.message : "Failed to start connection");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function submitCode() {
+    if (!code.trim()) return;
+    setBusy(true);
+    setMsg(null);
+    try {
+      const r = await fetch("/api/etrade/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: code.trim() }),
+      });
+      const j = (await r.json()) as { ok?: boolean; error?: string };
+      if (!r.ok || j.error) { setMsg(`Error: ${j.error ?? "verification failed"}`); return; }
+      setAwaitingCode(false);
+      setCode("");
+      await refresh();
+      setMsg("Connected to E*TRADE successfully.");
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : "Verification failed");
     } finally {
       setBusy(false);
     }
@@ -144,8 +168,8 @@ export function EtradeConnector() {
 
       <p className="text-sm text-slate-400">
         Pull your real brokerage positions from E*TRADE — no password ever touches this app.
-        You log in on E*TRADE's own site via OAuth, then pick which account to sync.
-        <span className="ml-1 text-slate-500">Tokens expire at midnight ET daily (reconnect button shown when that happens).</span>
+        You log in on E*TRADE's own site, paste back the code it gives you, then pick which account to sync.
+        <span className="ml-1 text-slate-500">Tokens expire at midnight ET daily (just reconnect when that happens).</span>
       </p>
 
       {/* Step 1: Credentials (only shown when not yet configured) */}
@@ -187,26 +211,52 @@ export function EtradeConnector() {
         </div>
       )}
 
-      {/* Step 2: OAuth connect */}
+      {/* Step 2: OAuth connect (out-of-band code flow) */}
       {status?.hasCredentials && !status.connected && (
-        <div className="space-y-2 rounded-lg border border-slate-800 bg-slate-900/60 p-4">
+        <div className="space-y-3 rounded-lg border border-slate-800 bg-slate-900/60 p-4">
           <div className="text-xs font-medium text-slate-400 uppercase tracking-wide">Step 2 — Authorize access</div>
-          <p className="text-xs text-slate-500">
-            Clicking below opens E*TRADE's login page in this tab. After you log in and click Authorize,
-            you'll be redirected back here automatically.
-          </p>
           {status?.sandbox && (
             <p className="text-xs text-amber-400/80">
-              Sandbox mode — uses test account data, not your real portfolio. To switch to production, remove <code className="rounded bg-slate-800 px-1">ETRADE_SANDBOX=true</code> from <code className="rounded bg-slate-800 px-1">.env.local</code> and get production keys from E*TRADE.
+              Sandbox mode — uses test account data, not your real portfolio. To switch to production, remove <code className="rounded bg-slate-800 px-1">ETRADE_SANDBOX=true</code> from <code className="rounded bg-slate-800 px-1">.env.local</code>.
             </p>
           )}
-          <button
-            onClick={connect}
-            disabled={busy}
-            className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-50"
-          >
-            {busy ? "Redirecting…" : "Connect to E*TRADE"}
-          </button>
+
+          {!awaitingCode ? (
+            <>
+              <p className="text-xs text-slate-500">
+                Clicking below opens E*TRADE in a <span className="text-slate-300">new tab</span>. Log in, click
+                <span className="text-slate-300"> Accept</span>, and E*TRADE will show you a short verification code.
+                Come back here and paste it.
+              </p>
+              <button onClick={connect} disabled={busy}
+                className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-50">
+                {busy ? "Opening…" : "Connect to E*TRADE"}
+              </button>
+            </>
+          ) : (
+            <>
+              <p className="text-xs text-slate-500">
+                Paste the verification code E*TRADE showed you after you clicked Accept:
+              </p>
+              <div className="flex flex-wrap items-center gap-2">
+                <input
+                  value={code}
+                  onChange={(e) => setCode(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && submitCode()}
+                  placeholder="Verification code"
+                  className="rounded-md border border-slate-700 bg-slate-900/60 px-3 py-2 text-sm text-slate-200 placeholder:text-slate-600 focus:border-brand-500 focus:outline-none"
+                />
+                <button onClick={submitCode} disabled={busy || !code.trim()}
+                  className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-50">
+                  {busy ? "Verifying…" : "Verify & connect"}
+                </button>
+                <button onClick={() => { setAwaitingCode(false); setCode(""); setMsg(null); }}
+                  className="rounded-md border border-slate-700 px-3 py-2 text-xs text-slate-400 hover:bg-slate-800">
+                  Cancel
+                </button>
+              </div>
+            </>
+          )}
         </div>
       )}
 

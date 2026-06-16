@@ -155,8 +155,8 @@ Create alerts for: price hits buy zone, price hits trim zone, price breaks suppo
 ### F — AI Portfolio Doctor  *(TODO)*
 Reviews all holdings (with a concentration donut + risk heat visual): strongest, riskiest, overvalued, broken-thesis, don't-add, consider-trimming, better-opportunities, too-concentrated, too much sector exposure. Each finding in plain English.
 
-### G — Prediction markets  *(TODO)*
-Track **market-implied probabilities** from Polymarket / Kalshi — not a tipster's claimed record. Per market: question, current implied probability (%), implied-probability-over-time line chart, volume/liquidity, resolution date, source link, last-updated timestamp. Pin markets; snapshot odds into `prediction_snapshots`. Label clearly: "These are market-implied odds, not predictions or advice. Thin markets can be unreliable."
+### G — AI Predictions  *(DONE — see §15.13)*
+**Scope changed from the original brief.** The owner does NOT want Polymarket/Kalshi market-implied odds. Instead, the Predictions tab is **Claude researching a stock** — it pulls live FMP data (quote, financials, profile, analyst, DCF) AND uses Anthropic's `web_search` tool to read current news, then returns a probabilistic, multi-horizon prediction. Always framed as an AI opinion, never a guarantee. (The Polymarket/Kalshi approach is abandoned; `prediction_snapshots` table is unused.)
 
 ### H — Dashboard (build LAST)  *(TODO)*
 Visual-first: portfolio value over time, daily gain/loss, total unrealized gain/loss, allocation donut, top winners, top losers, stocks needing attention, upcoming earnings, watchlist alerts, **market overview (SPY, QQQ, S&P 500, Nasdaq, VIX if available)**, and a strip of pinned prediction-market odds. Include a "What should I look at first?" callout.
@@ -186,6 +186,8 @@ The research engine uses **Anthropic's Claude** via one server route (`/api/rese
 
 - **Market/financials:** default adapter = Financial Modeling Prep; swappable (Polygon, Finnhub, Alpha Vantage, Twelve Data). Keys `MARKET_DATA_API_KEY` / `FINANCIAL_DATA_API_KEY`. No key → demo mode.
 - **FMP key persistence:** set `MARKET_DATA_API_KEY` in `.env.local` (loaded automatically at startup, survives restarts). Can be overridden at runtime via the Connectors tab. `.env.local` is gitignored and never committed.
+- **CRITICAL — FMP uses the STABLE API, not legacy v3/v4.** FMP retired `/api/v3` and `/api/v4` on **2025-08-31**; keys issued after that get HTTP 403 on those URLs. `lib/providers/fmp.ts` targets `https://financialmodelingprep.com/stable/*` with `?symbol=` query params. Do NOT revert to the `/api/v3/quote/SYMBOL` path style.
+- **FMP free-tier limits (handled gracefully):** quotes, financials, earnings, profile, analyst price-target/grades, DCF, and peers work on the free plan. Live technical-indicator (SMA/RSI series), insider-trading, and news endpoints return **HTTP 402** (paid only) — the adapter degrades these to `unavailable` and derives the 50/200-day moving averages from the quote's `priceAvg50`/`priceAvg200` fields so the scoring engine still works.
 - **Filings:** SEC EDGAR (`SEC_API_KEY`, optional). **News:** `NEWS_API_KEY`. **Prediction markets:** Polymarket / Kalshi (`PREDICTION_MARKET_API_KEY`). **Congress:** `CONGRESS_TRADES_API_KEY` + `CONGRESS_TRADES_API_BASE`. **AI:** `ANTHROPIC_API_KEY` / `AI_API_KEY` / `AI_MODEL`.
 - Everything except `NEXT_PUBLIC_*` is server-only.
 
@@ -317,13 +319,15 @@ A **Journal** tab logs each trade: **why you entered, target price, stop-loss, w
 - `lib/etrade/oauth.ts` — pure HMAC-SHA1 OAuth 1.0a signing (no npm package, uses Node crypto)
 - `lib/etrade/token-store.ts` — server-only in-memory token + account cache
 - `lib/etrade/client.ts` — authenticated E*TRADE API wrapper (`etradeGet`, `fetchRequestToken`, `fetchAccessToken`)
-- `app/api/etrade/connect/route.ts` — starts OAuth, returns authorize URL
-- `app/api/etrade/callback/route.ts` — exchanges tokens, caches account list, redirects to /connectors
+- `app/api/etrade/connect/route.ts` — starts OAuth (oob), returns authorize URL
+- `app/api/etrade/verify/route.ts` — takes the pasted verification code, exchanges for an access token, caches account list
 - `app/api/etrade/status/route.ts` — connection status + accounts (no tokens exposed)
 - `app/api/etrade/select-account/route.ts` — saves selected account
 - `app/api/etrade/positions/route.ts` — fetches equity positions → `Holding[]` shape
 - `app/api/etrade/disconnect/route.ts` — clears all tokens
-- `components/etrade-connector.tsx` — full OAuth UI card (step 1: credentials, step 2: connect, step 3: account picker, connected state, reconnect on expiry)
+- `components/etrade-connector.tsx` — full OAuth UI card (credentials → connect/open tab → paste code → account picker → connected → reconnect on expiry)
+
+**IMPORTANT — out-of-band (oob) flow:** E*TRADE **rejects real callback URLs with HTTP 400**. It only supports the oob flow: `oauth_callback=oob` on the request-token call, then after the user clicks Accept on E*TRADE's site it displays a short **verification code** the user pastes back into the app. There is NO `/callback` route. Do not reintroduce a redirect-based callback — it will 400.
 
 **Token expiry:** E*TRADE tokens expire at midnight ET daily. When `/api/etrade/positions` returns 401, the Holdings sync button shows an error with a link to Connectors; the Connectors card shows a "Reconnect E*TRADE" prompt.
 
@@ -383,5 +387,13 @@ A **Journal** tab logs each trade: **why you entered, target price, stop-loss, w
   - `PageTransition` (`components/page-transition.tsx`) re-keys on pathname to fade each page in
   - Sidebar nav items slide + icon-scale on hover; chat button scales on hover/press, panel scales in from its corner
 
-### 15.12 Updated tab list & remaining work
-Tabs (13): Dashboard, Holdings, Watchlist, Research, **Rankings**, Portfolio Doctor, Predictions, Congress, Alerts, **Journal**, Glossary, **Connectors**, Settings. Work remaining: (a) scoring engine — add `/key-metrics-ttm` factors (debt/equity, PEG, forward P/E); (b) Alerts + Portfolio Doctor (Phase 7); (c) Predictions (Phase 8) + real Congress data source; (d) full-universe screener + nightly scoring cache; (e) optional: deploy to EC2 (update E*TRADE OAuth callback URL from `localhost:3000` to the live host).
+### 15.13 AI Predictions (Claude + web search)
+
+**Status: DONE.** The Predictions tab is Claude-as-analyst, not a market-odds feed (see §G).
+
+- `app/api/predict/route.ts` — POST `{symbol}`. Gathers live FMP data (quote, financials, profile, analyst, DCF), then calls the Anthropic Messages API with the **`web_search_20250305`** server tool (max 4 searches) so Claude reads current news. Returns structured JSON: overall summary, per-horizon direction+confidence+reason (1wk/1mo/1yr), price-target range, biggest risk, what-would-change-my-mind, and key headlines found.
+- `app/predictions/page.tsx` + `components/prediction-workspace.tsx` — ticker input → prediction cards with confidence bars, colored direction (▲/▼/▬ + word), risk callout, and the headlines Claude surfaced. DEMO/LIVE badge + disclaimer.
+- Degrades cleanly: no Claude key → message linking to Connectors; no market data → message to check ticker/FMP key.
+
+### 15.14 Updated tab list & remaining work
+Tabs (13): Dashboard, Holdings, Watchlist, Research, **Rankings**, Portfolio Doctor, **Predictions (AI)**, Congress, Alerts, **Journal**, Glossary, **Connectors**, Settings. Work remaining: (a) **Alerts** + **Portfolio Doctor** pages (still `PageShell` placeholders); (b) `<Term>` tooltips are defined + glossary exists but are not yet used inline across pages (beginner-layer gap); (c) Watchlist analytical fields (fair value, bull/bear, price-zone); (d) richer per-stock charts (valuation-vs-history, real price line + ranges, visual price-zone bar); (e) feed the Research memo more data (technicals/news/analyst, not just quote+financials); (f) optional EC2 deploy.

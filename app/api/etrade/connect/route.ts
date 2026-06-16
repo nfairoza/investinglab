@@ -16,11 +16,12 @@ export async function GET(req: Request) {
   }
 
   try {
-    const origin = new URL(req.url).origin;
-    const callbackUrl = `${origin}/api/etrade/callback`;
-    const { token, secret } = await fetchRequestToken(callbackUrl);
+    // E*TRADE uses the out-of-band flow — no callback URL (it rejects them).
+    const { token, secret } = await fetchRequestToken();
     setRequestToken(token, secret);
 
+    // Opens E*TRADE's authorize page; after consent it shows a verification
+    // code the user pastes back (POST /api/etrade/verify).
     const authorizeUrl = `${AUTH_URL}?key=${encodeURIComponent(getConsumerKey())}&token=${encodeURIComponent(token)}`;
     return NextResponse.json({ authorizeUrl });
   } catch (e) {

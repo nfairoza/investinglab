@@ -16,23 +16,37 @@ import {
 import { getConnectorValue } from "@/lib/connectors/runtime";
 
 // =============================================================================
-// Financial Modeling Prep adapter.
-// The key is read at CALL TIME (not module load) so a key added in the
-// Connectors UI takes effect immediately. Field mappings are FMP-specific; if
-// you swap providers you only touch this file.
+// Financial Modeling Prep adapter — uses the STABLE API.
+//
+// FMP retired the legacy /api/v3 + /api/v4 endpoints on 2025-08-31. Keys issued
+// after that only work against https://financialmodelingprep.com/stable/*,
+// which uses ?symbol= query params instead of /SYMBOL path segments.
+//
+// Free-tier note: quotes, financials, earnings, profile, analyst targets, DCF,
+// and peers work on the free plan. Live technical-indicator, insider-trading,
+// and news endpoints return HTTP 402 (paid only) — we degrade those to
+// "unavailable" rather than failing the whole app, and derive moving averages
+// from the quote's priceAvg50/priceAvg200 fields so scoring still works.
+//
+// The key is read at CALL TIME so a key added in the Connectors UI works at once.
 // =============================================================================
 
 const NAME = "Financial Modeling Prep";
-const BASE = "https://financialmodelingprep.com/api/v3";
-const BASE4 = "https://financialmodelingprep.com/api/v4";
+const BASE = "https://financialmodelingprep.com/stable";
 
 function getKey(): string {
   return getConnectorValue("MARKET_DATA_API_KEY") || getConnectorValue("FINANCIAL_DATA_API_KEY") || "";
 }
 
+// Fetch JSON; throws with the HTTP status (and 402 flagged) so callers can
+// distinguish "paid endpoint" from a real failure.
 async function getJson(url: string): Promise<unknown> {
   const res = await fetch(url, { cache: "no-store" });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  if (!res.ok) {
+    const err = new Error(`HTTP ${res.status}`);
+    (err as any).status = res.status;
+    throw err;
+  }
   return res.json();
 }
 
@@ -43,7 +57,7 @@ export const fmpProvider: MarketDataProvider = {
     const KEY = getKey();
     if (!KEY) return unavailable(NAME, "MARKET_DATA_API_KEY missing");
     try {
-      const arr = (await getJson(`${BASE}/quote/${symbol}?apikey=${KEY}`)) as any[];
+      const arr = (await getJson(`${BASE}/quote?symbol=${symbol}&apikey=${KEY}`)) as any[];
       const q = Array.isArray(arr) ? arr[0] : null;
       if (!q) return unavailable(NAME, "No quote returned for " + symbol);
       const quote: Quote = {
@@ -51,7 +65,7 @@ export const fmpProvider: MarketDataProvider = {
         name: q.name ?? symbol,
         price: q.price,
         change: q.change ?? 0,
-        changePct: q.changesPercentage ?? 0,
+        changePct: q.changePercentage ?? 0,
         marketCap: q.marketCap ?? null,
         volume: q.volume ?? null,
         week52High: q.yearHigh ?? null,
@@ -70,8 +84,8 @@ export const fmpProvider: MarketDataProvider = {
     if (!KEY) return unavailable(NAME, "MARKET_DATA_API_KEY missing");
     try {
       const [income, cash] = await Promise.all([
-        getJson(`${BASE}/income-statement/${symbol}?period=quarter&limit=8&apikey=${KEY}`),
-        getJson(`${BASE}/cash-flow-statement/${symbol}?period=quarter&limit=8&apikey=${KEY}`),
+        getJson(`${BASE}/income-statement?symbol=${symbol}&period=quarter&limit=8&apikey=${KEY}`),
+        getJson(`${BASE}/cash-flow-statement?symbol=${symbol}&period=quarter&limit=8&apikey=${KEY}`).catch(() => []),
       ]);
       const inc = income as any[];
       if (!Array.isArray(inc) || inc.length === 0) return unavailable(NAME, "No financials");
@@ -81,12 +95,12 @@ export const fmpProvider: MarketDataProvider = {
         .slice()
         .reverse()
         .map((r: any) => ({
-          period: r.period && r.calendarYear ? `${r.calendarYear}-${r.period}` : r.date,
+          period: r.fiscalYear && r.period ? `${r.fiscalYear}-${r.period}` : r.date,
           revenue: r.revenue ?? null,
           netIncome: r.netIncome ?? null,
-          eps: r.epsdiluted ?? r.eps ?? null,
+          eps: r.epsDiluted ?? r.eps ?? null,
           grossMarginPct: r.revenue ? (r.grossProfit / r.revenue) * 100 : null,
-          operatingMarginPct: r.revenue ? (r.operatingIncome / r.revenue) * 100 : null,
+          operatingMarginPct: r.revenue && r.operatingIncome != null ? (r.operatingIncome / r.revenue) * 100 : null,
           freeCashFlow: fcfByDate.get(r.date) ?? null,
         }));
       return live(NAME, { symbol, quarters });
@@ -96,20 +110,21 @@ export const fmpProvider: MarketDataProvider = {
   },
 
   async getNews(symbol): Promise<DataResult<NewsItem[]>> {
-    const newsKey = getConnectorValue("NEWS_API_KEY") || getKey();
-    if (!newsKey) return unavailable(NAME, "NEWS_API_KEY missing");
+    const KEY = getKey();
+    if (!KEY) return unavailable(NAME, "MARKET_DATA_API_KEY missing");
     try {
-      const arr = (await getJson(`${BASE}/stock_news?tickers=${symbol}&limit=20&apikey=${newsKey}`)) as any[];
+      const arr = (await getJson(`${BASE}/news/stock?symbols=${symbol}&limit=20&apikey=${KEY}`)) as any[];
       if (!Array.isArray(arr)) return unavailable(NAME, "No news");
       const items: NewsItem[] = arr.map((n: any) => ({
         title: n.title,
         url: n.url,
-        source: n.site,
-        publishedAt: n.publishedDate,
+        source: n.publisher ?? n.site ?? "",
+        publishedAt: n.publishedDate ?? n.date ?? "",
         summary: n.text,
       }));
       return live(NAME, items);
-    } catch (e) {
+    } catch (e: any) {
+      if (e?.status === 402) return unavailable(NAME, "News requires a paid FMP plan");
       return unavailable(NAME, e instanceof Error ? e.message : "news fetch failed");
     }
   },
@@ -118,7 +133,7 @@ export const fmpProvider: MarketDataProvider = {
     const KEY = getKey();
     if (!KEY) return unavailable(NAME, "MARKET_DATA_API_KEY missing");
     try {
-      const arr = (await getJson(`${BASE}/historical/earning_calendar/${symbol}?apikey=${KEY}`)) as any[];
+      const arr = (await getJson(`${BASE}/earnings-calendar?symbol=${symbol}&apikey=${KEY}`)) as any[];
       const today = new Date().toISOString().slice(0, 10);
       const future = Array.isArray(arr)
         ? arr.map((e: any) => e.date as string).filter((d) => d >= today).sort()
@@ -129,27 +144,24 @@ export const fmpProvider: MarketDataProvider = {
     }
   },
 
+  // The stable technical-indicator endpoints are paid. The free quote endpoint,
+  // however, returns priceAvg50 / priceAvg200, so we surface those as the moving
+  // averages (the scoring engine's trend factor uses exactly these). RSI and the
+  // historical series need a paid plan, so they stay null.
   async getTechnicals(symbol): Promise<DataResult<Technicals>> {
     const KEY = getKey();
     if (!KEY) return unavailable(NAME, "MARKET_DATA_API_KEY missing");
     try {
-      const [sma50, sma200, rsi] = await Promise.all([
-        getJson(`${BASE}/technical_indicator/1day/${symbol}?type=sma&period=50&apikey=${KEY}`),
-        getJson(`${BASE}/technical_indicator/1day/${symbol}?type=sma&period=200&apikey=${KEY}`),
-        getJson(`${BASE}/technical_indicator/1day/${symbol}?type=rsi&period=14&apikey=${KEY}`),
-      ]);
-      const head = (a: unknown) => (Array.isArray(a) && a[0] ? a[0] : null);
-      const toSeries = (a: unknown, key: string) =>
-        Array.isArray(a)
-          ? (a as any[]).slice(0, 250).reverse().map((p) => ({ date: p.date, value: p[key] }))
-          : [];
+      const arr = (await getJson(`${BASE}/quote?symbol=${symbol}&apikey=${KEY}`)) as any[];
+      const q = Array.isArray(arr) ? arr[0] : null;
+      if (!q) return unavailable(NAME, "No technicals for " + symbol);
       const t: Technicals = {
         symbol,
-        sma50: head(sma50)?.sma ?? null,
-        sma200: head(sma200)?.sma ?? null,
-        rsi14: head(rsi)?.rsi ?? null,
-        sma50Series: toSeries(sma50, "sma"),
-        sma200Series: toSeries(sma200, "sma"),
+        sma50: q.priceAvg50 ?? null,
+        sma200: q.priceAvg200 ?? null,
+        rsi14: null, // paid endpoint
+        sma50Series: [],
+        sma200Series: [],
       };
       return live(NAME, t);
     } catch (e) {
@@ -162,13 +174,14 @@ export const fmpProvider: MarketDataProvider = {
     if (!KEY) return unavailable(NAME, "MARKET_DATA_API_KEY missing");
     try {
       const [profileArr, peersArr] = await Promise.all([
-        getJson(`${BASE}/profile/${symbol}?apikey=${KEY}`),
-        getJson(`${BASE4}/stock_peers?symbol=${symbol}&apikey=${KEY}`).catch(() => []),
+        getJson(`${BASE}/profile?symbol=${symbol}&apikey=${KEY}`),
+        getJson(`${BASE}/stock-peers?symbol=${symbol}&apikey=${KEY}`).catch(() => []),
       ]);
       const p = Array.isArray(profileArr) ? profileArr[0] : null;
       if (!p) return unavailable(NAME, "No profile for " + symbol);
-      const peers: string[] = Array.isArray(peersArr) && peersArr[0]?.peersList
-        ? peersArr[0].peersList
+      // stable stock-peers returns an array of { symbol, companyName, ... }
+      const peers: string[] = Array.isArray(peersArr)
+        ? (peersArr as any[]).map((x) => x.symbol).filter(Boolean).slice(0, 10)
         : [];
       const profile: CompanyProfile = {
         symbol: p.symbol,
@@ -179,8 +192,8 @@ export const fmpProvider: MarketDataProvider = {
         ceo: p.ceo ?? null,
         employees: p.fullTimeEmployees ? Number(p.fullTimeEmployees) : null,
         website: p.website ?? null,
-        exchange: p.exchangeShortName ?? null,
-        marketCap: p.mktCap ?? null,
+        exchange: p.exchangeShortName ?? p.exchange ?? null,
+        marketCap: p.marketCap ?? p.mktCap ?? null,
         beta: p.beta ?? null,
         ipoDate: p.ipoDate ?? null,
         peers,
@@ -195,36 +208,31 @@ export const fmpProvider: MarketDataProvider = {
     const KEY = getKey();
     if (!KEY) return unavailable(NAME, "MARKET_DATA_API_KEY missing");
     try {
-      const [targetSummary, gradesSummary, gradesArr] = await Promise.all([
-        getJson(`${BASE4}/price-target-summary?symbol=${symbol}&apikey=${KEY}`).catch(() => null),
-        getJson(`${BASE4}/grades-consensus?symbol=${symbol}&apikey=${KEY}`).catch(() => null),
-        getJson(`${BASE4}/grades?symbol=${symbol}&limit=5&apikey=${KEY}`).catch(() => []),
+      const [targetSummary, gradesConsensus] = await Promise.all([
+        getJson(`${BASE}/price-target-summary?symbol=${symbol}&apikey=${KEY}`).catch(() => null),
+        getJson(`${BASE}/grades-consensus?symbol=${symbol}&apikey=${KEY}`).catch(() => null),
       ]);
 
       const ts = Array.isArray(targetSummary) ? targetSummary[0] : (targetSummary as any);
-      const gs = Array.isArray(gradesSummary) ? gradesSummary[0] : (gradesSummary as any);
-      const grades = Array.isArray(gradesArr) ? gradesArr : [];
-      const latest = grades[0] as any | undefined;
+      const gs = Array.isArray(gradesConsensus) ? gradesConsensus[0] : (gradesConsensus as any);
+
+      // stable price-target-summary gives count + avg per window, not high/low.
+      // Use the last-quarter average as the consensus.
+      const consensus = ts?.lastQuarterAvgPriceTarget ?? ts?.lastYearAvgPriceTarget ?? null;
 
       const analyst: AnalystData = {
         symbol,
-        priceTargetHigh: ts?.targetHigh ?? null,
-        priceTargetLow: ts?.targetLow ?? null,
-        priceTargetConsensus: ts?.targetConsensus ?? null,
-        priceTargetAvg: ts?.targetMean ?? null,
+        priceTargetHigh: null,
+        priceTargetLow: null,
+        priceTargetConsensus: consensus,
+        priceTargetAvg: ts?.lastYearAvgPriceTarget ?? null,
         strongBuy: gs?.strongBuy ?? 0,
         buy: gs?.buy ?? 0,
         hold: gs?.hold ?? 0,
         sell: gs?.sell ?? 0,
         strongSell: gs?.strongSell ?? 0,
-        latestGrade: latest
-          ? {
-              date: latest.date,
-              firm: latest.gradingCompany,
-              action: latest.action,
-              fromGrade: latest.previousGrade ?? "",
-              toGrade: latest.newGrade ?? "",
-            }
+        latestGrade: gs?.consensus
+          ? { date: "", firm: "Consensus", action: "", fromGrade: "", toGrade: gs.consensus }
           : undefined,
       };
       return live(NAME, analyst);
@@ -237,7 +245,7 @@ export const fmpProvider: MarketDataProvider = {
     const KEY = getKey();
     if (!KEY) return unavailable(NAME, "MARKET_DATA_API_KEY missing");
     try {
-      const arr = (await getJson(`${BASE4}/insider-trading?symbol=${symbol}&limit=20&apikey=${KEY}`)) as any[];
+      const arr = (await getJson(`${BASE}/insider-trading/search?symbol=${symbol}&page=0&limit=20&apikey=${KEY}`)) as any[];
       if (!Array.isArray(arr)) return unavailable(NAME, "No insider trades");
       const trades: InsiderTrade[] = arr.map((t: any) => ({
         symbol,
@@ -246,10 +254,11 @@ export const fmpProvider: MarketDataProvider = {
         transactionType: t.transactionType ?? "",
         securitiesTransacted: t.securitiesTransacted ?? null,
         price: t.price ?? null,
-        secLink: t.link ?? null,
+        secLink: t.url ?? t.link ?? null,
       }));
       return live(NAME, trades);
-    } catch (e) {
+    } catch (e: any) {
+      if (e?.status === 402) return unavailable(NAME, "Insider data requires a paid FMP plan");
       return unavailable(NAME, e instanceof Error ? e.message : "insider trades fetch failed");
     }
   },
@@ -258,11 +267,11 @@ export const fmpProvider: MarketDataProvider = {
     const KEY = getKey();
     if (!KEY) return unavailable(NAME, "MARKET_DATA_API_KEY missing");
     try {
-      const arr = (await getJson(`${BASE}/discounted-cash-flow/${symbol}?apikey=${KEY}`)) as any[];
+      const arr = (await getJson(`${BASE}/discounted-cash-flow?symbol=${symbol}&apikey=${KEY}`)) as any[];
       const d = Array.isArray(arr) ? arr[0] : null;
       if (!d) return unavailable(NAME, "No DCF data for " + symbol);
       const dcfVal = d.dcf ?? null;
-      const price = d.Stock_Price ?? d.price ?? null;
+      const price = d["Stock Price"] ?? d.price ?? null;
       const upDownPct =
         dcfVal != null && price != null && price > 0
           ? ((dcfVal - price) / price) * 100

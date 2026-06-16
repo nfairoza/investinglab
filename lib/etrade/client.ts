@@ -31,16 +31,18 @@ function getConsumerSecret(): string {
 
 /**
  * Step 1: Fetch a request token from E*TRADE.
- * Returns { token, secret }.
+ *
+ * E*TRADE only supports the OUT-OF-BAND ("oob") OAuth flow — it rejects real
+ * callback URLs with HTTP 400. After authorizing, E*TRADE shows the user a short
+ * verification code on its own site, which the user pastes back into the app
+ * (see the verify route). So oauth_callback is always "oob".
  */
-export async function fetchRequestToken(
-  callbackUrl: string,
-): Promise<{ token: string; secret: string }> {
+export async function fetchRequestToken(): Promise<{ token: string; secret: string }> {
   const url = `${apiBase()}/oauth/request_token`;
   const authHeader = buildAuthHeader("GET", url, {
     consumerKey: getConsumerKey(),
     consumerSecret: getConsumerSecret(),
-    callbackUrl,
+    callbackUrl: "oob",
   });
 
   const res = await fetch(url, {
