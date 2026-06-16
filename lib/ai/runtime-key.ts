@@ -14,6 +14,12 @@ export function setRuntimeAi(key: string | null, model: string | null): void {
   runtimeModel = model && model.trim() ? model.trim() : null;
 }
 
+// Set ONLY the model, leaving the key (from UI or .env) untouched. Lets the
+// Settings model picker switch models without re-entering the API key.
+export function setRuntimeModel(model: string | null): void {
+  runtimeModel = model && model.trim() ? model.trim() : null;
+}
+
 export function getRuntimeKey(): string | null {
   return runtimeKey;
 }

@@ -4,14 +4,42 @@ import { useEffect, useState } from "react";
 
 type Status = { configured: boolean; source: "runtime" | "env" | "none"; model: string };
 
-const MODELS = ["claude-sonnet-4-6", "claude-opus-4-8", "claude-haiku-4-5-20251001"];
+// id = exact Anthropic model id; label = friendly name + when to use it.
+const MODELS: { id: string; label: string }[] = [
+  { id: "claude-opus-4-8", label: "Opus 4.8 — most capable (deepest analysis, higher cost)" },
+  { id: "claude-sonnet-4-6", label: "Sonnet 4.6 — balanced (fast + strong, default)" },
+  { id: "claude-haiku-4-5-20251001", label: "Haiku 4.5 — fastest + cheapest" },
+];
 
 export function SettingsAI() {
   const [status, setStatus] = useState<Status | null>(null);
   const [apiKey, setApiKey] = useState("");
-  const [model, setModel] = useState(MODELS[0]);
+  const [model, setModel] = useState(MODELS[0].id);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+
+  async function applyModel(next: string) {
+    setModel(next);
+    setBusy(true);
+    setMsg(null);
+    try {
+      const r = await fetch("/api/ai/model", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ model: next }),
+      });
+      if (r.ok) {
+        setStatus((await r.json()) as Status);
+        setMsg(`Model set to ${next} for this session.`);
+      } else {
+        setMsg("Could not set model.");
+      }
+    } catch {
+      setMsg("Could not set model.");
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function refresh() {
     setMsg(null);
@@ -108,8 +136,36 @@ export function SettingsAI() {
         </button>
       </div>
 
+      {/* Model picker — applies immediately, independent of the key */}
       <div className="space-y-2">
+        <label className="block text-sm text-slate-300">Model</label>
+        <select
+          value={model}
+          onChange={(e) => applyModel(e.target.value)}
+          disabled={busy}
+          className="w-full rounded-md border border-slate-700 bg-slate-900/60 px-3 py-2 text-sm text-slate-200 focus:border-brand-500 focus:outline-none disabled:opacity-50"
+        >
+          {MODELS.map((m) => (
+            <option key={m.id} value={m.id}>
+              {m.label}
+            </option>
+          ))}
+        </select>
+        {status?.model && (
+          <p className="text-xs text-slate-500">
+            Active model: <span className="text-brand-300">{status.model}</span>
+            {" "}— used by Research, Predictions, and the chat widget.
+          </p>
+        )}
+      </div>
+
+      {/* API key */}
+      <div className="space-y-2 border-t border-slate-800 pt-4">
         <label className="block text-sm text-slate-300">Claude API key</label>
+        <p className="text-xs text-slate-500">
+          Already set via <code className="rounded bg-slate-800 px-1">.env.local</code>? You can leave this blank.
+          Enter a key here only to override it for this session.
+        </p>
         <input
           type="password"
           value={apiKey}
@@ -117,18 +173,6 @@ export function SettingsAI() {
           placeholder="sk-ant-…"
           className="w-full rounded-md border border-slate-700 bg-slate-900/60 px-3 py-2 text-sm text-slate-200 placeholder:text-slate-600 focus:border-brand-500 focus:outline-none"
         />
-        <label className="block pt-1 text-sm text-slate-300">Model</label>
-        <select
-          value={model}
-          onChange={(e) => setModel(e.target.value)}
-          className="w-full rounded-md border border-slate-700 bg-slate-900/60 px-3 py-2 text-sm text-slate-200 focus:border-brand-500 focus:outline-none"
-        >
-          {MODELS.map((m) => (
-            <option key={m} value={m}>
-              {m}
-            </option>
-          ))}
-        </select>
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
