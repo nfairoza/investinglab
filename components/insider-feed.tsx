@@ -50,9 +50,9 @@ export function InsiderFeed({ symbol }: { symbol: string }) {
       )}
 
       {trades.length > 0 && (
-        <div className="mt-4 overflow-x-auto rounded-lg border border-white/10">
+        <div className="mt-4 max-h-[28rem] overflow-auto rounded-lg border border-white/10">
           <table className="w-full text-left text-sm">
-            <thead className="bg-black/25 text-xs uppercase tracking-wide text-slate-500">
+            <thead className="sticky top-0 bg-black/40 backdrop-blur text-xs uppercase tracking-wide text-slate-500">
               <tr>
                 <th className="px-3 py-2">Insider</th>
                 <th className="px-3 py-2">Action</th>
@@ -63,7 +63,7 @@ export function InsiderFeed({ symbol }: { symbol: string }) {
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
-              {trades.slice(0, 10).map((t, i) => (
+              {trades.slice(0, 60).map((t, i) => (
                 <tr key={i} className="hover:bg-slate-800/30">
                   <td className="px-3 py-2 text-slate-200">{t.reportingName}</td>
                   <td className="px-3 py-2">

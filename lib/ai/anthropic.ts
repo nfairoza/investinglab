@@ -92,6 +92,8 @@ export async function callClaude(opts: {
         messages: [{ role: "user", content: opts.user }],
       }),
       cache: "no-store",
+      // Don't hang forever if the network silently stalls — fail over to Gemini.
+      signal: AbortSignal.timeout(30_000),
     });
   } catch (e: any) {
     // Surface the real network cause (proxy/SSL/DNS) instead of bare "fetch failed".

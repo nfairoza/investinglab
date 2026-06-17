@@ -16,6 +16,7 @@ import {
   Trophy,
   NotebookPen,
   Plug,
+  Grid3x3,
 } from "lucide-react";
 import clsx from "clsx";
 
@@ -24,6 +25,7 @@ const NAV = [
   { href: "/holdings", label: "Holdings", icon: Wallet },
   { href: "/watchlist", label: "Watchlist", icon: Eye },
   { href: "/research", label: "Research", icon: Search },
+  { href: "/map", label: "Stock Map", icon: Grid3x3 },
   { href: "/rankings", label: "Rankings", icon: Trophy },
   { href: "/portfolio-doctor", label: "Portfolio Doctor", icon: Stethoscope },
   { href: "/predictions", label: "Predictions", icon: TrendingUp },

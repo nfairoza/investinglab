@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { DataBadge } from "./data-state";
+import { TickerInput } from "./ticker-input";
 import type { DataSource } from "@/lib/providers/types";
 
 interface Horizon {
@@ -41,9 +42,10 @@ export function PredictionWorkspace({ initial = "AAPL" }: { initial?: string }) 
   const [result, setResult] = useState<Result | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  async function run() {
-    const symbol = draft.trim().toUpperCase();
+  async function run(sym?: string) {
+    const symbol = (sym ?? draft).trim().toUpperCase();
     if (!symbol || busy) return;
+    setDraft(symbol);
     setBusy(true);
     setError(null);
     setResult(null);
@@ -69,15 +71,10 @@ export function PredictionWorkspace({ initial = "AAPL" }: { initial?: string }) 
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center gap-2">
-        <input
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && run()}
-          placeholder="Enter a ticker (e.g. NVDA)"
-          className="w-56 rounded-md border border-white/10 bg-black/25 px-3 py-2 text-sm text-slate-200 placeholder:text-slate-600 focus:border-brand-500 focus:outline-none"
-        />
-        <button onClick={run} disabled={busy}
-          className="rounded-md bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-500 disabled:opacity-50">
+        <TickerInput value={draft} onChange={setDraft} onSelect={(s) => run(s)}
+          placeholder="Search ticker or company…" />
+        <button onClick={() => run()} disabled={busy}
+          className="btn-gold rounded-md px-4 py-2 text-sm disabled:opacity-50">
           {busy ? "Researching the web…" : "Predict"}
         </button>
       </div>

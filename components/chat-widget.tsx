@@ -2,10 +2,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
-import { MessageCircle, X, Send, RotateCcw } from "lucide-react";
+import { MessageCircle, X, Send, RotateCcw, Minus, Maximize2, Minimize2 } from "lucide-react";
 import useSWR from "swr";
 import type { Holding, WatchItem } from "@/lib/db";
 import type { DataResult, Quote } from "@/lib/providers/types";
+import { renderMarkdown } from "@/lib/markdown";
 
 // ── types ────────────────────────────────────────────────────────────────────
 
@@ -28,10 +29,11 @@ interface HoldingContext {
 // ── suggested starter questions ──────────────────────────────────────────────
 
 const SUGGESTIONS = [
-  "Why am I up or down today?",
+  "Why is my portfolio up or down today?",
   "Which holding has the most risk right now?",
-  "Am I too concentrated in any one stock?",
-  "What should I be watching this week?",
+  "What does the Research tab do, and how do I use it?",
+  "Explain P/E ratio like I'm new",
+  "Be my advisor — what should I do with my portfolio?",
 ];
 
 // ── quote fetcher for context ─────────────────────────────────────────────────
@@ -73,8 +75,18 @@ function parseSSEChunk(chunk: string): string {
 
 // ── main widget ───────────────────────────────────────────────────────────────
 
+// Panel size presets (width × height in px). "full" docks to the right edge.
+const SIZES = {
+  compact: { w: 360, h: 520, label: "Compact" },
+  large: { w: 460, h: 680, label: "Large" },
+  full: { w: 520, h: 0, label: "Full height" }, // h:0 → full viewport height
+} as const;
+type SizeKey = keyof typeof SIZES;
+
 export function ChatWidget() {
   const [open, setOpen] = useState(false);
+  const [minimized, setMinimized] = useState(false);
+  const [size, setSize] = useState<SizeKey>("compact");
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
@@ -229,23 +241,54 @@ export function ChatWidget() {
 
       {/* Chat panel — scales up from the button */}
       {open && (
-        <div className="glass animate-scale-in fixed bottom-20 right-4 z-50 flex w-[360px] flex-col rounded-2xl shadow-2xl"
-          style={{ height: 520, transformOrigin: "bottom right", background: "rgba(12,16,13,0.92)" }}>
-
-          {/* Header */}
-          <div className="flex items-center justify-between rounded-t-2xl border-b border-white/10 bg-white/[0.03] px-4 py-3">
-            <div>
+        <div
+          className={`glass animate-scale-in fixed z-50 flex flex-col shadow-2xl ${size === "full" ? "bottom-0 right-0 top-0 rounded-l-2xl" : "bottom-20 right-4 rounded-2xl"}`}
+          style={{
+            width: SIZES[size].w,
+            height: size === "full" ? "100vh" : (minimized ? 52 : SIZES[size].h),
+            maxWidth: "95vw",
+            transformOrigin: "bottom right",
+            background: "rgba(12,16,13,0.94)",
+            transition: "height 200ms ease, width 200ms ease",
+          }}
+        >
+          {/* Header (click to minimize/restore) */}
+          <div className="flex items-center justify-between border-b border-white/10 bg-white/[0.03] px-4 py-3"
+            style={{ borderTopLeftRadius: size === "full" ? 16 : 16, borderTopRightRadius: size === "full" ? 0 : 16 }}>
+            <button onClick={() => setMinimized((m) => !m)} className="flex-1 text-left" title={minimized ? "Expand" : "Minimize"}>
               <div className="text-sm font-semibold text-slate-100">Noor Investing Lab</div>
-              <div className="text-[11px] text-slate-500">
-                Knows your {holdings.length} holding{holdings.length !== 1 ? "s" : ""}
-                {watchlist.length > 0 ? ` + ${watchlist.length} watchlist` : ""}
-              </div>
-            </div>
-            <button onClick={clearChat} title="Clear chat"
-              className="rounded-md p-1.5 text-slate-500 hover:bg-slate-800 hover:text-slate-300">
-              <RotateCcw size={14} />
+              {!minimized && (
+                <div className="text-[11px] text-slate-500">
+                  Live data + web search · {holdings.length} holding{holdings.length !== 1 ? "s" : ""}
+                  {watchlist.length > 0 ? ` + ${watchlist.length} watch` : ""}
+                </div>
+              )}
             </button>
+            <div className="flex items-center gap-0.5">
+              {/* cycle size */}
+              <button
+                onClick={() => setSize((s) => (s === "compact" ? "large" : s === "large" ? "full" : "compact"))}
+                title={`Size: ${SIZES[size].label} (click to change)`}
+                className="rounded-md p-1.5 text-slate-500 hover:bg-slate-800 hover:text-slate-300">
+                {size === "full" ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+              </button>
+              <button onClick={() => setMinimized((m) => !m)} title="Minimize"
+                className="rounded-md p-1.5 text-slate-500 hover:bg-slate-800 hover:text-slate-300">
+                <Minus size={14} />
+              </button>
+              <button onClick={clearChat} title="Clear chat"
+                className="rounded-md p-1.5 text-slate-500 hover:bg-slate-800 hover:text-slate-300">
+                <RotateCcw size={14} />
+              </button>
+              <button onClick={() => setOpen(false)} title="Close"
+                className="rounded-md p-1.5 text-slate-500 hover:bg-slate-800 hover:text-slate-300">
+                <X size={14} />
+              </button>
+            </div>
           </div>
+
+          {!minimized && (<>
+          {/* spacer marker for the collapsible body */}
 
           {/* No-key banner */}
           {noKey && (
@@ -271,13 +314,20 @@ export function ChatWidget() {
 
             {messages.map((m) => (
               <div key={m.id} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
-                <div className={`max-w-[85%] rounded-2xl px-3 py-2 text-sm leading-relaxed whitespace-pre-wrap
+                <div className={`max-w-[88%] rounded-2xl px-3 py-2 text-sm leading-relaxed
                   ${m.role === "user"
-                    ? "bg-brand-600 text-white rounded-br-sm"
+                    ? "bg-brand-600 text-white rounded-br-sm whitespace-pre-wrap"
                     : "bg-slate-800 text-slate-200 rounded-bl-sm"
                   }`}>
-                  {m.content || (m.streaming ? <span className="animate-pulse text-slate-400">▌</span> : "")}
-                  {m.streaming && m.content && <span className="animate-pulse text-slate-400">▌</span>}
+                  {m.role === "assistant" ? (
+                    m.content ? (
+                      <span className="chat-md" dangerouslySetInnerHTML={{ __html: renderMarkdown(m.content) + (m.streaming ? '<span class="animate-pulse">▌</span>' : "") }} />
+                    ) : (
+                      m.streaming ? <span className="animate-pulse text-slate-400">▌</span> : ""
+                    )
+                  ) : (
+                    m.content
+                  )}
                 </div>
               </div>
             ))}
@@ -315,6 +365,7 @@ export function ChatWidget() {
               Educational analysis, not financial advice.
             </p>
           </div>
+          </>)}
         </div>
       )}
     </>

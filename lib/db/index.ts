@@ -16,7 +16,15 @@ export interface Holding {
   shares: number;
   avgCost: number;
   note?: string;
-  source?: string; // "manual" | "etrade"
+  source?: string; // "manual" | "etrade" | "robinhood"
+  assetType?: "stock" | "crypto"; // defaults to stock when absent
+  // Broker-provided gain metrics (E*TRADE). Optional — only set on synced rows.
+  // Snapshotted at sync time; the live price still updates value via FMP.
+  daysGain?: number;       // $ change today
+  daysGainPct?: number;    // % change today
+  totalGain?: number;      // $ gain since purchase
+  totalGainPct?: number;   // % gain since purchase
+  marketValue?: number;    // broker's market value at sync
   createdAt: string;
   updatedAt: string;
 }
@@ -26,6 +34,13 @@ export interface WatchItem {
   symbol: string;
   idealBuy?: number;
   note?: string;
+  // AI-generated analysis (via /api/watchlist/enrich). Optional.
+  fairValue?: string;     // e.g. "$180–$210"
+  bullCase?: string;
+  bearCase?: string;
+  catalyst?: string;      // next catalyst / why-now
+  aiAction?: string;      // Buy now / Start small / Wait / Avoid
+  analyzedAt?: string;    // ISO when AI last enriched
   createdAt: string;
   updatedAt: string;
 }

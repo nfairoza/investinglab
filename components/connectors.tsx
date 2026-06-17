@@ -147,17 +147,65 @@ export function Connectors() {
     refresh();
   }, []);
 
+  const finance = CONNECTORS.filter((c) => c.category === "finance");
+  const other = CONNECTORS.filter((c) => c.category === "other");
+
   return (
-    <div className="space-y-3">
-      {CONNECTORS.map((c) => (
-        <ConnectorCard key={c.id} connector={c} stat={stats[c.id]} onChanged={refresh} />
-      ))}
+    <div className="space-y-8">
+      {finance.length > 0 && (
+        <section className="space-y-3">
+          <SectionHeading title="Finance data" subtitle="Market data, news, and filings that feed research, scoring, and charts." />
+          {finance.map((c) => (
+            <ConnectorCard key={c.id} connector={c} stat={stats[c.id]} onChanged={refresh} />
+          ))}
+        </section>
+      )}
+
+      {other.length > 0 && (
+        <section className="space-y-3">
+          <SectionHeading title="Other" subtitle="Optional sources." />
+          {other.map((c) => (
+            <ConnectorCard key={c.id} connector={c} stat={stats[c.id]} onChanged={refresh} />
+          ))}
+        </section>
+      )}
+
       <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-xs leading-relaxed text-amber-200/90">
         <span className="font-medium">Where keys live.</span> Keys you save here are held on your own
         server for this session only — never in the browser, never committed. To make them permanent,
         put them in <code className="rounded bg-slate-800 px-1">.env.local</code> (already done for your
-        FMP, Claude, and E*TRADE keys) — those show as <span className="text-amber-100">from environment</span>.
+        FMP, Claude, Gemini, and E*TRADE keys) — those show as <span className="text-amber-100">from environment</span>.
       </div>
+    </div>
+  );
+}
+
+export function SectionHeading({ title, subtitle }: { title: string; subtitle?: string }) {
+  return (
+    <div className="border-b border-white/10 pb-2">
+      <h2 className="font-display text-xl font-semibold text-[#ece9e0]">{title}</h2>
+      {subtitle && <p className="mt-0.5 text-xs text-slate-500">{subtitle}</p>}
+    </div>
+  );
+}
+
+// Exported so the connectors page can render AI providers (Claude card + Gemini)
+// under one "AI providers" heading.
+export function ConnectorList({ category }: { category: "ai" | "finance" | "other" }) {
+  const [stats, setStats] = useState<Record<string, Stat>>({});
+  async function refresh() {
+    try {
+      const r = await fetch("/api/connectors/status");
+      const j = (await r.json()) as { connectors: Stat[] };
+      setStats(Object.fromEntries(j.connectors.map((c) => [c.id, c])));
+    } catch { setStats({}); }
+  }
+  useEffect(() => { refresh(); }, []);
+  return (
+    <div className="space-y-3">
+      {CONNECTORS.filter((c) => c.category === category).map((c) => (
+        <ConnectorCard key={c.id} connector={c} stat={stats[c.id]} onChanged={refresh} />
+      ))}
     </div>
   );
 }

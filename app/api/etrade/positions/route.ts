@@ -11,6 +11,20 @@ interface SyncedHolding {
   avgCost: number;
   note?: string;
   source: "etrade";
+  daysGain?: number;
+  daysGainPct?: number;
+  totalGain?: number;
+  totalGainPct?: number;
+  marketValue?: number;
+}
+
+// Pull the first finite, non-zero number from a list of candidate values.
+function firstNum(...vals: any[]): number | null {
+  for (const v of vals) {
+    const n = Number(v);
+    if (Number.isFinite(n) && n !== 0) return n;
+  }
+  return null;
 }
 
 function asArray<T>(v: T | T[] | undefined | null): T[] {
@@ -32,15 +46,29 @@ export async function GET() {
   const accountLabel = account?.accountName ?? accountIdKey;
 
   try {
-    // view=COMPLETE so cost-basis fields (pricePaid / costPerShare) are returned.
+    // view=PERFORMANCE reliably returns pricePaid (avg cost/share) + costBasis.
     const data = await etradeGet<any>(
-      `/accounts/${accountIdKey}/portfolio.json?count=250&totalsRequired=true&view=COMPLETE`,
+      `/accounts/${accountIdKey}/portfolio.json?count=250&totalsRequired=true&view=PERFORMANCE`,
     );
 
     // E*TRADE nesting: PortfolioResponse.AccountPortfolio[].Position[]
     // Either level can come back as a single object instead of an array.
     const accountPortfolios = asArray<any>(data?.PortfolioResponse?.AccountPortfolio);
     const rawPositions: any[] = accountPortfolios.flatMap((ap) => asArray<any>(ap?.Position));
+
+    // Per E*TRADE's documented schema, cost-basis fields live on the BASE
+    // Position object (not always in a sub-view): `pricePaid` (avg cost/share),
+    // `totalCost` (total), `costPerShare`. We also read E*TRADE's own computed
+    // `totalGain`/`totalGainPct` from the base + Performance sub-object so the
+    // gain shown matches E*TRADE exactly.
+    function avgCostOf(pos: any, shares: number): number {
+      const perf = pos.Performance ?? {};
+      const perShare = firstNum(pos.pricePaid, pos.costPerShare, perf.pricePaid);
+      if (perShare) return perShare;
+      const total = firstNum(pos.totalCost, pos.costBasis, perf.totalCost);
+      if (total && shares) return total / shares;
+      return 0;
+    }
 
     const holdings: SyncedHolding[] = rawPositions
       .filter((pos: any) => {
@@ -49,18 +77,20 @@ export async function GET() {
       })
       .map((pos: any) => {
         const shares = Number(pos.quantity ?? 0);
-        // Prefer per-share cost; fall back to total cost / shares.
-        const complete = pos.Complete ?? pos;
-        let avgCost = Number(complete.costPerShare ?? complete.pricePaid ?? 0);
-        if (!avgCost && complete.totalCost && shares) {
-          avgCost = Number(complete.totalCost) / shares;
-        }
+        const avgCost = avgCostOf(pos, shares);
+        const num = (v: any) => (Number.isFinite(Number(v)) ? Number(v) : undefined);
         return {
           symbol: String(pos.Product.symbol).toUpperCase(),
           shares,
           avgCost: Number.isFinite(avgCost) ? +avgCost.toFixed(4) : 0,
           note: `Synced from E*TRADE (${accountLabel})`,
           source: "etrade" as const,
+          // E*TRADE's own computed gain numbers — authoritative, shown verbatim.
+          daysGain: num(pos.daysGain),
+          daysGainPct: num(pos.daysGainPct),
+          totalGain: num(pos.totalGain),
+          totalGainPct: num(pos.totalGainPct),
+          marketValue: num(pos.marketValue),
         };
       });
 

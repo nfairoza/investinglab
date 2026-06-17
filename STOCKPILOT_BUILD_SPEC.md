@@ -397,3 +397,73 @@ A **Journal** tab logs each trade: **why you entered, target price, stop-loss, w
 
 ### 15.14 Updated tab list & remaining work
 Tabs (13): Dashboard, Holdings, Watchlist, Research, **Rankings**, Portfolio Doctor, **Predictions (AI)**, Congress, Alerts, **Journal**, Glossary, **Connectors**, Settings. Work remaining: (a) **Alerts** + **Portfolio Doctor** pages (still `PageShell` placeholders); (b) `<Term>` tooltips are defined + glossary exists but are not yet used inline across pages (beginner-layer gap); (c) Watchlist analytical fields (fair value, bull/bear, price-zone); (d) richer per-stock charts (valuation-vs-history, real price line + ranges, visual price-zone bar); (e) feed the Research memo more data (technicals/news/analyst, not just quote+financials); (f) optional EC2 deploy.
+
+---
+
+# v5 — Major additions (this build round)
+
+> Everything below was added after v4. The app name is **Noor Investing Lab** (GitHub: `nfairoza/investinglab`).
+
+## 16. Persistent file database (lowdb) — replaces localStorage
+**Status: DONE.** All user data lives in a server-side JSON file `data/db.json` (gitignored), not the browser.
+- `lib/db/index.ts` — `LowSync` singleton + typed `Holding`, `WatchItem`, `JournalEntry`, plus an embedded `etrade` token block and `robinhood` (unofficial) token block. `withDbWrite(fn)` is a promise-chained mutex serializing read-modify-write.
+- REST routes: `/api/holdings`, `/api/watchlist` (+ `/enrich`), `/api/journal` — GET/POST/DELETE. Holdings POST supports single-upsert and `{replace:true}` bulk (per-source).
+- `Holding` carries: `source` (manual|etrade|robinhood), `assetType` (stock|crypto), and broker gain snapshots (daysGain, daysGainPct, totalGain, totalGainPct, marketValue).
+
+## 17. Branding + jasmine dark-luxe theme
+**Status: DONE.** Renamed StockPilot to **Noor Investing Lab**.
+- `app/globals.css` — glass-morphism (.glass, .card-hover), gold button (.btn-gold), luxe inputs, layered parallax background (.bg-aurora glow + .bg-vines jasmine texture, both fixed), animations, prefers-reduced-motion guard.
+- Fonts: Cormorant Garamond (display) + Inter (body). Loaded via a browser link tag in layout.tsx (NOT next/font) because the corporate SSL filter blocks build-time font downloads. CSS vars wired in tailwind.config.ts.
+- Sidebar: glass panel, animated jasmine SVG mark, shimmer wordmark, gold active rail. Dashboard hero (components/hero.tsx) uses the generated jasmine image + scroll parallax.
+
+## 18. Gemini imagery + AI fallback
+**Status: DONE.**
+- `scripts/generate-images.mjs` — generates jasmine art via Gemini (gemini-2.5-flash-image) to public/images/. Key: GEMINI_API_KEY.
+- `lib/ai/gemini.ts` — callGemini (text + optional google_search grounding) + streamGemini (SSE). `lib/ai/anthropic.ts` adds callAI() = try Claude then fall back to Gemini on network error only (not auth). Used by chat, research, predict. Claude calls have a 30s timeout.
+- Why: the corporate network blocks api.anthropic.com when off-VPN; Gemini is reachable, so it is the automatic fallback. UI source flags show which AI answered.
+
+## 19. Corporate SSL / cert fix (Anthropic + Node)
+Root cause of many failures (npm, git, fonts, Claude): corporate SSL inspection re-signs HTTPS with an internal root cert. Windows trusts it; Node ships its own CA bundle and did not. Fix: export Windows roots to ~/corp-ca.pem and set NODE_EXTRA_CA_CERTS (persisted via setx). Run the dev server in a fresh shell so it inherits the var. After this, Claude and all Node HTTPS work directly.
+
+## 20. FMP on the STABLE API (not legacy v3/v4)
+**Status: DONE.** FMP retired legacy endpoints 2025-08-31; new keys 403 on them. `lib/providers/fmp.ts` targets financialmodelingprep.com/stable/* with ?symbol= params. 90s in-memory response cache; explicit 429 daily-limit handling. On Starter plan: technicals (SMA/RSI series), insider, news, historical price all work. New getPriceHistory (/api/price-history).
+
+## 21. Charts: real price chart
+**Status: DONE.** components/charts/PriceChart.tsx — area chart with 1M/3M/6M/1Y/5Y range buttons, green/red by trend, on Research + Holdings detail. Plus the existing MA chart.
+
+## 22. Ticker autocomplete (Robinhood-style)
+**Status: DONE.** /api/search (FMP search-symbol) + components/ticker-input.tsx — debounced dropdown of symbol+company+exchange, arrow-key/Enter selection. Wired into Research, Predictions, Watchlist, Holdings. Prevents adding misspelled/invalid tickers.
+
+## 23. Watchlist AI enrichment
+**Status: DONE.** /api/watchlist/enrich — AI fills ideal buy, fair value, bull case, bear case, next catalyst, action from live data + web search. Analyze / Refresh analysis button per row.
+
+## 24. E*TRADE — real gain data + oob flow
+**Status: DONE.** E*TRADE uses out-of-band OAuth (no callback URL — it 400s those): connect, paste verification code, /api/etrade/verify. Tokens persisted in db.json. Positions route uses view=PERFORMANCE and reads E*TRADE's own pricePaid, totalGain, totalGainPct, daysGain, daysGainPct, marketValue — shown verbatim in Holdings (day's gain + total gain columns, portfolio summary cards).
+
+## 25. Robinhood — crypto (official) + stocks (unofficial)
+**Status: DONE.** Two paths by design:
+- Crypto — OFFICIAL API. lib/robinhood/crypto.ts — Ed25519 request signing (Node native crypto). Keys ROBINHOOD_CRYPTO_API_KEY + ROBINHOOD_CRYPTO_PRIVATE_KEY (base64 seed) from Robinhood web Crypto API settings. No password. /api/robinhood/crypto-sync to holdings with assetType crypto.
+- Stocks — UNOFFICIAL (ToS risk, user-accepted). lib/robinhood/stocks.ts — robin_stocks-style /oauth2/token/ login with persistent device token + MFA. Routes /api/robinhood/login, /mfa, /stocks-sync, /disconnect, /status. Violates Robinhood ToS; account-termination risk, documented in the UI. No official RH stocks API exists.
+- components/robinhood-connector.tsx — crypto-keys + stocks login (MFA step). Holdings has Sync from Robinhood (both) and a CRYPTO tag. CSV import (/api/robinhood/import) retained as a safe fallback.
+- Known gap: crypto live price uses FMP equity quotes which do not cover crypto, so crypto market value may show dash (cost basis + quantity are correct). A crypto price source can be wired later.
+
+## 26. Connectors reorganized
+**Status: DONE.** registry gained category (ai|finance|other). Connectors page grouped: AI providers (Claude + Gemini), Brokerage (E*TRADE + Robinhood), Finance data (FMP, News, Congress), Other (SEC). Every card has Status + Refresh + Test. Phase labels removed.
+
+## 27. Chat widget — full advisor / teacher / app-guide
+**Status: DONE.** app/api/chat/route.ts:
+- Injects LIVE DATA (quote + 5 recent news with links) for tickers in the question and the current page symbol.
+- Web search enabled: Claude web_search + Gemini google_search grounding. Gemini SSE re-emitted in Anthropic shape so the client parser is unchanged.
+- System prompt makes it a financial advisor + investment banker (takes views, justifies with data), a teacher (defines terms, ELI-new), and an app guide that knows every page and helps navigate.
+
+## 28. Model picker
+**Status: DONE.** AI card: pick Opus 4.8 / Sonnet 4.6 / Haiku 4.5, applies instantly via /api/ai/model. Default AI_MODEL=claude-opus-4-8.
+
+## 29. Env vars (all in .env.local, gitignored)
+MARKET_DATA_API_KEY (FMP Starter), ANTHROPIC_API_KEY, AI_MODEL, GEMINI_API_KEY, ETRADE_CONSUMER_KEY/_SECRET, ROBINHOOD_CRYPTO_API_KEY/_PRIVATE_KEY. Plus machine-level NODE_EXTRA_CA_CERTS for the corporate cert.
+
+## 30. Still remaining
+- Alerts + Portfolio Doctor pages (still placeholders).
+- Term tooltips defined + glossary exists but not yet wired inline across pages.
+- Crypto live pricing source (FMP equity quotes do not cover crypto).
+- Optional EC2 deploy.

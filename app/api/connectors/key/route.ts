@@ -11,6 +11,10 @@ const EXTRA: Record<string, { fields: string[]; envVars: string[] }> = {
     fields: ["ETRADE_CONSUMER_KEY", "ETRADE_CONSUMER_SECRET"],
     envVars: ["ETRADE_CONSUMER_KEY", "ETRADE_CONSUMER_SECRET"],
   },
+  robinhood_crypto: {
+    fields: ["ROBINHOOD_CRYPTO_API_KEY", "ROBINHOOD_CRYPTO_PRIVATE_KEY"],
+    envVars: ["ROBINHOOD_CRYPTO_API_KEY", "ROBINHOOD_CRYPTO_PRIVATE_KEY"],
+  },
 };
 
 // POST { connectorId, values: { FIELD: value } }  -> set runtime values

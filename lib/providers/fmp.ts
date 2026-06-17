@@ -301,7 +301,7 @@ export const fmpProvider: MarketDataProvider = {
     const KEY = getKey();
     if (!KEY) return unavailable(NAME, "MARKET_DATA_API_KEY missing");
     try {
-      const arr = (await getJson(`${BASE}/insider-trading/search?symbol=${symbol}&page=0&limit=20&apikey=${KEY}`)) as any[];
+      const arr = (await getJson(`${BASE}/insider-trading/search?symbol=${symbol}&page=0&limit=100&apikey=${KEY}`)) as any[];
       if (!Array.isArray(arr)) return unavailable(NAME, "No insider trades");
       const trades: InsiderTrade[] = arr.map((t: any) => ({
         symbol,

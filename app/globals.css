@@ -187,3 +187,10 @@ a, button, input, select, textarea,
     transition-duration: 0.001ms !important;
   }
 }
+
+/* Chat markdown rendering */
+.chat-md a { word-break: break-word; }
+.chat-md ul, .chat-md ol { margin-top: 0.25rem; margin-bottom: 0.25rem; }
+.chat-md li { margin: 0.1rem 0; }
+.chat-md pre { white-space: pre-wrap; }
+.chat-md strong { color: #f1f0ea; }

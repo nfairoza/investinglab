@@ -17,13 +17,19 @@ export async function POST(req: NextRequest) {
 
   // Bulk replace from E*TRADE sync
   if (body?.replace === true && Array.isArray(body?.holdings)) {
+    const num = (v: any) => (Number.isFinite(Number(v)) ? Number(v) : undefined);
     const incoming: Holding[] = (body.holdings as any[]).map((h) => ({
       id: h.id ?? newId(),
       symbol: String(h.symbol).toUpperCase(),
       shares: Number(h.shares),
       avgCost: Number(h.avgCost),
       note: h.note ?? undefined,
-      source: "etrade",
+      source: h.source ?? "etrade",
+      daysGain: num(h.daysGain),
+      daysGainPct: num(h.daysGainPct),
+      totalGain: num(h.totalGain),
+      totalGainPct: num(h.totalGainPct),
+      marketValue: num(h.marketValue),
       createdAt: h.createdAt ?? now(),
       updatedAt: now(),
     }));

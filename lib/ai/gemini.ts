@@ -52,6 +52,7 @@ export async function callGemini(opts: {
 export async function streamGemini(opts: {
   system: string;
   messages: { role: "user" | "assistant"; content: string }[];
+  webSearch?: boolean;
 }): Promise<Response> {
   const key = geminiKey();
   if (!key) throw new Error("No GEMINI_API_KEY configured");
@@ -61,15 +62,18 @@ export async function streamGemini(opts: {
     parts: [{ text: m.content }],
   }));
 
+  const body: any = {
+    contents,
+    systemInstruction: { parts: [{ text: opts.system }] },
+  };
+  if (opts.webSearch) body.tools = [{ google_search: {} }];
+
   return fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel()}:streamGenerateContent?alt=sse`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json", "X-goog-api-key": key },
-      body: JSON.stringify({
-        contents,
-        systemInstruction: { parts: [{ text: opts.system }] },
-      }),
+      body: JSON.stringify(body),
       cache: "no-store",
     },
   );

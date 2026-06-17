@@ -3,6 +3,7 @@
 import { useState } from "react";
 import useSWR from "swr";
 import { DataBadge, DataTimestamp } from "./data-state";
+import { TickerInput } from "./ticker-input";
 import type { DataResult, Quote } from "@/lib/providers/types";
 import type { WatchItem } from "@/lib/db";
 
@@ -26,14 +27,20 @@ async function fetchQuotes(symbols: string[]): Promise<Record<string, DataResult
   return Object.fromEntries(entries);
 }
 
+const ACTION_STYLE: Record<string, string> = {
+  "Buy now": "border-emerald-500/40 text-emerald-300",
+  "Start small": "border-emerald-500/30 text-emerald-300/90",
+  "Wait": "border-amber-500/40 text-amber-300",
+  "Avoid": "border-rose-500/40 text-rose-300",
+};
+
 export function WatchlistManager() {
-  const { data: items = [], mutate } = useSWR<WatchItem[]>("/api/watchlist", fetchJson, {
-    revalidateOnFocus: true,
-  });
+  const { data: items = [], mutate } = useSWR<WatchItem[]>("/api/watchlist", fetchJson, { revalidateOnFocus: true });
 
   const [symbol, setSymbol] = useState("");
   const [idealBuy, setIdealBuy] = useState("");
   const [note, setNote] = useState("");
+  const [busyId, setBusyId] = useState<string | null>(null);
 
   const symbols = items.map((w) => w.symbol);
   const { data: quotes } = useSWR(
@@ -42,18 +49,14 @@ export function WatchlistManager() {
     { refreshInterval: 60_000, revalidateOnFocus: true, keepPreviousData: true },
   );
 
-  async function addItem() {
-    const sym = symbol.trim().toUpperCase();
-    if (!sym) return;
+  async function addItem(sym?: string) {
+    const s = (sym ?? symbol).trim().toUpperCase();
+    if (!s) return;
     const target = Number(idealBuy);
     await fetch("/api/watchlist", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        symbol: sym,
-        idealBuy: Number.isFinite(target) && target > 0 ? target : undefined,
-        note: note.trim() || undefined,
-      }),
+      body: JSON.stringify({ symbol: s, idealBuy: Number.isFinite(target) && target > 0 ? target : undefined, note: note.trim() || undefined }),
     });
     setSymbol(""); setIdealBuy(""); setNote("");
     mutate();
@@ -64,20 +67,37 @@ export function WatchlistManager() {
     mutate();
   }
 
+  async function analyze(id: string) {
+    setBusyId(id);
+    try {
+      const r = await fetch("/api/watchlist/enrich", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+      });
+      // surface errors quietly via mutate; the row just won't update on failure
+      await r.json().catch(() => ({}));
+      mutate();
+    } finally {
+      setBusyId(null);
+    }
+  }
+
   const anySource = quotes ? Object.values(quotes)[0]?.source : undefined;
-  const inputCls = "rounded-md border border-white/10 bg-black/25 px-3 py-2 text-sm text-slate-200 placeholder:text-slate-600 focus:border-brand-500 focus:outline-none";
+  const inputCls = "w-full rounded-md border border-white/10 bg-black/25 px-3 py-2 text-sm text-slate-200 placeholder:text-slate-600 focus:border-brand-500 focus:outline-none";
 
   return (
     <div className="space-y-4">
-      <div className="rounded-xl glass p-4">
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-          <input value={symbol} onChange={(e) => setSymbol(e.target.value)} onKeyDown={(e) => e.key === "Enter" && addItem()} placeholder="Ticker (e.g. NVDA)" className={inputCls} />
+      {/* Add form */}
+      <div className="glass rounded-2xl p-4">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-4">
+          <TickerInput value={symbol} onChange={setSymbol} onSelect={(s) => setSymbol(s)}
+            placeholder="Search ticker or company…" className={inputCls} />
           <input value={idealBuy} onChange={(e) => setIdealBuy(e.target.value)} placeholder="Ideal buy $ (optional)" inputMode="decimal" className={inputCls} />
           <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Note (optional)" className={inputCls} />
-          <button onClick={addItem} className="rounded-md bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-500">
-            Add to watchlist
-          </button>
+          <button onClick={() => addItem()} className="btn-gold rounded-md px-3 py-2 text-sm">Add to watchlist</button>
         </div>
+        <p className="mt-2 text-[11px] text-slate-500">Tip: leave fields blank and use <span className="text-brand-300">Analyze</span> after adding — AI fills the ideal buy, fair value, and thesis from live data.</p>
       </div>
 
       {items.length === 0 && (
@@ -89,41 +109,50 @@ export function WatchlistManager() {
       {items.length > 0 && (
         <>
           <div className="flex items-center gap-2">{anySource && <DataBadge source={anySource} />}</div>
-          <div className="overflow-x-auto rounded-xl border border-white/10">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-black/25 text-xs uppercase tracking-wide text-slate-500">
-                <tr>
-                  <th className="px-3 py-2">Ticker</th>
-                  <th className="px-3 py-2">Price</th>
-                  <th className="px-3 py-2">Ideal buy</th>
-                  <th className="px-3 py-2">Vs. target</th>
-                  <th className="px-3 py-2">Note</th>
-                  <th className="px-3 py-2"></th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-white/5">
-                {items.map((w) => {
-                  const price = quotes?.[w.symbol]?.data?.price ?? null;
-                  const atOrBelow = price != null && w.idealBuy != null ? price <= w.idealBuy : null;
-                  return (
-                    <tr key={w.id} className="hover:bg-slate-800/30">
-                      <td className="px-3 py-2 font-medium text-brand-400">{w.symbol}</td>
-                      <td className="px-3 py-2 text-slate-300">{price != null ? `$${price.toFixed(2)}` : "—"}</td>
-                      <td className="px-3 py-2 text-slate-400">{w.idealBuy != null ? `$${w.idealBuy.toFixed(2)}` : "—"}</td>
-                      <td className="px-3 py-2">
-                        {atOrBelow == null ? <span className="text-slate-500">—</span>
-                          : atOrBelow ? <span className="text-emerald-400">● at/below target</span>
-                          : <span className="text-slate-400">above target</span>}
-                      </td>
-                      <td className="px-3 py-2 text-slate-400">{w.note ?? ""}</td>
-                      <td className="px-3 py-2 text-right">
-                        <button onClick={() => removeItem(w.id)} className="text-xs text-slate-500 hover:text-rose-300">Remove</button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+          <div className="space-y-3">
+            {items.map((w) => {
+              const price = quotes?.[w.symbol]?.data?.price ?? null;
+              const atOrBelow = price != null && w.idealBuy != null ? price <= w.idealBuy : null;
+              const busy = busyId === w.id;
+              return (
+                <div key={w.id} className="glass card-hover rounded-2xl p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <a href={`/research?symbol=${w.symbol}`} className="font-display text-lg font-semibold text-brand-300 hover:underline">{w.symbol}</a>
+                      <span className="text-sm text-slate-300">{price != null ? `$${price.toFixed(2)}` : "—"}</span>
+                      {w.aiAction && (
+                        <span className={`rounded-full border px-2 py-0.5 text-xs ${ACTION_STYLE[w.aiAction] ?? "border-slate-600 text-slate-300"}`}>{w.aiAction}</span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button onClick={() => analyze(w.id)} disabled={busy}
+                        className="rounded-md border border-brand-500/50 bg-brand-500/10 px-3 py-1.5 text-xs font-medium text-brand-300 hover:bg-brand-500/20 disabled:opacity-50">
+                        {busy ? "Analyzing…" : w.analyzedAt ? "Refresh analysis" : "Analyze"}
+                      </button>
+                      <button onClick={() => removeItem(w.id)} className="text-xs text-slate-500 hover:text-rose-300">Remove</button>
+                    </div>
+                  </div>
+
+                  {/* metrics row */}
+                  <div className="mt-3 grid grid-cols-2 gap-x-6 gap-y-1 text-sm sm:grid-cols-4">
+                    <Field label="Ideal buy" value={w.idealBuy != null ? `$${w.idealBuy.toFixed(2)}` : "—"} />
+                    <Field label="Vs. target" value={atOrBelow == null ? "—" : atOrBelow ? "● at/below" : "above"} cls={atOrBelow ? "text-emerald-400" : "text-slate-400"} />
+                    <Field label="Fair value" value={w.fairValue ?? "—"} />
+                    <Field label="Next catalyst" value={w.catalyst ?? "—"} />
+                  </div>
+
+                  {(w.bullCase || w.bearCase) && (
+                    <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                      {w.bullCase && <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-2 text-xs text-emerald-100"><span className="font-medium">Bull:</span> {w.bullCase}</div>}
+                      {w.bearCase && <div className="rounded-lg border border-rose-500/20 bg-rose-500/5 p-2 text-xs text-rose-100"><span className="font-medium">Bear:</span> {w.bearCase}</div>}
+                    </div>
+                  )}
+
+                  {w.note && <p className="mt-2 text-xs text-slate-500">{w.note}</p>}
+                  {w.analyzedAt && <p className="mt-1 text-[10px] text-slate-600">AI analysis {new Date(w.analyzedAt).toLocaleString()}</p>}
+                </div>
+              );
+            })}
           </div>
           {quotes && <DataTimestamp asOf={Object.values(quotes)[0]?.asOf ?? null} />}
         </>
@@ -132,6 +161,15 @@ export function WatchlistManager() {
       <p className="text-[11px] text-slate-600">
         Saved to <code>data/db.json</code> — persists across restarts. Research and educational analysis, not financial advice.
       </p>
+    </div>
+  );
+}
+
+function Field({ label, value, cls = "text-slate-300" }: { label: string; value: string; cls?: string }) {
+  return (
+    <div className="border-b border-white/5 py-1">
+      <div className="text-[10px] uppercase tracking-wide text-slate-500">{label}</div>
+      <div className={`text-sm ${cls}`}>{value}</div>
     </div>
   );
 }
