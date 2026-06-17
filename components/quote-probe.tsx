@@ -53,7 +53,7 @@ export function QuoteProbe({
   const refreshing = isValidating && !isLoading && Boolean(data);
 
   return (
-    <div className="max-w-sm rounded-xl border border-slate-800 bg-slate-900/40 p-4">
+    <div className="max-w-sm rounded-xl glass p-4">
       <div className="flex items-center justify-between">
         <span className="font-semibold text-slate-100">{symbol}</span>
         <div className="flex items-center gap-2">
@@ -61,7 +61,7 @@ export function QuoteProbe({
           <button
             onClick={() => mutate()}
             disabled={isValidating}
-            className="rounded-md border border-slate-700 px-2 py-0.5 text-[11px] text-slate-300 hover:bg-slate-800 disabled:opacity-50"
+            className="rounded-md border border-white/10 px-2 py-0.5 text-[11px] text-slate-300 hover:bg-slate-800 disabled:opacity-50"
             aria-label={`Refresh ${symbol} quote`}
           >
             {refreshing ? "Refreshing…" : "Refresh"}

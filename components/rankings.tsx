@@ -15,19 +15,23 @@ const SEED = [
   "AVGO", "JPM", "V", "COST", "NFLX", "CRM", "ADBE", "QCOM",
 ];
 
-async function scoreAll(symbols: string[]): Promise<StockScore[]> {
+async function scoreAll(symbols: string[]): Promise<{ scores: StockScore[]; source: "live" | "demo" | undefined }> {
+  let source: "live" | "demo" | undefined;
   const results = await Promise.all(
     symbols.map(async (s) => {
       try {
         const r = await fetch(`/api/score?symbol=${s}`);
         const d = (await r.json()) as DataResult<StockScore>;
+        // Capture the real source — "live" wins if any holding is live.
+        if (d.source === "live") source = "live";
+        else if (d.source === "demo" && source !== "live") source = "demo";
         return d.data;
       } catch {
         return null;
       }
     }),
   );
-  return results.filter((x): x is StockScore => x != null);
+  return { scores: results.filter((x): x is StockScore => x != null), source };
 }
 
 function topBy(scores: StockScore[], h: Horizon, n = 10): StockScore[] {
@@ -39,7 +43,7 @@ function topBy(scores: StockScore[], h: Horizon, n = 10): StockScore[] {
 
 function ScoreList({ title, subtitle, rows, horizon }: { title: string; subtitle: string; rows: StockScore[]; horizon: Horizon }) {
   return (
-    <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-4">
+    <div className="rounded-xl glass p-4">
       <div className="text-sm font-semibold text-slate-100">{title}</div>
       <div className="text-xs text-slate-500">{subtitle}</div>
       <ol className="mt-3 space-y-1">
@@ -66,16 +70,16 @@ export function Rankings() {
   const owned = new Set(holdings.map((h) => h.symbol));
   const universe = Array.from(new Set([...SEED, ...holdings.map((h) => h.symbol), ...watch.map((w) => w.symbol)]));
 
-  const { data: scores, isLoading } = useSWR(["rankings", universe.join(",")], () => scoreAll(universe), {
+  const { data: result, isLoading } = useSWR(["rankings", universe.join(",")], () => scoreAll(universe), {
     refreshInterval: 5 * 60_000,
     keepPreviousData: true,
   });
 
-  if (isLoading && !scores) {
+  if (isLoading && !result) {
     return <div className="h-64 animate-pulse rounded-xl bg-slate-800" />;
   }
-  const all = scores ?? [];
-  const source = all.length ? "demo" : undefined; // demo until a key is set; per-row source is uniform
+  const all = result?.scores ?? [];
+  const source = result?.source; // real source from /api/score — "live" when FMP is working
 
   // Avoid this week: imminent earnings or weak 1-week score.
   const avoid = all
@@ -98,7 +102,7 @@ export function Rankings() {
     <div className="space-y-5">
       <div className="flex flex-wrap items-center gap-3">
         <span className="text-sm text-slate-400">Universe: {all.length} stocks (seed + your tracked tickers)</span>
-        {source && <DataBadge source="demo" />}
+        {source && <DataBadge source={source} />}
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
@@ -123,7 +127,7 @@ export function Rankings() {
       </div>
 
       {/* Portfolio warnings */}
-      <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-4">
+      <div className="rounded-xl glass p-4">
         <div className="text-sm font-semibold text-slate-100">Your portfolio — hold / add / trim / watch</div>
         {portfolio.length === 0 ? (
           <p className="mt-2 text-sm text-slate-500">Add holdings to see per-position guidance here.</p>

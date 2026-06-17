@@ -102,12 +102,12 @@ export function HoldingsManager() {
   const total = valued.reduce((sum, v) => sum + (v.value ?? 0), 0);
   const anySource = quotes ? Object.values(quotes)[0]?.source : undefined;
 
-  const inputCls = "rounded-md border border-slate-700 bg-slate-900/60 px-3 py-2 text-sm text-slate-200 placeholder:text-slate-600 focus:border-brand-500 focus:outline-none";
+  const inputCls = "rounded-md border border-white/10 bg-black/25 px-3 py-2 text-sm text-slate-200 placeholder:text-slate-600 focus:border-brand-500 focus:outline-none";
 
   return (
     <div className="space-y-4">
       {/* E*TRADE sync */}
-      <div className="flex flex-wrap items-center gap-3 rounded-lg border border-slate-800 bg-slate-900/30 px-4 py-3">
+      <div className="flex flex-wrap items-center gap-3 rounded-lg border border-white/5 bg-black/20 px-4 py-3">
         <button onClick={syncFromEtrade} disabled={syncing}
           className="rounded-md border border-emerald-600/60 bg-emerald-600/10 px-3 py-1.5 text-sm font-medium text-emerald-300 hover:bg-emerald-600/20 disabled:opacity-50">
           {syncing ? "Syncing…" : "↓ Sync from E*TRADE"}
@@ -122,7 +122,7 @@ export function HoldingsManager() {
       </div>
 
       {/* Add form */}
-      <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-4">
+      <div className="rounded-xl glass p-4">
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
           <input value={symbol} onChange={(e) => setSymbol(e.target.value)} onKeyDown={(e) => e.key === "Enter" && addHolding()} placeholder="Ticker (e.g. AAPL)" className={inputCls} />
           <input value={shares} onChange={(e) => setShares(e.target.value)} placeholder="Shares" inputMode="decimal" className={inputCls} />
@@ -135,7 +135,7 @@ export function HoldingsManager() {
       </div>
 
       {holdings.length === 0 && (
-        <div className="rounded-lg border border-slate-800 bg-slate-900/30 p-6 text-center text-sm text-slate-500">
+        <div className="rounded-lg border border-white/5 bg-black/20 p-6 text-center text-sm text-slate-500">
           No holdings yet. Add a ticker above or sync from E*TRADE.
         </div>
       )}
@@ -148,9 +148,9 @@ export function HoldingsManager() {
             </span>
             {anySource && <DataBadge source={anySource} />}
           </div>
-          <div className="overflow-x-auto rounded-xl border border-slate-800">
+          <div className="overflow-x-auto rounded-xl border border-white/10">
             <table className="w-full text-left text-sm">
-              <thead className="bg-slate-900/60 text-xs uppercase tracking-wide text-slate-500">
+              <thead className="bg-black/25 text-xs uppercase tracking-wide text-slate-500">
                 <tr>
                   <th className="px-3 py-2">Ticker</th>
                   <th className="px-3 py-2">Shares</th>
@@ -162,7 +162,7 @@ export function HoldingsManager() {
                   <th className="px-3 py-2"></th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-800">
+              <tbody className="divide-y divide-white/5">
                 {valued.map(({ h, price, value, gain, gainPct }) => {
                   const up = (gain ?? 0) >= 0;
                   const weight = value != null && total > 0 ? (value / total) * 100 : null;

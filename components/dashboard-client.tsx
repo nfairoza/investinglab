@@ -143,7 +143,7 @@ export function DashboardClient() {
 
       {/* Watchlist count */}
       {watchlist.length > 0 && (
-        <div className="rounded-lg border border-slate-800 bg-slate-900/30 p-3 text-sm text-slate-400">
+        <div className="rounded-lg border border-white/5 bg-black/20 p-3 text-sm text-slate-400">
           You have <span className="text-slate-200">{watchlist.length}</span> stocks on your{" "}
           <Link href="/watchlist" className="text-brand-400 underline">watchlist</Link>.
         </div>
@@ -160,7 +160,7 @@ function SummaryCard({
   label: string; value: string; sub?: React.ReactNode; valueClass?: string;
 }) {
   return (
-    <div className="card-hover rounded-xl border border-slate-800 bg-slate-900/40 p-4">
+    <div className="card-hover rounded-xl glass p-4">
       <div className="text-xs text-slate-500 uppercase tracking-wide">{label}</div>
       <div className={`mt-1 text-xl font-semibold ${valueClass}`}>{value}</div>
       {sub && <div className="mt-1">{sub}</div>}
@@ -176,7 +176,7 @@ function RankCard({
   positive: boolean;
 }) {
   return (
-    <div className="card-hover rounded-xl border border-slate-800 bg-slate-900/40 p-4">
+    <div className="card-hover rounded-xl glass p-4">
       <div className="text-sm font-semibold text-slate-100">{title}</div>
       {rows.length === 0 ? (
         <p className="mt-2 text-sm text-slate-500">No data.</p>

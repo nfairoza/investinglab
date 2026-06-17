@@ -5,6 +5,11 @@
 :root {
   color-scheme: dark;
 
+  /* Font stacks (fonts loaded browser-side via <link> in layout.tsx <head>).
+     Tailwind's font-sans / font-display read these vars (see tailwind.config). */
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-display: "Cormorant Garamond", Georgia, "Times New Roman", serif;
+
   /* Jasmine-inspired brand palette — accessible via Tailwind brand-* utilities */
   --brand-50:  #fefdf7;
   --brand-100: #fdf9e7;
@@ -17,6 +22,15 @@
   --brand-800: #664c0b;
   --brand-900: #3d2d06;
   --brand-950: #221904;
+
+  /* Surfaces */
+  --bg-base: #0a0e0c;       /* deep charcoal-green */
+  --ink: #ece9e0;           /* warm ivory text */
+  --ink-dim: #a8b0a4;       /* muted sage-grey */
+  --glass: rgba(255, 255, 255, 0.035);
+  --glass-strong: rgba(255, 255, 255, 0.06);
+  --hairline: rgba(255, 255, 255, 0.08);
+  --hairline-gold: rgba(212, 168, 42, 0.30);
 }
 
 html,
@@ -25,31 +39,106 @@ body {
 }
 
 body {
-  /* Deep botanical base with a faint jasmine-gold radial glow up top —
-     creates depth and a soft floral ambiance without being distracting. */
-  background-color: #0b0f0a;
-  background-image:
-    radial-gradient(900px 500px at 78% -8%, rgba(212, 168, 42, 0.06), transparent 60%),
-    radial-gradient(700px 600px at -5% 105%, rgba(74, 94, 66, 0.10), transparent 55%);
-  background-attachment: fixed; /* parallax: glow stays put as content scrolls */
-  color: #e8e4d8;
+  background-color: var(--bg-base);
+  color: var(--ink);
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
-/* Sidebar gradient */
-aside {
-  background: linear-gradient(160deg, #0f1410 0%, #0b0f0a 60%, #0e120b 100%) !important;
+/* Tabular figures for prices/numbers everywhere */
+body { font-feature-settings: "tnum" 1, "cv01" 1; }
+
+/* ── Layered parallax background (fixed behind everything) ──────────────────
+   Two fixed layers: a soft gold/sage aurora glow, and an optional jasmine
+   vine texture image (public/images/bg-vines.png) at low opacity. Both stay
+   put while content scrolls = parallax depth. */
+.bg-aurora,
+.bg-vines {
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  pointer-events: none;
+}
+.bg-aurora {
+  background:
+    radial-gradient(1100px 600px at 82% -10%, rgba(212, 168, 42, 0.10), transparent 60%),
+    radial-gradient(900px 700px at -8% 108%, rgba(74, 110, 80, 0.12), transparent 55%),
+    radial-gradient(700px 700px at 50% 50%, rgba(255, 255, 255, 0.015), transparent 70%);
+}
+.bg-vines {
+  z-index: -1;
+  background-image: url("/images/bg-vines.png");
+  background-size: cover;
+  background-position: center;
+  opacity: 0.05;
+  mix-blend-mode: screen;
+}
+
+/* ── Display headings ──────────────────────────────────────────────────── */
+.font-display { letter-spacing: -0.01em; }
+
+/* ── Glass card system ─────────────────────────────────────────────────── */
+.glass {
+  background: var(--glass);
+  backdrop-filter: blur(12px) saturate(120%);
+  -webkit-backdrop-filter: blur(12px) saturate(120%);
+  border: 1px solid var(--hairline);
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.04),
+    0 24px 50px -28px rgba(0, 0, 0, 0.75);
+}
+.glass-strong {
+  background: var(--glass-strong);
+  backdrop-filter: blur(16px) saturate(130%);
+  -webkit-backdrop-filter: blur(16px) saturate(130%);
+  border: 1px solid var(--hairline);
+}
+
+/* Card hover — gentle lift + jasmine-gold edge glow */
+.card-hover {
+  transition: transform 240ms cubic-bezier(0.16, 1, 0.3, 1),
+              border-color 240ms ease, box-shadow 240ms ease;
+}
+.card-hover:hover {
+  transform: translateY(-3px);
+  border-color: var(--hairline-gold);
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.05),
+    0 18px 40px -20px rgba(212, 168, 42, 0.22),
+    0 0 0 1px rgba(212, 168, 42, 0.10);
+}
+
+/* Primary gold button (gradient + sheen) */
+.btn-gold {
+  background: linear-gradient(135deg, #e8cc5a 0%, #d4a82a 55%, #b88a18 100%);
+  color: #1a1408;
+  font-weight: 600;
+  border: 1px solid rgba(212, 168, 42, 0.5);
+  box-shadow: 0 6px 18px -8px rgba(212, 168, 42, 0.5);
+}
+.btn-gold:hover { filter: brightness(1.06); box-shadow: 0 8px 22px -8px rgba(212, 168, 42, 0.6); }
+.btn-gold:active { filter: brightness(0.97); }
+
+/* Luxe input */
+.input-luxe {
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--hairline);
+  color: var(--ink);
+}
+.input-luxe::placeholder { color: rgba(168, 176, 164, 0.5); }
+.input-luxe:focus {
+  outline: none;
+  border-color: var(--hairline-gold);
+  box-shadow: 0 0 0 3px rgba(212, 168, 42, 0.12);
 }
 
 /* Thin botanical scrollbar */
-::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar { width: 7px; height: 7px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #2d3829; border-radius: 99px; }
+::-webkit-scrollbar-thumb { background: #2a352780; border-radius: 99px; }
 ::-webkit-scrollbar-thumb:hover { background: #4a5e42; }
 
-/* ── Global smooth transitions ──────────────────────────────────────────────
-   Interactive elements ease their color/background/border/transform changes.
-   Charts (svg) are excluded so Recharts animations stay crisp. */
+/* ── Global smooth transitions on interactive elements ─────────────────── */
 a, button, input, select, textarea,
 [class*="rounded"], [class*="border"] {
   transition-property: color, background-color, border-color, box-shadow, transform, opacity;
@@ -58,33 +147,31 @@ a, button, input, select, textarea,
 }
 
 /* ── Keyframes ──────────────────────────────────────────────────────────── */
-@keyframes fadeInUp {
-  from { opacity: 0; transform: translateY(10px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to   { opacity: 1; }
-}
-
-@keyframes scaleIn {
-  from { opacity: 0; transform: scale(0.96); }
-  to   { opacity: 1; transform: scale(1); }
-}
-
-@keyframes floatPetal {
-  0%, 100% { transform: translateY(0) rotate(0deg); }
-  50%      { transform: translateY(-3px) rotate(4deg); }
-}
+@keyframes fadeInUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes fadeIn   { from { opacity: 0; } to { opacity: 1; } }
+@keyframes scaleIn  { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: scale(1); } }
+@keyframes floatPetal { 0%,100% { transform: translateY(0) rotate(0deg); } 50% { transform: translateY(-3px) rotate(4deg); } }
+@keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+@keyframes heroZoom { from { transform: scale(1.08); } to { transform: scale(1); } }
 
 /* ── Animation utilities ───────────────────────────────────────────────── */
-.animate-fade-in-up { animation: fadeInUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.animate-fade-in-up { animation: fadeInUp 0.55s cubic-bezier(0.16, 1, 0.3, 1) both; }
 .animate-fade-in    { animation: fadeIn 0.4s ease-out both; }
 .animate-scale-in   { animation: scaleIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.animate-hero-zoom  { animation: heroZoom 1.6s cubic-bezier(0.16, 1, 0.3, 1) both; }
 
-/* Stagger helpers — apply to siblings for a cascading entrance */
-.stagger > *          { animation: fadeInUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) both; }
+/* Gold shimmer text (wordmark / hero number accents) */
+.text-shimmer {
+  background: linear-gradient(110deg, #f2e090 20%, #fff7da 40%, #d4a82a 60%, #f2e090 80%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: shimmer 6s linear infinite;
+}
+
+/* Stagger helpers */
+.stagger > * { animation: fadeInUp 0.55s cubic-bezier(0.16, 1, 0.3, 1) both; }
 .stagger > *:nth-child(1) { animation-delay: 0.04s; }
 .stagger > *:nth-child(2) { animation-delay: 0.10s; }
 .stagger > *:nth-child(3) { animation-delay: 0.16s; }
@@ -92,23 +179,11 @@ a, button, input, select, textarea,
 .stagger > *:nth-child(5) { animation-delay: 0.28s; }
 .stagger > *:nth-child(6) { animation-delay: 0.34s; }
 
-/* Card hover lift — subtle elevation + jasmine-gold border glow */
-.card-hover {
-  transition: transform 220ms cubic-bezier(0.16, 1, 0.3, 1),
-              border-color 220ms ease, box-shadow 220ms ease;
-}
-.card-hover:hover {
-  transform: translateY(-2px);
-  border-color: rgba(212, 168, 42, 0.35);
-  box-shadow: 0 8px 28px -12px rgba(212, 168, 42, 0.18);
-}
-
-/* Respect users who prefer reduced motion */
+/* Respect reduced motion */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.001ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.001ms !important;
   }
-  body { background-attachment: scroll; }
 }

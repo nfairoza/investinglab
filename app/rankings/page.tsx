@@ -4,7 +4,7 @@ export default function Page() {
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="text-2xl font-semibold text-slate-100">Rankings</h1>
+        <h1 className="font-display text-3xl font-semibold text-[#ece9e0]">Rankings</h1>
         <p className="mt-1 max-w-2xl text-sm text-slate-400">
           Stocks scored and ranked by time horizon — short-term momentum, monthly swing, 1-year
           value+growth, and 5-year compounders — plus what to avoid this week and warnings on what

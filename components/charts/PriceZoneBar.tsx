@@ -18,7 +18,7 @@ export function PriceZoneBar({
   sellInvalidation,
 }: PriceZoneBarProps) {
   return (
-    <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-4">
+    <div className="rounded-xl glass p-4">
       <div className="text-sm font-semibold text-slate-100">Price zones</div>
       <div className="text-xs text-slate-500 mt-0.5">
         Where does today's price sit relative to key levels?
@@ -43,7 +43,7 @@ export function PriceZoneBar({
 
 function ZoneRow({ label, value, color, dot }: { label: string; value: string; color: string; dot: string }) {
   return (
-    <div className="flex items-center gap-2 py-1 border-b border-slate-800/60">
+    <div className="flex items-center gap-2 py-1 border-b border-white/5">
       <span className={`h-2 w-2 shrink-0 rounded-full ${dot}`} />
       <span className="shrink-0 text-xs text-slate-500 w-32">{label}</span>
       <span className={`text-sm font-medium ${color}`}>{value}</span>

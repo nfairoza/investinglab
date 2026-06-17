@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { marketData } from "@/lib/providers";
 import { resolveApiKey, resolveModel } from "@/lib/ai/anthropic";
+import { callGemini, geminiKey, geminiModel } from "@/lib/ai/gemini";
+
+function isNetErr(e: unknown): boolean {
+  const m = e instanceof Error ? e.message : String(e);
+  return /timeout|ETIMEDOUT|ENOTFOUND|ECONNREFUSED|fetch failed|UNABLE_TO_GET|network/i.test(m);
+}
 
 export const dynamic = "force-dynamic";
 
@@ -50,9 +56,9 @@ Return JSON with this exact shape:
 
 export async function POST(req: NextRequest) {
   const key = resolveApiKey();
-  if (!key) {
+  if (!key && !geminiKey()) {
     return NextResponse.json(
-      { error: "no_key", message: "Add a Claude API key in Connectors to use AI predictions." },
+      { error: "no_key", message: "Add a Claude or Gemini API key in Connectors to use AI predictions." },
       { status: 400 },
     );
   }
@@ -70,68 +76,72 @@ export async function POST(req: NextRequest) {
     marketData.getDcf(symbol),
   ]);
 
-  if (!quote.data) {
-    return NextResponse.json(
-      { error: "no_data", message: `No market data for ${symbol} — check the ticker or your FMP key.` },
-      { status: 400 },
-    );
+  // No hard block if the FMP feed is down — Claude searches the web for the
+  // numbers instead. We just flag the source so the UI can show it.
+  const feedLive = quote.source === "live";
+  const dataBlock = quote.data
+    ? [
+        `QUOTE: ${JSON.stringify(quote.data)}`,
+        `PROFILE: ${JSON.stringify(profile.data ?? "unavailable")}`,
+        `FINANCIALS (recent quarters): ${JSON.stringify(fin.data?.quarters?.slice(-4) ?? "unavailable")}`,
+        `ANALYST: ${JSON.stringify(analyst.data ?? "unavailable")}`,
+        `DCF: ${JSON.stringify(dcf.data ?? "unavailable")}`,
+      ].join("\n")
+    : `Live market-data feed unavailable (${quote.note ?? "no data"}). Search the web for ${symbol}'s current price, financials, valuation, and news.`;
+
+  const prompt = buildPrompt(symbol, dataBlock);
+
+  // Get the raw model text — try Claude (with web_search), fall back to Gemini
+  // (with google_search grounding) on a network failure or if no Claude key.
+  async function getText(): Promise<{ text: string; ai: "claude" | "gemini" }> {
+    if (key) {
+      try {
+        const res = await fetch("https://api.anthropic.com/v1/messages", {
+          method: "POST",
+          headers: { "content-type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01" },
+          body: JSON.stringify({
+            model: resolveModel(),
+            max_tokens: 2048,
+            system: SYSTEM,
+            tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 4 }],
+            messages: [{ role: "user", content: prompt }],
+          }),
+          cache: "no-store",
+        });
+        if (res.ok) {
+          const json = (await res.json()) as { content?: Array<{ type: string; text?: string }> };
+          const text = (json.content ?? []).filter((b) => b.type === "text" && b.text).map((b) => b.text as string).join("\n");
+          return { text, ai: "claude" };
+        }
+        if (!geminiKey()) throw new Error(`AI error ${res.status}`);
+      } catch (e) {
+        if (!geminiKey() || !isNetErr(e)) throw e;
+      }
+    }
+    // Gemini with web grounding
+    const text = await callGemini({ system: SYSTEM, user: prompt, webSearch: true });
+    return { text, ai: "gemini" };
   }
 
-  const dataBlock = [
-    `QUOTE: ${JSON.stringify(quote.data)}`,
-    `PROFILE: ${JSON.stringify(profile.data ?? "unavailable")}`,
-    `FINANCIALS (recent quarters): ${JSON.stringify(fin.data?.quarters?.slice(-4) ?? "unavailable")}`,
-    `ANALYST: ${JSON.stringify(analyst.data ?? "unavailable")}`,
-    `DCF: ${JSON.stringify(dcf.data ?? "unavailable")}`,
-  ].join("\n");
-
   try {
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        "x-api-key": key,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({
-        model: resolveModel(),
-        max_tokens: 2048,
-        system: SYSTEM,
-        // Give Claude the web_search tool so it can pull current news.
-        tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 4 }],
-        messages: [{ role: "user", content: buildPrompt(symbol, dataBlock) }],
-      }),
-      cache: "no-store",
-    });
-
-    if (!res.ok) {
-      const detail = await res.text().catch(() => "");
-      return NextResponse.json(
-        { error: "anthropic_error", message: `AI error ${res.status}: ${detail.slice(0, 200)}` },
-        { status: 502 },
-      );
-    }
-
-    const json = (await res.json()) as { content?: Array<{ type: string; text?: string }> };
-    // Concatenate all text blocks (web_search interleaves tool blocks).
-    const text = (json.content ?? [])
-      .filter((b) => b.type === "text" && typeof b.text === "string")
-      .map((b) => b.text as string)
-      .join("\n");
-
+    const { text, ai } = await getText();
     const cleaned = text.replace(/```json|```/g, "").trim();
-    // The model may include prose around the JSON; extract the first {...} block.
     const start = cleaned.indexOf("{");
     const end = cleaned.lastIndexOf("}");
     const jsonStr = start !== -1 && end !== -1 ? cleaned.slice(start, end + 1) : cleaned;
     const prediction = JSON.parse(jsonStr);
 
+    const aiName = ai === "claude" ? "Claude" : "Gemini";
+    const usedModel = ai === "claude" ? resolveModel() : geminiModel();
     return NextResponse.json({
       symbol,
       prediction,
-      dataSource: quote.source, // live | demo
+      dataSource: feedLive ? "live" : "demo",
+      sourceLabel: feedLive
+        ? `FMP live data + ${aiName} web search`
+        : `${aiName} web search (FMP feed unavailable)`,
       asOf: quote.asOf,
-      model: resolveModel(),
+      model: usedModel,
       generatedAt: new Date().toISOString(),
     });
   } catch (e) {

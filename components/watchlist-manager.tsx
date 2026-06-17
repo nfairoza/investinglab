@@ -65,11 +65,11 @@ export function WatchlistManager() {
   }
 
   const anySource = quotes ? Object.values(quotes)[0]?.source : undefined;
-  const inputCls = "rounded-md border border-slate-700 bg-slate-900/60 px-3 py-2 text-sm text-slate-200 placeholder:text-slate-600 focus:border-brand-500 focus:outline-none";
+  const inputCls = "rounded-md border border-white/10 bg-black/25 px-3 py-2 text-sm text-slate-200 placeholder:text-slate-600 focus:border-brand-500 focus:outline-none";
 
   return (
     <div className="space-y-4">
-      <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-4">
+      <div className="rounded-xl glass p-4">
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           <input value={symbol} onChange={(e) => setSymbol(e.target.value)} onKeyDown={(e) => e.key === "Enter" && addItem()} placeholder="Ticker (e.g. NVDA)" className={inputCls} />
           <input value={idealBuy} onChange={(e) => setIdealBuy(e.target.value)} placeholder="Ideal buy $ (optional)" inputMode="decimal" className={inputCls} />
@@ -81,7 +81,7 @@ export function WatchlistManager() {
       </div>
 
       {items.length === 0 && (
-        <div className="rounded-lg border border-slate-800 bg-slate-900/30 p-6 text-center text-sm text-slate-500">
+        <div className="rounded-lg border border-white/5 bg-black/20 p-6 text-center text-sm text-slate-500">
           Nothing on your watchlist yet. Add a ticker you&apos;re considering above.
         </div>
       )}
@@ -89,9 +89,9 @@ export function WatchlistManager() {
       {items.length > 0 && (
         <>
           <div className="flex items-center gap-2">{anySource && <DataBadge source={anySource} />}</div>
-          <div className="overflow-x-auto rounded-xl border border-slate-800">
+          <div className="overflow-x-auto rounded-xl border border-white/10">
             <table className="w-full text-left text-sm">
-              <thead className="bg-slate-900/60 text-xs uppercase tracking-wide text-slate-500">
+              <thead className="bg-black/25 text-xs uppercase tracking-wide text-slate-500">
                 <tr>
                   <th className="px-3 py-2">Ticker</th>
                   <th className="px-3 py-2">Price</th>
@@ -101,7 +101,7 @@ export function WatchlistManager() {
                   <th className="px-3 py-2"></th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-800">
+              <tbody className="divide-y divide-white/5">
                 {items.map((w) => {
                   const price = quotes?.[w.symbol]?.data?.price ?? null;
                   const atOrBelow = price != null && w.idealBuy != null ? price <= w.idealBuy : null;

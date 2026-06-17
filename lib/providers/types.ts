@@ -83,6 +83,17 @@ export interface Technicals {
   sma200Series?: SmaPoint[];
 }
 
+// Daily close price point for the price-history (Robinhood-style) chart.
+export interface PricePoint {
+  date: string; // YYYY-MM-DD
+  close: number;
+}
+
+export interface PriceHistory {
+  symbol: string;
+  points: PricePoint[]; // oldest -> newest
+}
+
 export interface CompanyProfile {
   symbol: string;
   name: string;
@@ -146,6 +157,7 @@ export interface MarketDataProvider {
   getAnalystData(symbol: string): Promise<DataResult<AnalystData>>;
   getInsiderTrades(symbol: string): Promise<DataResult<InsiderTrade[]>>;
   getDcf(symbol: string): Promise<DataResult<DcfValue>>;
+  getPriceHistory(symbol: string): Promise<DataResult<PriceHistory>>;
 }
 
 // ----- Congressional trades (STOCK Act disclosures) ------------------------

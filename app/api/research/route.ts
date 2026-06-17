@@ -3,7 +3,8 @@ import { marketData } from "@/lib/providers";
 import type { DataResult } from "@/lib/providers/types";
 import type { ResearchReport } from "@/lib/research/types";
 import { SECTION_PLAN } from "@/lib/research/types";
-import { aiStatus, callClaude, resolveModel } from "@/lib/ai/anthropic";
+import { aiStatus, callAI, callClaude, resolveApiKey, resolveModel } from "@/lib/ai/anthropic";
+import { callGemini, geminiKey } from "@/lib/ai/gemini";
 
 export const dynamic = "force-dynamic";
 
@@ -61,6 +62,84 @@ function unavailable(symbol: string, note: string): DataResult<ResearchReport> {
   return { data: null, source: "unavailable", asOf: null, provider: "anthropic", note };
 }
 
+// Coerce whatever Claude returned into a full ResearchReport.
+function toReport(symbol: string, parsed: Partial<ResearchReport>, dataAsOf: string): ResearchReport {
+  return {
+    symbol,
+    rating: parsed.rating ?? "Hold",
+    confidence: typeof parsed.confidence === "number" ? parsed.confidence : 50,
+    oneLineThesis: parsed.oneLineThesis ?? "",
+    biggestRisk: parsed.biggestRisk ?? "",
+    sections: parsed.sections ?? [],
+    scenarios: parsed.scenarios ?? [],
+    actionTable:
+      parsed.actionTable ??
+      ({
+        currentPrice: "—", costBasis: "—", gainLoss: "—", fairValueRange: "—", addBelow: "—",
+        trimAbove: "—", sellInvalidation: "—", upsidePotential: "—", downsideRisk: "—",
+        riskReward: "—", finalAction: parsed.rating ?? "Hold", confidence: "—", mainReason: "—",
+        biggestRisk: parsed.biggestRisk ?? "—", nextCatalyst: "—", dataAsOf,
+      } as ResearchReport["actionTable"]),
+    dataAsOf,
+    generatedAt: new Date().toISOString(),
+  };
+}
+
+// Fallback: when FMP data is unavailable (rate-limited / no key), have Claude
+// research the ticker via web search instead. Returns the parsed JSON memo.
+async function generateFromWeb(symbol: string): Promise<Partial<ResearchReport>> {
+  const key = resolveApiKey();
+  const ids = SECTION_PLAN.map((s) => `${s.id}: ${s.title}`).join("; ");
+  const user = `Write a research memo for ticker ${symbol}.
+Live market-data feed is unavailable, so SEARCH THE WEB for current price, financials, valuation, and recent news for ${symbol}. State the data is from web search and may be delayed.
+
+Produce JSON with this exact shape:
+{
+  "rating": one of ["Buy","Buy gradually","Hold","Wait","Avoid","Sell"],
+  "confidence": integer 0-100,
+  "oneLineThesis": string,
+  "biggestRisk": string,
+  "sections": [ {"id":"A","title":"Executive Summary","pro":string,"beginner":string}, ... one object for EACH of: ${ids} ],
+  "scenarios": [ {"label":"Bull","probabilityPct":number|null,"impliedPriceLow":number|null,"impliedPriceHigh":number|null,"expectedReturnPct":number|null,"assumptions":string}, ... also Base, Bear, "Severe Downside" ],
+  "actionTable": { "currentPrice":string,"costBasis":"—","gainLoss":"—","fairValueRange":string,"addBelow":string,"trimAbove":string,"sellInvalidation":string,"upsidePotential":string,"downsideRisk":string,"riskReward":string,"finalAction":string,"confidence":string,"mainReason":string,"biggestRisk":string,"nextCatalyst":string,"dataAsOf":string }
+}
+Return ONLY the JSON.`;
+
+  // Try Claude web_search; fall back to Gemini grounding if Claude is blocked.
+  let text = "";
+  if (key) {
+    try {
+      const res = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: { "content-type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01" },
+        body: JSON.stringify({
+          model: resolveModel(),
+          max_tokens: 4096,
+          system: SYSTEM,
+          tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 4 }],
+          messages: [{ role: "user", content: user }],
+        }),
+        cache: "no-store",
+      });
+      if (res.ok) {
+        const json = (await res.json()) as { content?: Array<{ type: string; text?: string }> };
+        text = (json.content ?? []).filter((b) => b.type === "text" && b.text).map((b) => b.text as string).join("\n");
+      } else if (!geminiKey()) {
+        throw new Error(`Anthropic HTTP ${res.status}`);
+      }
+    } catch (e) {
+      if (!geminiKey()) throw e;
+    }
+  }
+  if (!text) {
+    if (!geminiKey()) throw new Error("No AI provider reachable.");
+    text = await callGemini({ system: SYSTEM, user, webSearch: true });
+  }
+  const s = text.indexOf("{");
+  const e = text.lastIndexOf("}");
+  return JSON.parse(text.slice(s, e + 1)) as Partial<ResearchReport>;
+}
+
 export async function GET(req: NextRequest) {
   const symbol = req.nextUrl.searchParams.get("symbol")?.toUpperCase();
   if (!symbol) return NextResponse.json({ error: "symbol required" }, { status: 400 });
@@ -80,62 +159,60 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // Pull the data the memo will reason over.
-  const [quote, fin] = await Promise.all([
+  // Pull the data the memo will reason over. With Starter we can give Claude the
+  // full picture: quote, financials, technicals, analyst targets, and DCF.
+  const [quote, fin, tech, analyst, dcf] = await Promise.all([
     marketData.getQuote(symbol),
     marketData.getFinancials(symbol),
+    marketData.getTechnicals(symbol),
+    marketData.getAnalystData(symbol),
+    marketData.getDcf(symbol),
   ]);
-  if (!quote.data) {
-    return NextResponse.json(unavailable(symbol, `Market data unavailable for ${symbol} — cannot generate.`));
+
+  // ── Path A: live/demo FMP data available → build memo on it ──────────────
+  if (quote.data) {
+    try {
+      const extra = `TECHNICALS: ${JSON.stringify(tech.data ?? "unavailable")}
+ANALYST: ${JSON.stringify(analyst.data ?? "unavailable")}
+DCF: ${JSON.stringify(dcf.data ?? "unavailable")}`;
+      const { text: raw } = await callAI({
+        system: SYSTEM,
+        user: buildUserPrompt(symbol, JSON.stringify(quote.data), JSON.stringify(fin.data ?? null)) + "\n\n" + extra,
+        maxTokens: 4096,
+      });
+      const cleaned = raw.replace(/```json|```/g, "").trim();
+      const parsed = JSON.parse(cleaned) as Partial<ResearchReport>;
+      const report = toReport(symbol, parsed, quote.asOf ?? new Date().toISOString());
+
+      const result: DataResult<ResearchReport> = {
+        data: report,
+        source: quote.source === "live" ? "live" : "demo",
+        asOf: report.generatedAt,
+        provider: `anthropic:${resolveModel()}`,
+        note:
+          quote.source === "live"
+            ? undefined
+            : "Built on demo market data — add a market-data API key for live figures.",
+      };
+      return NextResponse.json(result);
+    } catch (e) {
+      return NextResponse.json(unavailable(symbol, e instanceof Error ? e.message : "generation failed"));
+    }
   }
 
+  // ── Path B: FMP unavailable (rate-limited / no key) → web-search fallback ──
   try {
-    const raw = await callClaude({
-      system: SYSTEM,
-      user: buildUserPrompt(symbol, JSON.stringify(quote.data), JSON.stringify(fin.data ?? null)),
-      maxTokens: 4096,
-    });
-    const cleaned = raw.replace(/```json|```/g, "").trim();
-    const parsed = JSON.parse(cleaned) as Partial<ResearchReport>;
-
-    const report: ResearchReport = {
-      symbol,
-      rating: parsed.rating ?? "Hold",
-      confidence: typeof parsed.confidence === "number" ? parsed.confidence : 50,
-      oneLineThesis: parsed.oneLineThesis ?? "",
-      biggestRisk: parsed.biggestRisk ?? "",
-      sections: parsed.sections ?? [],
-      scenarios: parsed.scenarios ?? [],
-      actionTable:
-        parsed.actionTable ??
-        ({
-          currentPrice: "—", costBasis: "—", gainLoss: "—", fairValueRange: "—", addBelow: "—",
-          trimAbove: "—", sellInvalidation: "—", upsidePotential: "—", downsideRisk: "—",
-          riskReward: "—", finalAction: parsed.rating ?? "Hold", confidence: "—", mainReason: "—",
-          biggestRisk: parsed.biggestRisk ?? "—", nextCatalyst: "—", dataAsOf: quote.asOf ?? "—",
-        } as ResearchReport["actionTable"]),
-      dataAsOf: quote.asOf ?? new Date().toISOString(),
-      generatedAt: new Date().toISOString(),
-    };
-
-    // TODO (Phase 2.5/5): insert into research_reports (user_id, symbol, report,
-    // rating, confidence, data_as_of) so GET can serve it later.
-
+    const parsed = await generateFromWeb(symbol);
+    const report = toReport(symbol, parsed, new Date().toISOString());
     const result: DataResult<ResearchReport> = {
       data: report,
-      // memo is only as live as the data it was built on
-      source: quote.source === "live" ? "live" : "demo",
+      source: "demo", // not from the live market-data feed
       asOf: report.generatedAt,
-      provider: `anthropic:${resolveModel()}`,
-      note:
-        quote.source === "live"
-          ? undefined
-          : "Built on demo market data — add a market-data API key for live figures.",
+      provider: `anthropic-websearch:${resolveModel()}`,
+      note: `Market-data feed unavailable (${quote.note ?? "no data"}). This memo was built from Claude's web search — figures may be delayed; verify before acting.`,
     };
     return NextResponse.json(result);
   } catch (e) {
-    return NextResponse.json(
-      unavailable(symbol, e instanceof Error ? e.message : "generation failed"),
-    );
+    return NextResponse.json(unavailable(symbol, e instanceof Error ? e.message : "generation failed"));
   }
 }

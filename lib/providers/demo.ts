@@ -127,4 +127,22 @@ export const demoProvider: MarketDataProvider = {
   async getDcf(symbol) {
     return unavailable(NAME, "DCF valuation requires a live FMP key.");
   },
+
+  async getPriceHistory(symbol) {
+    const h = seed(symbol);
+    const end = 20 + rnd(h, 1) * 480; // matches demo quote price
+    // Build ~180 daily points walking backward with deterministic noise.
+    const points = [];
+    let price = end;
+    for (let i = 0; i < 180; i++) {
+      const d = new Date(2026, 0, 1);
+      d.setDate(d.getDate() - i);
+      points.push({ date: d.toISOString().slice(0, 10), close: +price.toFixed(2) });
+      // step backward: gentle drift + noise
+      const drift = (rnd(h, 100 + i) - 0.48) * (end * 0.02);
+      price = Math.max(1, price - drift);
+    }
+    points.reverse();
+    return demo(NAME, { symbol, points });
+  },
 };

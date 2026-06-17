@@ -18,7 +18,7 @@ function fmt(n: number) {
 export function GainLossBar({ holdings, title = "Gain / loss by holding" }: { holdings: HoldingGain[]; title?: string }) {
   if (!holdings.length) {
     return (
-      <div className="card-hover rounded-xl border border-slate-800 bg-slate-900/40 p-4">
+      <div className="card-hover rounded-xl glass p-4">
         <div className="text-sm font-semibold text-slate-100">{title}</div>
         <div className="mt-4 flex h-32 items-center justify-center text-sm text-slate-500">
           Add holdings to see gains and losses.
@@ -30,7 +30,7 @@ export function GainLossBar({ holdings, title = "Gain / loss by holding" }: { ho
   const sorted = [...holdings].sort((a, b) => b.gain - a.gain);
 
   return (
-    <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-4">
+    <div className="rounded-xl glass p-4">
       <div className="text-sm font-semibold text-slate-100">{title}</div>
       <div className="text-xs text-slate-500 mt-0.5">What's winning and losing? Green = up, red = down, labeled.</div>
       <div className="mt-4">
@@ -42,7 +42,7 @@ export function GainLossBar({ holdings, title = "Gain / loss by holding" }: { ho
             <YAxis type="category" dataKey="symbol" tick={{ fill: "#cbd5e1", fontSize: 12 }} tickLine={false} width={44} />
             <ReferenceLine x={0} stroke="#475569" />
             <Tooltip
-              contentStyle={{ background: "#0f172a", border: "1px solid #1e293b", fontSize: 12 }}
+              contentStyle={{ background: "rgba(12,16,13,0.95)", border: "1px solid rgba(212,168,42,0.25)", borderRadius: 10, fontSize: 12 }}
               formatter={(v: number, _: string, props: any) => {
                 const { gainPct } = props.payload as HoldingGain;
                 const sign = v >= 0 ? "▲ up" : "▼ down";

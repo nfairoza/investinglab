@@ -47,7 +47,7 @@ export function ScenarioRangeChart({
   }
 
   return (
-    <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-4">
+    <div className="rounded-xl glass p-4">
       <div className="text-sm font-semibold text-slate-100">Scenario price ranges</div>
       <div className="text-xs text-slate-500 mt-0.5">
         What could happen and how likely? Bull = best case, Severe Downside = worst case.

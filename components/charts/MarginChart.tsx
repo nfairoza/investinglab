@@ -31,7 +31,7 @@ export function MarginChart({ symbol, financials }: { symbol: string; financials
     }));
 
   return (
-    <div className="card-hover rounded-xl border border-slate-800 bg-slate-900/40 p-4">
+    <div className="card-hover rounded-xl glass p-4">
       <div className="flex items-center justify-between">
         <div>
           <div className="text-sm font-semibold text-slate-100">{symbol} — Margins trend</div>
@@ -43,7 +43,7 @@ export function MarginChart({ symbol, financials }: { symbol: string; financials
       {isLoading && !data && <div className="mt-4 h-48 animate-pulse rounded bg-slate-800" />}
 
       {!isLoading && !rows.length && (
-        <div className="mt-4 flex h-48 items-center justify-center rounded-lg border border-slate-700 text-sm text-slate-500">
+        <div className="mt-4 flex h-48 items-center justify-center rounded-lg border border-white/10 text-sm text-slate-500">
           <div className="text-center">
             <DataBadge source="unavailable" />
             <p className="mt-2">Margin data unavailable.</p>
@@ -60,7 +60,7 @@ export function MarginChart({ symbol, financials }: { symbol: string; financials
               <YAxis tick={{ fill: "#64748b", fontSize: 10 }} tickLine={false}
                 tickFormatter={(v) => `${v}%`} width={44} />
               <Tooltip
-                contentStyle={{ background: "#0f172a", border: "1px solid #1e293b", fontSize: 12 }}
+                contentStyle={{ background: "rgba(12,16,13,0.95)", border: "1px solid rgba(212,168,42,0.25)", borderRadius: 10, fontSize: 12 }}
                 labelStyle={{ color: "#94a3b8" }}
                 formatter={(v: number) => [`${v}%`]}
               />

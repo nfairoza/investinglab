@@ -71,7 +71,7 @@ function ConnectorCard({ connector, stat, onChanged }: { connector: Connector; s
   const hasInput = connector.fields.some((f) => (vals[f.id] ?? "").trim());
 
   return (
-    <div className="card-hover rounded-xl border border-slate-800 bg-slate-900/40 p-4">
+    <div className="card-hover rounded-xl glass p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="font-medium text-slate-100">{connector.label}</span>
         {/* Status line — same style as the Claude card */}
@@ -98,7 +98,7 @@ function ConnectorCard({ connector, stat, onChanged }: { connector: Connector; s
             value={vals[f.id] ?? ""}
             onChange={(e) => setVals((v) => ({ ...v, [f.id]: e.target.value }))}
             placeholder={f.placeholder ?? f.label}
-            className="rounded-md border border-slate-700 bg-slate-900/60 px-3 py-2 text-sm text-slate-200 placeholder:text-slate-600 focus:border-brand-500 focus:outline-none"
+            className="rounded-md border border-white/10 bg-black/25 px-3 py-2 text-sm text-slate-200 placeholder:text-slate-600 focus:border-brand-500 focus:outline-none"
           />
         ))}
       </div>
@@ -108,15 +108,15 @@ function ConnectorCard({ connector, stat, onChanged }: { connector: Connector; s
           Save
         </button>
         {connector.testUrl && (
-          <button onClick={test} disabled={busy} className="rounded-md border border-slate-700 px-3 py-1.5 text-sm text-slate-200 hover:bg-slate-800 disabled:opacity-50">
+          <button onClick={test} disabled={busy} className="rounded-md border border-white/10 px-3 py-1.5 text-sm text-slate-200 hover:bg-slate-800 disabled:opacity-50">
             Test
           </button>
         )}
-        <button onClick={onChanged} disabled={busy} className="rounded-md border border-slate-700 px-3 py-1.5 text-sm text-slate-300 hover:bg-slate-800 disabled:opacity-50">
+        <button onClick={onChanged} disabled={busy} className="rounded-md border border-white/10 px-3 py-1.5 text-sm text-slate-300 hover:bg-slate-800 disabled:opacity-50">
           Refresh
         </button>
         {stat?.source === "runtime" && (
-          <button onClick={clear} disabled={busy} className="rounded-md border border-slate-700 px-3 py-1.5 text-sm text-slate-400 hover:bg-slate-800 disabled:opacity-50">
+          <button onClick={clear} disabled={busy} className="rounded-md border border-white/10 px-3 py-1.5 text-sm text-slate-400 hover:bg-slate-800 disabled:opacity-50">
             Clear
           </button>
         )}

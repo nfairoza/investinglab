@@ -64,7 +64,7 @@ export function ResearchPanel({ symbol }: { symbol: string }) {
   const unavailable = !report && !isLoading;
 
   return (
-    <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-5">
+    <div className="rounded-xl glass p-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <h2 className="text-lg font-semibold text-slate-100">{symbol} — Research memo</h2>
@@ -124,7 +124,7 @@ export function ResearchPanel({ symbol }: { symbol: string }) {
           </div>
 
           {/* Sections A–P; toggle swaps pro/beginner. */}
-          <div className="space-y-3 border-t border-slate-800 pt-3">
+          <div className="space-y-3 border-t border-white/10 pt-3">
             {report.sections.map((s) => (
               <div key={s.id}>
                 <div className="text-sm font-medium text-slate-200">
@@ -137,7 +137,7 @@ export function ResearchPanel({ symbol }: { symbol: string }) {
 
           {/* Scenario range chart — visual. */}
           {report.scenarios.length > 0 && (
-            <div className="border-t border-slate-800 pt-3">
+            <div className="border-t border-white/10 pt-3">
               <ScenarioRangeChart
                 scenarios={report.scenarios}
                 currentPrice={
@@ -150,17 +150,17 @@ export function ResearchPanel({ symbol }: { symbol: string }) {
           )}
 
           {/* Financial charts. */}
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 border-t border-slate-800 pt-3">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 border-t border-white/10 pt-3">
             <RevenueEarningsChart symbol={symbol} />
             <MarginChart symbol={symbol} />
           </div>
 
           {/* Required Action Table. */}
-          <div className="border-t border-slate-800 pt-3">
+          <div className="border-t border-white/10 pt-3">
             <div className="mb-2 text-sm font-medium text-slate-200">Action table</div>
             <div className="grid grid-cols-1 gap-x-6 gap-y-1 sm:grid-cols-2">
               {ACTION_ROWS.map((row) => (
-                <div key={row.key} className="flex justify-between gap-3 border-b border-slate-800/60 py-1 text-sm">
+                <div key={row.key} className="flex justify-between gap-3 border-b border-white/5 py-1 text-sm">
                   <span className="text-slate-500">{row.label}</span>
                   <span className="text-right text-slate-300">{report.actionTable[row.key] || "—"}</span>
                 </div>

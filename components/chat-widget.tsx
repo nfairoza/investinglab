@@ -135,7 +135,11 @@ export function ChatWidget() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          messages: [...messages, userMsg].map((m) => ({ role: m.role, content: m.content })),
+          // Only send messages with real content (drop empty assistant placeholders)
+          // so the Anthropic API never sees a blank turn (which 400s).
+          messages: [...messages, userMsg]
+            .filter((m) => m.content.trim())
+            .map((m) => ({ role: m.role, content: m.content })),
           context: {
             holdings: holdingContext,
             watchlist: watchlist.map((w) => w.symbol),
@@ -225,11 +229,11 @@ export function ChatWidget() {
 
       {/* Chat panel — scales up from the button */}
       {open && (
-        <div className="animate-scale-in fixed bottom-20 right-4 z-50 flex w-[360px] flex-col rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl"
-          style={{ height: 520, transformOrigin: "bottom right" }}>
+        <div className="glass animate-scale-in fixed bottom-20 right-4 z-50 flex w-[360px] flex-col rounded-2xl shadow-2xl"
+          style={{ height: 520, transformOrigin: "bottom right", background: "rgba(12,16,13,0.92)" }}>
 
           {/* Header */}
-          <div className="flex items-center justify-between rounded-t-2xl border-b border-slate-800 bg-slate-900/80 px-4 py-3">
+          <div className="flex items-center justify-between rounded-t-2xl border-b border-white/10 bg-white/[0.03] px-4 py-3">
             <div>
               <div className="text-sm font-semibold text-slate-100">Noor Investing Lab</div>
               <div className="text-[11px] text-slate-500">
@@ -258,7 +262,7 @@ export function ChatWidget() {
                 <p className="text-center text-xs text-slate-500 pt-2">Ask anything about your portfolio</p>
                 {SUGGESTIONS.map((s) => (
                   <button key={s} onClick={() => send(s)}
-                    className="w-full rounded-lg border border-slate-700 bg-slate-800/50 px-3 py-2 text-left text-xs text-slate-300 hover:bg-slate-800 hover:text-slate-100 transition-colors">
+                    className="w-full rounded-lg border border-white/10 bg-slate-800/50 px-3 py-2 text-left text-xs text-slate-300 hover:bg-slate-800 hover:text-slate-100 transition-colors">
                     {s}
                   </button>
                 ))}
@@ -281,7 +285,7 @@ export function ChatWidget() {
           </div>
 
           {/* Input */}
-          <div className="border-t border-slate-800 px-3 py-2">
+          <div className="border-t border-white/10 px-3 py-2">
             <div className="flex items-end gap-2">
               <textarea
                 ref={inputRef}
@@ -291,7 +295,7 @@ export function ChatWidget() {
                 placeholder="Ask about your portfolio… (Enter to send)"
                 rows={1}
                 disabled={streaming}
-                className="flex-1 resize-none rounded-xl border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-200 placeholder:text-slate-600 focus:border-brand-500 focus:outline-none disabled:opacity-50"
+                className="flex-1 resize-none rounded-xl border border-white/10 bg-slate-800 px-3 py-2 text-sm text-slate-200 placeholder:text-slate-600 focus:border-brand-500 focus:outline-none disabled:opacity-50"
                 style={{ maxHeight: 96, overflowY: "auto" }}
                 onInput={(e) => {
                   const el = e.currentTarget;

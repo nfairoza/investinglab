@@ -15,7 +15,7 @@ const COLORS = [
 export function AllocationDonut({ slices, title = "Portfolio allocation" }: { slices: Slice[]; title?: string }) {
   if (!slices.length) {
     return (
-      <div className="card-hover rounded-xl border border-slate-800 bg-slate-900/40 p-4">
+      <div className="card-hover rounded-xl glass p-4">
         <div className="text-sm font-semibold text-slate-100">{title}</div>
         <div className="mt-4 flex h-40 items-center justify-center text-sm text-slate-500">
           Add holdings to see your allocation.
@@ -27,7 +27,7 @@ export function AllocationDonut({ slices, title = "Portfolio allocation" }: { sl
   const data = slices.map((s) => ({ name: s.symbol, value: +s.value.toFixed(1) }));
 
   return (
-    <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-4">
+    <div className="rounded-xl glass p-4">
       <div className="text-sm font-semibold text-slate-100">{title}</div>
       <div className="text-xs text-slate-500 mt-0.5">Am I too concentrated in one stock?</div>
       <ResponsiveContainer width="100%" height={220}>
@@ -46,7 +46,7 @@ export function AllocationDonut({ slices, title = "Portfolio allocation" }: { sl
             ))}
           </Pie>
           <Tooltip
-            contentStyle={{ background: "#0f172a", border: "1px solid #1e293b", fontSize: 12 }}
+            contentStyle={{ background: "rgba(12,16,13,0.95)", border: "1px solid rgba(212,168,42,0.25)", borderRadius: 10, fontSize: 12 }}
             formatter={(v: number, name: string) => [`${v}%`, name]}
           />
           <Legend

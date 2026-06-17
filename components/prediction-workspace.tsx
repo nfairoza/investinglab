@@ -23,6 +23,7 @@ interface Result {
   symbol: string;
   prediction: Prediction;
   dataSource: DataSource;
+  sourceLabel?: string;
   asOf: string | null;
   model: string;
   generatedAt: string;
@@ -73,7 +74,7 @@ export function PredictionWorkspace({ initial = "AAPL" }: { initial?: string }) 
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && run()}
           placeholder="Enter a ticker (e.g. NVDA)"
-          className="w-56 rounded-md border border-slate-700 bg-slate-900/60 px-3 py-2 text-sm text-slate-200 placeholder:text-slate-600 focus:border-brand-500 focus:outline-none"
+          className="w-56 rounded-md border border-white/10 bg-black/25 px-3 py-2 text-sm text-slate-200 placeholder:text-slate-600 focus:border-brand-500 focus:outline-none"
         />
         <button onClick={run} disabled={busy}
           className="rounded-md bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-500 disabled:opacity-50">
@@ -82,7 +83,7 @@ export function PredictionWorkspace({ initial = "AAPL" }: { initial?: string }) 
       </div>
 
       {busy && (
-        <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-5">
+        <div className="rounded-xl glass p-5">
           <div className="h-4 w-48 animate-pulse rounded bg-slate-800" />
           <div className="mt-3 h-20 animate-pulse rounded bg-slate-800" />
           <p className="mt-3 text-xs text-slate-500">Claude is pulling live data and searching recent news…</p>
@@ -107,9 +108,14 @@ export function PredictionWorkspace({ initial = "AAPL" }: { initial?: string }) 
               <span className="text-[11px] text-slate-600">{result.model}</span>
             </div>
           </div>
+          {result.sourceLabel && (
+            <div className="text-xs text-slate-500">
+              Source: <span className="text-slate-400">{result.sourceLabel}</span>
+            </div>
+          )}
 
           {/* Summary */}
-          <div className="card-hover rounded-xl border border-slate-800 bg-slate-900/40 p-5">
+          <div className="card-hover rounded-xl glass p-5">
             <p className="text-slate-300">{result.prediction.summary}</p>
           </div>
 
@@ -118,7 +124,7 @@ export function PredictionWorkspace({ initial = "AAPL" }: { initial?: string }) 
             {result.prediction.horizons?.map((h) => {
               const d = DIR_STYLE[h.direction] ?? DIR_STYLE.flat;
               return (
-                <div key={h.horizon} className="card-hover rounded-xl border border-slate-800 bg-slate-900/40 p-4">
+                <div key={h.horizon} className="card-hover rounded-xl glass p-4">
                   <div className="text-xs uppercase tracking-wide text-slate-500">{h.horizon}</div>
                   <div className={`mt-1 text-lg font-bold ${d.cls}`}>{d.arrow} {d.word}</div>
                   <div className="mt-1 text-xs text-slate-400">Confidence: <span className="text-slate-200">{h.confidence}%</span></div>
@@ -135,7 +141,7 @@ export function PredictionWorkspace({ initial = "AAPL" }: { initial?: string }) 
 
           {/* Price target + risk */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="card-hover rounded-xl border border-slate-800 bg-slate-900/40 p-4">
+            <div className="card-hover rounded-xl glass p-4">
               <div className="text-xs uppercase tracking-wide text-slate-500">Price target range</div>
               <div className="mt-1 text-slate-200">{result.prediction.priceTargetRange}</div>
             </div>
@@ -146,18 +152,18 @@ export function PredictionWorkspace({ initial = "AAPL" }: { initial?: string }) 
           </div>
 
           {/* What would change my mind */}
-          <div className="card-hover rounded-xl border border-slate-800 bg-slate-900/40 p-4">
+          <div className="card-hover rounded-xl glass p-4">
             <div className="text-xs uppercase tracking-wide text-slate-500">What would change this call</div>
             <p className="mt-1 text-sm text-slate-300">{result.prediction.whatWouldChangeMyMind}</p>
           </div>
 
           {/* Headlines from web search */}
           {result.prediction.keyHeadlines?.length > 0 && (
-            <div className="card-hover rounded-xl border border-slate-800 bg-slate-900/40 p-4">
+            <div className="card-hover rounded-xl glass p-4">
               <div className="mb-2 text-sm font-medium text-slate-200">Recent headlines Claude found</div>
               <ul className="space-y-2">
                 {result.prediction.keyHeadlines.map((hl, i) => (
-                  <li key={i} className="border-b border-slate-800/60 pb-2 last:border-0">
+                  <li key={i} className="border-b border-white/5 pb-2 last:border-0">
                     <div className="text-sm text-slate-300">{hl.title}</div>
                     <div className="text-xs text-slate-500">{hl.takeaway}</div>
                   </li>

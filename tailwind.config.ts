@@ -6,9 +6,10 @@ const config: Config = {
   theme: {
     extend: {
       fontFamily: {
-        sans: ["'Geist'", "ui-sans-serif", "system-ui", "-apple-system", "Segoe UI", "Roboto", "Helvetica", "Arial", "sans-serif"],
-        mono: ["'Geist Mono'", "ui-monospace", "SFMono-Regular", "Menlo", "monospace"],
-        display: ["'Playfair Display'", "Georgia", "serif"],
+        // Wired to next/font CSS variables (see app/layout.tsx)
+        sans: ["var(--font-sans)", "ui-sans-serif", "system-ui", "-apple-system", "Segoe UI", "Roboto", "Helvetica", "Arial", "sans-serif"],
+        mono: ["var(--font-mono)", "ui-monospace", "SFMono-Regular", "Menlo", "monospace"],
+        display: ["var(--font-display)", "Georgia", "serif"],
       },
       colors: {
         brand: {
@@ -24,6 +25,13 @@ const config: Config = {
           900: "var(--brand-900)",
           950: "var(--brand-950)",
         },
+      },
+      boxShadow: {
+        glass: "0 1px 0 0 rgba(255,255,255,0.04) inset, 0 20px 40px -24px rgba(0,0,0,0.7)",
+        glow: "0 0 0 1px rgba(212,168,42,0.25), 0 8px 30px -8px rgba(212,168,42,0.20)",
+      },
+      backdropBlur: {
+        xs: "2px",
       },
     },
   },

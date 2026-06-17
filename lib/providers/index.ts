@@ -30,6 +30,7 @@ export const marketData: MarketDataProvider = {
   getAnalystData: (s) => market().getAnalystData(s),
   getInsiderTrades: (s) => market().getInsiderTrades(s),
   getDcf: (s) => market().getDcf(s),
+  getPriceHistory: (s) => market().getPriceHistory(s),
 };
 
 function hasCongressKey(): boolean {

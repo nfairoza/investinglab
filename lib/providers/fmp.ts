@@ -10,6 +10,7 @@ import {
   AnalystData,
   InsiderTrade,
   DcfValue,
+  PriceHistory,
   live,
   unavailable,
 } from "./types";
@@ -38,16 +39,50 @@ function getKey(): string {
   return getConnectorValue("MARKET_DATA_API_KEY") || getConnectorValue("FINANCIAL_DATA_API_KEY") || "";
 }
 
-// Fetch JSON; throws with the HTTP status (and 402 flagged) so callers can
-// distinguish "paid endpoint" from a real failure.
+// ── Response cache ──────────────────────────────────────────────────────────
+// FMP free tier = 250 calls/day. The app fires several calls per page, so we
+// cache successful responses per-URL for a short TTL. This dramatically reduces
+// calls (revisiting a stock, refreshing, multiple components on one page all
+// hit the cache). Keyed by the URL WITHOUT the apikey so the key never lives in
+// the cache keys. TTL is short enough that prices stay fresh-ish.
+const CACHE_TTL_MS = 90_000; // 90s — quotes feel live, but repeat views are free
+const cache = new Map<string, { at: number; data: unknown }>();
+
+function cacheKey(url: string): string {
+  return url.replace(/([?&])apikey=[^&]*/i, "$1apikey=__");
+}
+
+// Thrown when FMP says the daily quota is exhausted (429, or a 200/403 body
+// containing "Limit Reach"). Callers surface a clear "daily limit" message.
+class FmpLimitError extends Error {
+  status = 429;
+  constructor() {
+    super("FMP daily limit reached — free tier is 250 calls/day. Resets at midnight UTC, or upgrade your FMP plan.");
+  }
+}
+
+// Fetch JSON with caching + limit detection. Throws with .status so callers can
+// distinguish 402 (paid endpoint), 429 (daily limit), and other failures.
 async function getJson(url: string): Promise<unknown> {
+  const key = cacheKey(url);
+  const hit = cache.get(key);
+  if (hit && Date.now() - hit.at < CACHE_TTL_MS) return hit.data;
+
   const res = await fetch(url, { cache: "no-store" });
+  const text = await res.text();
+
+  // FMP sometimes returns the limit message with a 429 or 403, sometimes 200.
+  if (res.status === 429 || /limit reach/i.test(text)) throw new FmpLimitError();
   if (!res.ok) {
     const err = new Error(`HTTP ${res.status}`);
     (err as any).status = res.status;
     throw err;
   }
-  return res.json();
+
+  let data: unknown;
+  try { data = JSON.parse(text); } catch { data = null; }
+  cache.set(key, { at: Date.now(), data });
+  return data;
 }
 
 export const fmpProvider: MarketDataProvider = {
@@ -144,24 +179,45 @@ export const fmpProvider: MarketDataProvider = {
     }
   },
 
-  // The stable technical-indicator endpoints are paid. The free quote endpoint,
-  // however, returns priceAvg50 / priceAvg200, so we surface those as the moving
-  // averages (the scoring engine's trend factor uses exactly these). RSI and the
-  // historical series need a paid plan, so they stay null.
+  // Real technical indicators (Starter+ plan). Pulls the SMA-50, SMA-200 and
+  // RSI-14 series; the latest value of each feeds the scoring engine, and the
+  // SMA series overlay the moving-average chart. Falls back to the quote's
+  // priceAvg50/200 if an indicator call fails, so this degrades gracefully.
   async getTechnicals(symbol): Promise<DataResult<Technicals>> {
     const KEY = getKey();
     if (!KEY) return unavailable(NAME, "MARKET_DATA_API_KEY missing");
+    const tech = (type: string, period: number) =>
+      `${BASE}/technical-indicators/${type}?symbol=${symbol}&periodLength=${period}&timeframe=1day&apikey=${KEY}`;
     try {
-      const arr = (await getJson(`${BASE}/quote?symbol=${symbol}&apikey=${KEY}`)) as any[];
-      const q = Array.isArray(arr) ? arr[0] : null;
-      if (!q) return unavailable(NAME, "No technicals for " + symbol);
+      const [sma50Raw, sma200Raw, rsiRaw] = await Promise.all([
+        getJson(tech("sma", 50)).catch(() => []),
+        getJson(tech("sma", 200)).catch(() => []),
+        getJson(tech("rsi", 14)).catch(() => []),
+      ]);
+      const head = (a: unknown) => (Array.isArray(a) && a[0] ? a[0] : null);
+      // series: newest-first from FMP → reverse to oldest→newest, cap to ~250 pts
+      const toSeries = (a: unknown) =>
+        Array.isArray(a)
+          ? (a as any[]).slice(0, 250).reverse().map((p) => ({ date: String(p.date).slice(0, 10), value: p.sma }))
+          : [];
+
+      // Fall back to quote averages if the indicator endpoints returned nothing.
+      let sma50 = head(sma50Raw)?.sma ?? null;
+      let sma200 = head(sma200Raw)?.sma ?? null;
+      if (sma50 == null || sma200 == null) {
+        const qArr = (await getJson(`${BASE}/quote?symbol=${symbol}&apikey=${KEY}`).catch(() => [])) as any[];
+        const q = Array.isArray(qArr) ? qArr[0] : null;
+        sma50 = sma50 ?? q?.priceAvg50 ?? null;
+        sma200 = sma200 ?? q?.priceAvg200 ?? null;
+      }
+
       const t: Technicals = {
         symbol,
-        sma50: q.priceAvg50 ?? null,
-        sma200: q.priceAvg200 ?? null,
-        rsi14: null, // paid endpoint
-        sma50Series: [],
-        sma200Series: [],
+        sma50,
+        sma200,
+        rsi14: head(rsiRaw)?.rsi ?? null,
+        sma50Series: toSeries(sma50Raw),
+        sma200Series: toSeries(sma200Raw),
       };
       return live(NAME, t);
     } catch (e) {
@@ -279,6 +335,26 @@ export const fmpProvider: MarketDataProvider = {
       return live(NAME, { symbol, dcf: dcfVal, price, upDownPct });
     } catch (e) {
       return unavailable(NAME, e instanceof Error ? e.message : "DCF fetch failed");
+    }
+  },
+
+  // Daily close history for the Robinhood-style price chart. The "light"
+  // endpoint (date + price + volume) is on the free tier and returns ~5yr.
+  async getPriceHistory(symbol): Promise<DataResult<PriceHistory>> {
+    const KEY = getKey();
+    if (!KEY) return unavailable(NAME, "MARKET_DATA_API_KEY missing");
+    try {
+      const arr = (await getJson(`${BASE}/historical-price-eod/light?symbol=${symbol}&apikey=${KEY}`)) as any[];
+      if (!Array.isArray(arr) || arr.length === 0) return unavailable(NAME, "No price history for " + symbol);
+      // FMP returns newest-first; reverse to oldest -> newest for left-to-right charts.
+      const points = arr
+        .map((p: any) => ({ date: p.date as string, close: Number(p.price ?? p.close) }))
+        .filter((p) => p.date && Number.isFinite(p.close))
+        .reverse();
+      return live(NAME, { symbol, points });
+    } catch (e: any) {
+      if (e?.status === 402) return unavailable(NAME, "Price history requires a paid FMP plan");
+      return unavailable(NAME, e instanceof Error ? e.message : "price history fetch failed");
     }
   },
 };

@@ -34,7 +34,7 @@ export function ScoreCard({ symbol }: { symbol: string }) {
   const s = data?.data;
 
   return (
-    <div className="card-hover rounded-xl border border-slate-800 bg-slate-900/40 p-5">
+    <div className="card-hover rounded-xl glass p-5">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold text-slate-100">{symbol} — Score</h2>
         {data && <DataBadge source={data.source} />}
@@ -53,7 +53,7 @@ export function ScoreCard({ symbol }: { symbol: string }) {
           <div className="flex items-baseline gap-3">
             <span className={`text-4xl font-bold ${tone(s.overall)}`}>{Math.round(s.overall)}</span>
             <span className="text-slate-400">/ 100</span>
-            <span className={`rounded-md border border-slate-700 px-2 py-0.5 text-sm ${tone(s.overall)}`}>{s.label}</span>
+            <span className={`rounded-md border border-white/10 px-2 py-0.5 text-sm ${tone(s.overall)}`}>{s.label}</span>
           </div>
 
           {/* per-horizon */}
@@ -74,7 +74,7 @@ export function ScoreCard({ symbol }: { symbol: string }) {
           </div>
 
           {/* guides */}
-          <div className="grid grid-cols-1 gap-x-6 gap-y-1 border-t border-slate-800 pt-3 text-sm sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-x-6 gap-y-1 border-t border-white/10 pt-3 text-sm sm:grid-cols-2">
             <Row label="Best time horizon" value={s.bestHorizon ? HORIZON_LABELS[s.bestHorizon] : "—"} />
             <Row label="Earnings in" value={s.earningsInDays != null ? `${s.earningsInDays} days` : "—"} />
             <Row label="Entry zone (guide)" value={s.entryZone} />
@@ -83,7 +83,7 @@ export function ScoreCard({ symbol }: { symbol: string }) {
           </div>
 
           {/* factor breakdown */}
-          <div className="border-t border-slate-800 pt-3">
+          <div className="border-t border-white/10 pt-3">
             <div className="mb-2 text-sm font-medium text-slate-200">How the score breaks down</div>
             <div className="space-y-1.5">
               {s.factors.map((f) => (
@@ -112,7 +112,7 @@ export function ScoreCard({ symbol }: { symbol: string }) {
 
 function Row({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex justify-between gap-3 border-b border-slate-800/60 py-1">
+    <div className="flex justify-between gap-3 border-b border-white/5 py-1">
       <span className="text-slate-500">{label}</span>
       <span className="text-right text-slate-300">{value}</span>
     </div>

@@ -28,7 +28,7 @@ export function CompanyProfileCard({ symbol }: { symbol: string }) {
   const p = data?.data;
 
   return (
-    <div className="card-hover rounded-xl border border-slate-800 bg-slate-900/40 p-5">
+    <div className="card-hover rounded-xl glass p-5">
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-semibold text-slate-100">{symbol} — Company overview</h2>
         {data && <DataBadge source={data.source} />}
@@ -53,7 +53,7 @@ export function CompanyProfileCard({ symbol }: { symbol: string }) {
             <Fact label="CEO" value={p.ceo ?? "—"} />
             <Fact label="IPO date" value={p.ipoDate ?? "—"} />
             {p.website && (
-              <div className="flex justify-between gap-3 border-b border-slate-800/60 py-1">
+              <div className="flex justify-between gap-3 border-b border-white/5 py-1">
                 <span className="text-slate-500">Website</span>
                 <a href={p.website} target="_blank" rel="noreferrer" className="text-right text-brand-400 underline truncate max-w-[160px]">
                   {p.website.replace(/^https?:\/\//, "")}
@@ -74,7 +74,7 @@ export function CompanyProfileCard({ symbol }: { symbol: string }) {
               <div className="flex flex-wrap gap-2">
                 {p.peers.slice(0, 8).map((peer) => (
                   <a key={peer} href={`/research?symbol=${peer}`}
-                    className="rounded-md border border-slate-700 px-2 py-0.5 text-xs text-brand-300 hover:bg-slate-800">
+                    className="rounded-md border border-white/10 px-2 py-0.5 text-xs text-brand-300 hover:bg-slate-800">
                     {peer}
                   </a>
                 ))}
@@ -89,7 +89,7 @@ export function CompanyProfileCard({ symbol }: { symbol: string }) {
 
 function Fact({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex justify-between gap-3 border-b border-slate-800/60 py-1">
+    <div className="flex justify-between gap-3 border-b border-white/5 py-1">
       <span className="text-slate-500 shrink-0">{label}</span>
       <span className="text-right text-slate-300">{value}</span>
     </div>

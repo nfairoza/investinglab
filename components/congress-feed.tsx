@@ -60,14 +60,14 @@ export function CongressFeed() {
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="Filter by member, ticker, or asset…"
-          className="w-72 rounded-md border border-slate-700 bg-slate-900/60 px-3 py-1.5 text-sm text-slate-200 placeholder:text-slate-600 focus:border-brand-500 focus:outline-none"
+          className="w-72 rounded-md border border-white/10 bg-black/25 px-3 py-1.5 text-sm text-slate-200 placeholder:text-slate-600 focus:border-brand-500 focus:outline-none"
         />
         <div className="flex items-center gap-2">
           {data && <DataBadge source={data.source} />}
           <button
             onClick={() => mutate()}
             disabled={isValidating}
-            className="rounded-md border border-slate-700 px-2 py-1 text-xs text-slate-300 hover:bg-slate-800 disabled:opacity-50"
+            className="rounded-md border border-white/10 px-2 py-1 text-xs text-slate-300 hover:bg-slate-800 disabled:opacity-50"
           >
             {isValidating ? "Refreshing…" : "Refresh"}
           </button>
@@ -84,9 +84,9 @@ export function CongressFeed() {
       )}
 
       {!isLoading && data?.data && (
-        <div className="overflow-x-auto rounded-xl border border-slate-800">
+        <div className="overflow-x-auto rounded-xl border border-white/10">
           <table className="w-full text-left text-sm">
-            <thead className="bg-slate-900/60 text-xs uppercase tracking-wide text-slate-500">
+            <thead className="bg-black/25 text-xs uppercase tracking-wide text-slate-500">
               <tr>
                 <th className="px-3 py-2">Member</th>
                 <th className="px-3 py-2">Action</th>
@@ -96,7 +96,7 @@ export function CongressFeed() {
                 <th className="px-3 py-2">Disclosed</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-800">
+            <tbody className="divide-y divide-white/5">
               {filtered.map((t) => (
                 <tr key={t.id} className="hover:bg-slate-800/30">
                   <td className="px-3 py-2">

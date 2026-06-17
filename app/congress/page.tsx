@@ -4,7 +4,7 @@ export default function Page() {
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="text-2xl font-semibold text-slate-100">Congress Tracker</h1>
+        <h1 className="font-display text-3xl font-semibold text-[#ece9e0]">Congress Tracker</h1>
         <p className="mt-1 max-w-2xl text-sm text-slate-400">
           Stock trades disclosed by U.S. members of Congress under the STOCK Act. Filter by member
           or ticker to see what&apos;s been reported. Following specific members and getting an alert

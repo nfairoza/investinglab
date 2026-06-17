@@ -1,10 +1,10 @@
 import { getRuntimeKey, getRuntimeModel } from "./runtime-key";
+import { callGemini, geminiKey, geminiModel } from "./gemini";
 
-// The research engine uses Anthropic's Claude. Key resolution order:
-//   1. a key entered in Settings (runtime, dev only)
-//   2. ANTHROPIC_API_KEY (preferred for deployment)
-//   3. AI_API_KEY (generic fallback name from the spec)
-// Model resolution: Settings -> AI_MODEL env -> DEFAULT_MODEL.
+// AI provider layer. Primary = Anthropic Claude. Fallback = Google Gemini
+// (used automatically when Anthropic is unreachable — e.g. AMD's network blocks
+// api.anthropic.com but allows generativelanguage.googleapis.com).
+// Key resolution: Settings runtime key -> ANTHROPIC_API_KEY -> AI_API_KEY.
 
 export const DEFAULT_MODEL = "claude-sonnet-4-6";
 
@@ -23,12 +23,46 @@ export function resolveModel(): string {
 
 export type AiSource = "runtime" | "env" | "none";
 
+// AI is "configured" if EITHER Claude or Gemini has a key.
 export function aiStatus(): { configured: boolean; source: AiSource; model: string } {
   if (getRuntimeKey()) return { configured: true, source: "runtime", model: resolveModel() };
   if (process.env.ANTHROPIC_API_KEY || process.env.AI_API_KEY) {
     return { configured: true, source: "env", model: resolveModel() };
   }
+  if (geminiKey()) return { configured: true, source: "env", model: geminiModel() };
   return { configured: false, source: "none", model: resolveModel() };
+}
+
+// Is a network/connectivity error (vs. an auth/HTTP error)? Used to decide
+// whether to fall back to Gemini.
+function isNetworkError(e: unknown): boolean {
+  const msg = e instanceof Error ? e.message : String(e);
+  return /Network error reaching|timeout|ETIMEDOUT| ENOTFOUND|ECONNREFUSED|fetch failed|UNABLE_TO_GET/i.test(msg);
+}
+
+// Unified text generation: try Claude, fall back to Gemini on a network failure
+// or when no Claude key exists. Returns { text, provider } so callers can flag
+// which AI answered.
+export async function callAI(opts: {
+  system: string;
+  user: string;
+  maxTokens?: number;
+  webSearch?: boolean;
+}): Promise<{ text: string; provider: "claude" | "gemini" }> {
+  const hasClaude = Boolean(resolveApiKey());
+  if (hasClaude) {
+    try {
+      const text = await callClaude(opts);
+      return { text, provider: "claude" };
+    } catch (e) {
+      // Only fall back on connectivity issues (not on auth/4xx) — and only if
+      // Gemini is available.
+      if (!geminiKey() || !isNetworkError(e)) throw e;
+    }
+  }
+  if (!geminiKey()) throw new Error("No AI provider reachable (Claude blocked, no Gemini key).");
+  const text = await callGemini({ system: opts.system, user: opts.user, webSearch: opts.webSearch });
+  return { text, provider: "gemini" };
 }
 
 // Calls the Anthropic Messages API and returns the concatenated text output.
@@ -42,21 +76,28 @@ export async function callClaude(opts: {
   const key = resolveApiKey();
   if (!key) throw new Error("No AI key configured");
 
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      "x-api-key": key,
-      "anthropic-version": "2023-06-01",
-    },
-    body: JSON.stringify({
-      model: resolveModel(),
-      max_tokens: opts.maxTokens ?? 4096,
-      system: opts.system,
-      messages: [{ role: "user", content: opts.user }],
-    }),
-    cache: "no-store",
-  });
+  let res: Response;
+  try {
+    res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-api-key": key,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model: resolveModel(),
+        max_tokens: opts.maxTokens ?? 4096,
+        system: opts.system,
+        messages: [{ role: "user", content: opts.user }],
+      }),
+      cache: "no-store",
+    });
+  } catch (e: any) {
+    // Surface the real network cause (proxy/SSL/DNS) instead of bare "fetch failed".
+    const cause = e?.cause?.message || e?.cause?.code || e?.message || "unknown";
+    throw new Error(`Network error reaching api.anthropic.com: ${cause}. If you're on a corporate network, a proxy/SSL filter may be blocking it.`);
+  }
 
   if (!res.ok) {
     const detail = await res.text().catch(() => "");

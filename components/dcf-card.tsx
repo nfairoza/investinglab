@@ -23,7 +23,7 @@ export function DcfCard({ symbol }: { symbol: string }) {
   const expensive = pct != null && pct > 0;
 
   return (
-    <div className="card-hover rounded-xl border border-slate-800 bg-slate-900/40 p-5">
+    <div className="card-hover rounded-xl glass p-5">
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-semibold text-slate-100">{symbol} — DCF fair value</h2>
         {data && <DataBadge source={data.source} />}

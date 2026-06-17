@@ -20,7 +20,7 @@ export function AnalystPanel({ symbol }: { symbol: string }) {
   const total = a ? a.strongBuy + a.buy + a.hold + a.sell + a.strongSell : 0;
 
   return (
-    <div className="card-hover rounded-xl border border-slate-800 bg-slate-900/40 p-5">
+    <div className="card-hover rounded-xl glass p-5">
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-semibold text-slate-100">{symbol} — Analyst consensus</h2>
         {data && <DataBadge source={data.source} />}
@@ -69,7 +69,7 @@ export function AnalystPanel({ symbol }: { symbol: string }) {
 
           {/* Latest grade */}
           {a.latestGrade && (
-            <div className="rounded-lg border border-slate-700 bg-slate-800/40 p-3 text-sm">
+            <div className="rounded-lg border border-white/10 bg-slate-800/40 p-3 text-sm">
               <div className="text-xs text-slate-500 mb-1">Latest analyst action</div>
               <div className="flex flex-wrap items-center gap-2">
                 <span className="font-medium text-slate-200">{a.latestGrade.firm}</span>
@@ -91,7 +91,7 @@ export function AnalystPanel({ symbol }: { symbol: string }) {
 
 function Fact({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
   return (
-    <div className="flex justify-between gap-3 border-b border-slate-800/60 py-1">
+    <div className="flex justify-between gap-3 border-b border-white/5 py-1">
       <span className="text-slate-500 shrink-0">{label}</span>
       <span className={`text-right font-medium ${highlight ? "text-brand-300" : "text-slate-300"}`}>{value}</span>
     </div>

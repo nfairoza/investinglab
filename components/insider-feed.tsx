@@ -34,7 +34,7 @@ export function InsiderFeed({ symbol }: { symbol: string }) {
   const trades = data?.data ?? [];
 
   return (
-    <div className="card-hover rounded-xl border border-slate-800 bg-slate-900/40 p-5">
+    <div className="card-hover rounded-xl glass p-5">
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-semibold text-slate-100">{symbol} — Insider transactions</h2>
         {data && <DataBadge source={data.source} />}
@@ -50,9 +50,9 @@ export function InsiderFeed({ symbol }: { symbol: string }) {
       )}
 
       {trades.length > 0 && (
-        <div className="mt-4 overflow-x-auto rounded-lg border border-slate-800">
+        <div className="mt-4 overflow-x-auto rounded-lg border border-white/10">
           <table className="w-full text-left text-sm">
-            <thead className="bg-slate-900/60 text-xs uppercase tracking-wide text-slate-500">
+            <thead className="bg-black/25 text-xs uppercase tracking-wide text-slate-500">
               <tr>
                 <th className="px-3 py-2">Insider</th>
                 <th className="px-3 py-2">Action</th>
@@ -62,7 +62,7 @@ export function InsiderFeed({ symbol }: { symbol: string }) {
                 <th className="px-3 py-2"></th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-800">
+            <tbody className="divide-y divide-white/5">
               {trades.slice(0, 10).map((t, i) => (
                 <tr key={i} className="hover:bg-slate-800/30">
                   <td className="px-3 py-2 text-slate-200">{t.reportingName}</td>

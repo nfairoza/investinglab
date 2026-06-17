@@ -111,7 +111,7 @@ export function SettingsAI() {
   }
 
   return (
-    <div className="max-w-2xl space-y-4 rounded-xl border border-slate-800 bg-slate-900/40 p-5">
+    <div className="max-w-2xl space-y-4 rounded-xl glass p-5">
       <div>
         <h2 className="text-lg font-semibold text-slate-100">AI research (Claude)</h2>
         <p className="mt-1 text-sm text-slate-400">
@@ -131,7 +131,7 @@ export function SettingsAI() {
             No key set
           </span>
         )}
-        <button onClick={refresh} className="ml-1 rounded-md border border-slate-700 px-2 py-0.5 text-xs text-slate-300 hover:bg-slate-800">
+        <button onClick={refresh} className="ml-1 rounded-md border border-white/10 px-2 py-0.5 text-xs text-slate-300 hover:bg-slate-800">
           Refresh
         </button>
       </div>
@@ -143,7 +143,7 @@ export function SettingsAI() {
           value={model}
           onChange={(e) => applyModel(e.target.value)}
           disabled={busy}
-          className="w-full rounded-md border border-slate-700 bg-slate-900/60 px-3 py-2 text-sm text-slate-200 focus:border-brand-500 focus:outline-none disabled:opacity-50"
+          className="w-full rounded-md border border-white/10 bg-black/25 px-3 py-2 text-sm text-slate-200 focus:border-brand-500 focus:outline-none disabled:opacity-50"
         >
           {MODELS.map((m) => (
             <option key={m.id} value={m.id}>
@@ -160,7 +160,7 @@ export function SettingsAI() {
       </div>
 
       {/* API key */}
-      <div className="space-y-2 border-t border-slate-800 pt-4">
+      <div className="space-y-2 border-t border-white/10 pt-4">
         <label className="block text-sm text-slate-300">Claude API key</label>
         <p className="text-xs text-slate-500">
           Already set via <code className="rounded bg-slate-800 px-1">.env.local</code>? You can leave this blank.
@@ -171,7 +171,7 @@ export function SettingsAI() {
           value={apiKey}
           onChange={(e) => setApiKey(e.target.value)}
           placeholder="sk-ant-…"
-          className="w-full rounded-md border border-slate-700 bg-slate-900/60 px-3 py-2 text-sm text-slate-200 placeholder:text-slate-600 focus:border-brand-500 focus:outline-none"
+          className="w-full rounded-md border border-white/10 bg-black/25 px-3 py-2 text-sm text-slate-200 placeholder:text-slate-600 focus:border-brand-500 focus:outline-none"
         />
       </div>
 
@@ -186,14 +186,14 @@ export function SettingsAI() {
         <button
           onClick={test}
           disabled={busy || !status?.configured}
-          className="rounded-md border border-slate-700 px-3 py-1.5 text-sm text-slate-200 hover:bg-slate-800 disabled:opacity-50"
+          className="rounded-md border border-white/10 px-3 py-1.5 text-sm text-slate-200 hover:bg-slate-800 disabled:opacity-50"
         >
           Test connection
         </button>
         <button
           onClick={clear}
           disabled={busy || status?.source !== "runtime"}
-          className="rounded-md border border-slate-700 px-3 py-1.5 text-sm text-slate-400 hover:bg-slate-800 disabled:opacity-50"
+          className="rounded-md border border-white/10 px-3 py-1.5 text-sm text-slate-400 hover:bg-slate-800 disabled:opacity-50"
         >
           Clear
         </button>

@@ -4,7 +4,7 @@ export default function Page() {
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="text-2xl font-semibold text-slate-100">Holdings</h1>
+        <h1 className="font-display text-3xl font-semibold text-[#ece9e0]">Holdings</h1>
         <p className="mt-1 max-w-2xl text-sm text-slate-400">
           Add the stocks you own and how many shares. The app pulls a live price and works out your
           value, gain/loss, and how much of your portfolio each one is.
