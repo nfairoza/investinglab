@@ -11,7 +11,7 @@ import { DcfCard } from "./dcf-card";
 import { InsiderFeed } from "./insider-feed";
 import { TickerInput } from "./ticker-input";
 
-export function ResearchWorkspace({ initial = "AAPL" }: { initial?: string }) {
+export function ResearchWorkspace({ initial = "AMD" }: { initial?: string }) {
   const [draft, setDraft] = useState(initial);
   const [symbol, setSymbol] = useState(initial);
 

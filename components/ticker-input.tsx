@@ -78,7 +78,10 @@ export function TickerInput({
         className={className || "w-64 rounded-md border border-white/10 bg-black/25 px-3 py-2 text-sm text-slate-200 placeholder:text-slate-600 focus:border-brand-500 focus:outline-none"}
       />
       {open && matches.length > 0 && (
-        <ul className="glass absolute z-30 mt-1 max-h-72 w-full min-w-[18rem] overflow-auto rounded-xl py-1 shadow-2xl">
+        <ul
+          className="absolute z-40 mt-1 max-h-72 w-full min-w-[18rem] overflow-auto rounded-xl border border-white/15 py-1 shadow-2xl"
+          style={{ background: "rgba(14,18,15,0.98)", backdropFilter: "blur(8px)" }}
+        >
           {matches.map((m, i) => (
             <li key={`${m.symbol}-${i}`}>
               <button

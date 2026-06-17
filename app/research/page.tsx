@@ -1,6 +1,7 @@
 import { ResearchWorkspace } from "@/components/research-workspace";
 
-export default function Page() {
+export default function Page({ searchParams }: { searchParams: { symbol?: string } }) {
+  const initial = (searchParams?.symbol ?? "AMD").toUpperCase();
   return (
     <div className="space-y-5">
       <div>
@@ -11,7 +12,7 @@ export default function Page() {
           biggest risk before anything else.
         </p>
       </div>
-      <ResearchWorkspace initial="AAPL" />
+      <ResearchWorkspace initial={initial} />
     </div>
   );
 }

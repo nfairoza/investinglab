@@ -5,9 +5,29 @@ import { marketData } from "@/lib/providers";
 
 export const dynamic = "force-dynamic";
 
+interface ChatImage {
+  mediaType: string; // e.g. "image/png"
+  data: string; // base64 (no data: prefix)
+}
 interface ChatMessage {
   role: "user" | "assistant";
   content: string;
+  images?: ChatImage[];
+}
+
+// Build Anthropic message content: text + optional image blocks (vision).
+function toAnthropicMessages(msgs: ChatMessage[]) {
+  return msgs.map((m) => {
+    if (m.images?.length) {
+      const blocks: any[] = m.images.map((img) => ({
+        type: "image",
+        source: { type: "base64", media_type: img.mediaType, data: img.data },
+      }));
+      if (m.content.trim()) blocks.push({ type: "text", text: m.content });
+      return { role: m.role, content: blocks };
+    }
+    return { role: m.role, content: m.content };
+  });
 }
 
 interface HoldingContext {
@@ -106,6 +126,7 @@ ${holdingLines}
 WATCHLIST: ${watchStr}
 
 YOUR DATA & TOOLS (use them — never say "I don't have data"):
+- Vision: Noor can paste or attach images (charts, screenshots, statements). Read them carefully and analyze what's shown — describe the chart pattern, extract numbers, explain what it means.
 - Web search for current news, prices, events.
 - LIVE DATA injected below (current price, % move, 52-week range, recent news with links) for tickers in the question — quote these numbers and cite the article links.
 - Full research analysis on demand: valuation, thesis, bull/bear, risks, catalysts, scenarios, price zones.
@@ -176,7 +197,7 @@ export async function POST(req: NextRequest) {
           max_tokens: 1500,
           stream: true,
           system,
-          messages: recent,
+          messages: toAnthropicMessages(recent),
           // Let Claude search the web for current info during chat.
           tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 3 }],
         }),

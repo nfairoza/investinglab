@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { DataBadge } from "./data-state";
 import { TickerInput } from "./ticker-input";
+import { AiThinking } from "./ai-thinking";
 import type { DataSource } from "@/lib/providers/types";
 
 interface Horizon {
@@ -11,14 +12,31 @@ interface Horizon {
   confidence: number;
   reason: string;
 }
-interface Headline { title: string; takeaway: string; }
+interface Headline { title: string; takeaway: string; url?: string; }
 interface Prediction {
   summary: string;
   horizons: Horizon[];
   priceTargetRange: string;
+  expectedMovePct?: { oneWeek?: number; oneMonth?: number; oneYear?: number };
+  priceTarget?: number | null;
   biggestRisk: string;
   whatWouldChangeMyMind: string;
   keyHeadlines: Headline[];
+}
+
+// Map a horizon label to its expectedMovePct key.
+function moveForHorizon(p: Prediction, horizon: string): number | undefined {
+  const m = p.expectedMovePct;
+  if (!m) return undefined;
+  const h = horizon.toLowerCase();
+  if (h.includes("week")) return m.oneWeek;
+  if (h.includes("month")) return m.oneMonth;
+  if (h.includes("year")) return m.oneYear;
+  return undefined;
+}
+function fmtPct(n: number | undefined): string | null {
+  if (n == null || Number.isNaN(n)) return null;
+  return `${n >= 0 ? "+" : ""}${n.toFixed(1)}%`;
 }
 interface Result {
   symbol: string;
@@ -36,7 +54,7 @@ const DIR_STYLE: Record<string, { cls: string; arrow: string; word: string }> = 
   flat: { cls: "text-slate-400",   arrow: "▬", word: "Flat" },
 };
 
-export function PredictionWorkspace({ initial = "AAPL" }: { initial?: string }) {
+export function PredictionWorkspace({ initial = "AMD" }: { initial?: string }) {
   const [draft, setDraft] = useState(initial);
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<Result | null>(null);
@@ -83,7 +101,7 @@ export function PredictionWorkspace({ initial = "AAPL" }: { initial?: string }) 
         <div className="rounded-xl glass p-5">
           <div className="h-4 w-48 animate-pulse rounded bg-slate-800" />
           <div className="mt-3 h-20 animate-pulse rounded bg-slate-800" />
-          <p className="mt-3 text-xs text-slate-500">Claude is pulling live data and searching recent news…</p>
+          <AiThinking className="mt-3" />
         </div>
       )}
 
@@ -120,10 +138,15 @@ export function PredictionWorkspace({ initial = "AAPL" }: { initial?: string }) 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             {result.prediction.horizons?.map((h) => {
               const d = DIR_STYLE[h.direction] ?? DIR_STYLE.flat;
+              const move = fmtPct(moveForHorizon(result.prediction, h.horizon));
               return (
                 <div key={h.horizon} className="card-hover rounded-xl glass p-4">
                   <div className="text-xs uppercase tracking-wide text-slate-500">{h.horizon}</div>
-                  <div className={`mt-1 text-lg font-bold ${d.cls}`}>{d.arrow} {d.word}</div>
+                  <div className={`mt-1 flex items-baseline gap-2 text-lg font-bold ${d.cls}`}>
+                    <span>{d.arrow} {d.word}</span>
+                    {move && <span className="text-base font-semibold">{move}</span>}
+                  </div>
+                  {move && <div className="text-[11px] text-slate-500">expected move (estimate)</div>}
                   <div className="mt-1 text-xs text-slate-400">Confidence: <span className="text-slate-200">{h.confidence}%</span></div>
                   {/* confidence bar */}
                   <div className="mt-2 h-1.5 overflow-hidden rounded bg-slate-800">
@@ -139,8 +162,11 @@ export function PredictionWorkspace({ initial = "AAPL" }: { initial?: string }) 
           {/* Price target + risk */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="card-hover rounded-xl glass p-4">
-              <div className="text-xs uppercase tracking-wide text-slate-500">Price target range</div>
-              <div className="mt-1 text-slate-200">{result.prediction.priceTargetRange}</div>
+              <div className="text-xs uppercase tracking-wide text-slate-500">Price target (12-month)</div>
+              {result.prediction.priceTarget != null && (
+                <div className="mt-1 text-2xl font-bold text-brand-300">${result.prediction.priceTarget.toFixed(2)}</div>
+              )}
+              <div className="mt-1 text-sm text-slate-300">{result.prediction.priceTargetRange}</div>
             </div>
             <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4">
               <div className="text-xs uppercase tracking-wide text-amber-300/80">Biggest risk</div>
@@ -161,7 +187,13 @@ export function PredictionWorkspace({ initial = "AAPL" }: { initial?: string }) 
               <ul className="space-y-2">
                 {result.prediction.keyHeadlines.map((hl, i) => (
                   <li key={i} className="border-b border-white/5 pb-2 last:border-0">
-                    <div className="text-sm text-slate-300">{hl.title}</div>
+                    {hl.url ? (
+                      <a href={hl.url} target="_blank" rel="noreferrer" className="text-sm font-medium text-brand-300 hover:underline">
+                        {hl.title} ↗
+                      </a>
+                    ) : (
+                      <div className="text-sm text-slate-300">{hl.title}</div>
+                    )}
                     <div className="text-xs text-slate-500">{hl.takeaway}</div>
                   </li>
                 ))}

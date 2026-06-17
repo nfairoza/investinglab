@@ -37,7 +37,8 @@ export function HoldingsManager() {
   const [shares, setShares] = useState("");
   const [avgCost, setAvgCost] = useState("");
   const [note, setNote] = useState("");
-  const [syncing, setSyncing] = useState(false);
+  const [syncingEtrade, setSyncingEtrade] = useState(false);
+  const [syncingRobinhood, setSyncingRobinhood] = useState(false);
   const [syncMsg, setSyncMsg] = useState<string | null>(null);
   const [sourceFilter, setSourceFilter] = useState<"all" | "manual" | "etrade" | "robinhood">("all");
 
@@ -74,7 +75,7 @@ export function HoldingsManager() {
   }
 
   async function syncFromEtrade() {
-    setSyncing(true);
+    setSyncingEtrade(true);
     setSyncMsg(null);
     try {
       const r = await fetch("/api/etrade/positions");
@@ -94,12 +95,12 @@ export function HoldingsManager() {
     } catch (e) {
       setSyncMsg(e instanceof Error ? e.message : "Sync error");
     } finally {
-      setSyncing(false);
+      setSyncingEtrade(false);
     }
   }
 
   async function syncFromRobinhood() {
-    setSyncing(true);
+    setSyncingRobinhood(true);
     setSyncMsg(null);
     try {
       // Crypto (official API) + stocks (unofficial) — sync whichever is connected.
@@ -116,7 +117,7 @@ export function HoldingsManager() {
     } catch (e) {
       setSyncMsg(e instanceof Error ? e.message : "Sync error");
     } finally {
-      setSyncing(false);
+      setSyncingRobinhood(false);
     }
   }
 
@@ -146,13 +147,13 @@ export function HoldingsManager() {
     <div className="space-y-4">
       {/* Broker sync */}
       <div className="flex flex-wrap items-center gap-3 rounded-lg border border-white/5 bg-black/20 px-4 py-3">
-        <button onClick={syncFromEtrade} disabled={syncing}
+        <button onClick={syncFromEtrade} disabled={syncingEtrade}
           className="rounded-md border border-emerald-600/60 bg-emerald-600/10 px-3 py-1.5 text-sm font-medium text-emerald-300 hover:bg-emerald-600/20 disabled:opacity-50">
-          {syncing ? "Syncing…" : "↓ Sync from E*TRADE"}
+          {syncingEtrade ? "Syncing…" : "↓ Sync from E*TRADE"}
         </button>
-        <button onClick={syncFromRobinhood} disabled={syncing}
+        <button onClick={syncFromRobinhood} disabled={syncingRobinhood}
           className="rounded-md border border-lime-600/60 bg-lime-600/10 px-3 py-1.5 text-sm font-medium text-lime-300 hover:bg-lime-600/20 disabled:opacity-50">
-          {syncing ? "Syncing…" : "↓ Sync from Robinhood"}
+          {syncingRobinhood ? "Syncing…" : "↓ Sync from Robinhood"}
         </button>
         {syncMsg && (
           <span className={`text-sm ${syncMsg.includes("expired") || syncMsg.includes("failed") || syncMsg.includes("Connect") ? "text-rose-400" : "text-slate-400"}`}>

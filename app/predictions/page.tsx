@@ -1,6 +1,7 @@
 import { PredictionWorkspace } from "@/components/prediction-workspace";
 
-export default function Page() {
+export default function Page({ searchParams }: { searchParams: { symbol?: string } }) {
+  const initial = (searchParams?.symbol ?? "AMD").toUpperCase();
   return (
     <div className="space-y-5">
       <div>
@@ -16,7 +17,7 @@ export default function Page() {
         the &quot;biggest risk&quot; before the direction — a confident-sounding call with a huge risk is
         still a coin flip.
       </div>
-      <PredictionWorkspace initial="AAPL" />
+      <PredictionWorkspace initial={initial} />
     </div>
   );
 }

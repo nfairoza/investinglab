@@ -462,7 +462,115 @@ Root cause of many failures (npm, git, fonts, Claude): corporate SSL inspection 
 ## 29. Env vars (all in .env.local, gitignored)
 MARKET_DATA_API_KEY (FMP Starter), ANTHROPIC_API_KEY, AI_MODEL, GEMINI_API_KEY, ETRADE_CONSUMER_KEY/_SECRET, ROBINHOOD_CRYPTO_API_KEY/_PRIVATE_KEY. Plus machine-level NODE_EXTRA_CA_CERTS for the corporate cert.
 
-## 30. Still remaining
+## 30. Congress tracker — LIVE (no extra key)
+**Status: DONE.** Congressional trades are now live from FMP's Senate/House disclosure
+endpoints (official Senate eFD + House Clerk PTRs), included in the FMP Starter plan —
+they reuse `MARKET_DATA_API_KEY`, so no separate Congress key is needed. The old
+`CONGRESS_TRADES_API_KEY/_BASE` stub is retired; the connector card shows it as live via
+the FMP key. Provider `lib/providers/congress-api.ts` maps:
+- `senate-latest` / `house-latest` → recent feed (interleaved by disclosure date)
+- `senate-trades?symbol=` / `house-trades?symbol=` → by ticker
+- `senate-trades-by-name?name=` / `house-trades-by-name?name=` → by member
+Falls back to the demo provider only when no FMP key is present.
+
+## 31. Bug-fix pass (sync independence, ticker dropdown, RH MFA)
+**Status: DONE.**
+- **Independent broker sync:** E*TRADE and Robinhood sync buttons in Holdings now use
+  separate state (`syncingEtrade` / `syncingRobinhood`) — clicking one no longer shows
+  both as "Syncing…".
+- **Ticker dropdown:** search queries both FMP `search-symbol` and `search-name`, so
+  company-name searches work (e.g. "micron" → MU). Dropdown is now opaque (solid dark
+  background) for readability. Watchlist only accepts symbols validated against
+  `/api/search` (POST), and picking a dropdown option auto-adds it (no button click).
+- **Robinhood stocks MFA:** pending login creds + challenge id are persisted to
+  `db.json` (was a module variable wiped by dev hot-reloads → "No pending login").
+  Added the SMS/email **challenge** flow (POST code to `/challenge/{id}/respond/` then
+  retry token with the challenge header) in addition to the authenticator `mfa_code`
+  flow, plus a **Resend code** button that re-triggers a fresh code.
+
+## 32. Human-friendly Rankings, Research↔Predictions link, map & chat upgrades
+**Status: DONE.**
+- **Rankings re-engineered:** the useless "earnings -1d" label is gone. Each row now shows
+  the stock's REAL % move today, a directional outlook for that horizon (Lean up / down /
+  Range-bound) with an estimated expected-move band, a score-strength bar (x/100), and the
+  single strongest reason behind the score (the "why"). A collapsible "How to read these
+  rankings" explainer documents the methodology and legitimacy. New helpers in
+  `lib/scoring/score.ts`: `horizonOutlook()`, and `StockScore` now carries `changePct` and
+  `topReason`.
+- **Predictions carry magnitude:** the AI prediction now returns `expectedMovePct`
+  (per-horizon signed %) and a single 12-month `priceTarget` in dollars, rendered on each
+  horizon card ("▲ Up +4%") and a prominent price-target. No more direction-without-magnitude.
+- **Research ↔ Predictions linked:** a new `MiniPrediction` widget sits at the top of the
+  Research page — one click gives a quick buy/sell read (direction, expected move per
+  horizon, confidence, 12-mo target, biggest risk) using the same `/api/predict` endpoint,
+  with a "Full prediction →" link. `/research` and `/predictions` now read `?symbol=` so
+  links pre-fill.
+- **Clickable headlines:** "Recent headlines Claude found" are now real links — the predict
+  schema requires a `url` per headline and the UI renders them as clickable links (↗).
+- **Stock map:** tile text is far more legible (bold, dark stroke/halo, scaled font), and a
+  "★ My Holdings" option in the sector dropdown filters the map to what you own (the map
+  route accepts `?extra=` so owned tickers outside the curated universe still appear).
+- **Congress source column:** each disclosure row links to the official filing (Senate eFD /
+  House PTR), mirroring the SEC link on insider transactions. `CongressTrade` gained a
+  `sourceLink` field (from FMP's `link`).
+- **Chat image input (vision):** the chat widget supports attaching and pasting images
+  (screenshots, charts, statements) with thumbnail previews; images are sent as base64 to
+  Claude (image content blocks) and Gemini (inlineData). The system prompt tells the AI to
+  read and analyze them.
+
+## 33. Research consolidation, insider upgrades, Portfolio Doctor
+**Status: DONE.**
+- **One unified AI verdict on Research:** the standalone top-of-page mini-prediction was merged
+  into the Research memo card. The memo now shows the AI rating/confidence gauge AND the quick
+  AI prediction (direction + expected-move % per horizon + 12-mo target) together, so there's a
+  single AI verdict block instead of two.
+- **Insider feed upgrades** (`components/insider-feed.tsx`, `InsiderTrade` type):
+  - Hover tooltips on every action tag explain the SEC Form-4 code (P=open-market buy, S=sale,
+    A=award, F=tax-withheld, M/X=exercise, G=gift, etc.).
+  - Two date columns: **Traded** (transaction date) and **Reported** (SEC filing date) — the type
+    gained `filingDate`; dates are formatted as "Mon D, YYYY".
+  - A HOLD/confidence-style **insider-sentiment verdict** on top (Bullish/Bearish/Neutral with a
+    signal-strength %), derived from the 90-day mix of open-market buys vs sells (buying weighted
+    as the stronger signal). Transparent rule, not an AI call.
+- **Portfolio Doctor (built, was a placeholder):** `app/api/portfolio-doctor/route.ts` +
+  `components/portfolio-doctor.tsx` + page. It reads ALL holdings and their live weights, scores
+  and researches each, computes concentration + sector exposure (deterministic ground truth),
+  then asks the AI (Claude→Gemini fallback, web search on) for: a health grade/score, diagnostics,
+  the biggest portfolio risk, and **specific buy/sell amounts** ($ and shares) for each holding
+  PLUS new market ideas — across **five horizons (1 day / 1 month / 6 months / 1 year / 5 years)**
+  shown as switchable tabs. Also renders an allocation donut, sector bars, and a per-holding table
+  linking to Research. Honors the data-source badge and "not financial advice" disclaimer.
+
+## 34. Analyst targets, default ticker, provider-branded loading
+**Status: DONE.**
+- **Analyst high/low targets now real:** `getAnalystData` also queries FMP's
+  `price-target-consensus` (targetHigh/targetLow/targetConsensus/targetMedian), so the High and
+  Low target fields show real numbers instead of dashes. Consensus prefers that endpoint, falling
+  back to `price-target-summary` rolling averages.
+- **Default ticker is AMD** (was AAPL) on the Research and Predictions pages/components. The
+  Rankings seed universe still includes AAPL as a stock to rank.
+- **Combined AI verdict confirmed:** the mini-prediction renders inside the Research memo card
+  (`research-panel.tsx`). The earlier "I don't see it" was a crashed dev server — the `.next`
+  cache hit a OneDrive symlink `EINVAL`; clearing `.next` + restarting fixes it.
+- **Provider-branded loading animation** (`components/ai-thinking.tsx`): a shared `<AiThinking>`
+  indicator infers the active provider from `/api/ai/status` (model name) and shows an
+  Anthropic-style spinning burst mark for Claude or a Gemini-style pulsing sparkle for Gemini,
+  with provider-tinted bouncing dots. Used on Predictions, the Research mini-prediction, and the
+  Portfolio Doctor in place of the hardcoded "Claude is pulling…" text. New keyframes
+  `ai-spin/ai-pulse/ai-bounce` in globals.css.
+
+## 35. Stock map — legible dropdown + timeline (1D→5Y)
+**Status: DONE.**
+- **Dropdown legibility:** the sector/holdings `<select>` had near-invisible option text (light
+  text on the OS-default light menu). Fixed with an explicit dark option background + light text
+  (`bg-[#11150f]` and `[&>option]` overrides).
+- **Timeline selector:** the map can now color tiles by return over **1D / 1W (5D) / 1M / 6M /
+  1Y / 5Y**, not just today. `app/api/map/route.ts` accepts `?period=` and pulls multi-window
+  returns from FMP's `stock-price-change` endpoint (cached 5 min); 1D still uses the live quote's
+  day move. The color scale widens with the horizon (±3% for 1D up to ±200% for 5Y) so the
+  heatmap stays meaningful, and the legend + caption reflect the selected window.
+
+## 36. Still remaining
 - Alerts + Portfolio Doctor pages (still placeholders).
 - Term tooltips defined + glossary exists but not yet wired inline across pages.
 - Crypto live pricing source (FMP equity quotes do not cover crypto).

@@ -14,7 +14,7 @@ import type { CongressTrade, CongressTradesProvider, DataResult } from "./types"
 // (later) disclosure date, to make the "lagged disclosure" reality visible.
 // =============================================================================
 
-const DEMO_TRADES: CongressTrade[] = [
+const DEMO_TRADES: Omit<CongressTrade, "sourceLink">[] = [
   {
     id: "d1",
     member: "Rep. Jane Sample",
@@ -82,7 +82,8 @@ const DEMO_TRADES: CongressTrade[] = [
   },
 ];
 
-function demoResult(data: CongressTrade[]): DataResult<CongressTrade[]> {
+function demoResult(rows: Omit<CongressTrade, "sourceLink">[]): DataResult<CongressTrade[]> {
+  const data: CongressTrade[] = rows.map((r) => ({ ...r, sourceLink: null }));
   return {
     data,
     source: "demo",

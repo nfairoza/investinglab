@@ -20,6 +20,7 @@ export interface FactorScore {
 export interface StockScore {
   symbol: string;
   price: number | null;
+  changePct: number | null; // today's actual % move (real data, not a forecast)
   overall: number; // 0..100
   label: string; // Strong / Favorable / Neutral / Weak / Avoid
   horizons: Record<Horizon, number | null>;
@@ -29,6 +30,28 @@ export interface StockScore {
   entryZone: string;
   stopLoss: string;
   majorRisk: string;
+  topReason: string; // strongest available factor's plain-English detail (the "why")
+}
+
+// Translate a 0–100 horizon score into a human directional bias + a rough
+// expected-move BAND (estimate, deliberately a range — not fake precision).
+// Bands widen for longer horizons because uncertainty compounds.
+export type Bias = "bullish" | "neutral" | "bearish";
+const HORIZON_SWING: Record<Horizon, number> = { "1W": 4, "1M": 9, "1Y": 25, "5Y": 60 };
+
+export function horizonOutlook(score: number | null, h: Horizon): { bias: Bias; word: string; expectedMove: string } {
+  if (score == null) return { bias: "neutral", word: "No data", expectedMove: "—" };
+  const swing = HORIZON_SWING[h];
+  // Map score (0–100) to a signed bias strength (-1..1) centered at 50.
+  const strength = (score - 50) / 50; // -1..1
+  const mid = strength * swing; // signed expected midpoint move %
+  const lo = mid - swing * 0.5;
+  const hi = mid + swing * 0.5;
+  const bias: Bias = score >= 58 ? "bullish" : score <= 42 ? "bearish" : "neutral";
+  const word = bias === "bullish" ? "Lean up" : bias === "bearish" ? "Lean down" : "Range-bound";
+  const fmt = (n: number) => `${n >= 0 ? "+" : ""}${n.toFixed(0)}%`;
+  const expectedMove = `${fmt(lo)} to ${fmt(hi)}`;
+  return { bias, word, expectedMove };
 }
 
 const clamp = (n: number, lo = 0, hi = 100) => Math.max(lo, Math.min(hi, n));
@@ -227,11 +250,26 @@ export function computeScore(input: {
   const stopLoss =
     sma200 != null ? `below ~$${(sma200 * 0.95).toFixed(2)} (under the 200-day average)` : price != null ? `~$${(price * 0.9).toFixed(2)} (−10%)` : "—";
 
-  const weakest = factorList
-    .filter((f) => f.available && f.score != null)
-    .sort((a, b) => (a.score! - b.score!))[0];
+  const available = factorList.filter((f) => f.available && f.score != null);
+  const weakest = [...available].sort((a, b) => (a.score! - b.score!))[0];
+  const strongest = [...available].sort((a, b) => (b.score! - a.score!))[0];
   const majorRisk =
     days != null && days <= 7 ? `Earnings in ${days} days` : weakest ? `Weakest factor: ${weakest.label.toLowerCase()}` : "Insufficient data";
+  const topReason = strongest ? `${strongest.label}: ${strongest.detail}` : "Not enough data to explain the score yet.";
 
-  return { symbol: quote?.symbol ?? "", price, overall, label: labelFor(overall), horizons, bestHorizon, factors: factorList, earningsInDays: days, entryZone, stopLoss, majorRisk };
+  return {
+    symbol: quote?.symbol ?? "",
+    price,
+    changePct: quote?.changePct ?? null,
+    overall,
+    label: labelFor(overall),
+    horizons,
+    bestHorizon,
+    factors: factorList,
+    earningsInDays: days,
+    entryZone,
+    stopLoss,
+    majorRisk,
+    topReason,
+  };
 }

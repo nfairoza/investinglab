@@ -41,6 +41,7 @@ export function WatchlistManager() {
   const [idealBuy, setIdealBuy] = useState("");
   const [note, setNote] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [addErr, setAddErr] = useState<string | null>(null);
 
   const symbols = items.map((w) => w.symbol);
   const { data: quotes } = useSWR(
@@ -49,9 +50,21 @@ export function WatchlistManager() {
     { refreshInterval: 60_000, revalidateOnFocus: true, keepPreviousData: true },
   );
 
-  async function addItem(sym?: string) {
+  // Add a symbol. If `validated` (came from a dropdown pick) skip the check;
+  // otherwise validate it exists before adding, so typos can't get added.
+  async function addItem(sym?: string, validated = false) {
     const s = (sym ?? symbol).trim().toUpperCase();
     if (!s) return;
+    setAddErr(null);
+    if (!validated) {
+      try {
+        const v = await fetch("/api/search", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ symbol: s }),
+        }).then((r) => r.json());
+        if (!v.valid) { setAddErr(`"${s}" isn't a recognized ticker — pick one from the dropdown.`); return; }
+      } catch { /* fail open */ }
+    }
     const target = Number(idealBuy);
     await fetch("/api/watchlist", {
       method: "POST",
@@ -91,13 +104,14 @@ export function WatchlistManager() {
       {/* Add form */}
       <div className="glass rounded-2xl p-4">
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-4">
-          <TickerInput value={symbol} onChange={setSymbol} onSelect={(s) => setSymbol(s)}
+          <TickerInput value={symbol} onChange={setSymbol} onSelect={(s) => addItem(s, true)}
             placeholder="Search ticker or company…" className={inputCls} />
           <input value={idealBuy} onChange={(e) => setIdealBuy(e.target.value)} placeholder="Ideal buy $ (optional)" inputMode="decimal" className={inputCls} />
           <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Note (optional)" className={inputCls} />
           <button onClick={() => addItem()} className="btn-gold rounded-md px-3 py-2 text-sm">Add to watchlist</button>
         </div>
-        <p className="mt-2 text-[11px] text-slate-500">Tip: leave fields blank and use <span className="text-brand-300">Analyze</span> after adding — AI fills the ideal buy, fair value, and thesis from live data.</p>
+        {addErr && <p className="mt-2 text-[11px] text-rose-400">{addErr}</p>}
+        <p className="mt-2 text-[11px] text-slate-500">Tip: pick a ticker from the dropdown to add it instantly. Then use <span className="text-brand-300">Analyze</span> — AI fills the ideal buy, fair value, and thesis from live data.</p>
       </div>
 
       {items.length === 0 && (

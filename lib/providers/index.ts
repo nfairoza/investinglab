@@ -33,8 +33,10 @@ export const marketData: MarketDataProvider = {
   getPriceHistory: (s) => market().getPriceHistory(s),
 };
 
+// Congressional trades come from FMP (Senate/House disclosure endpoints, included
+// in the Starter plan), so they reuse the market-data key — no separate key.
 function hasCongressKey(): boolean {
-  return Boolean(getConnectorValue("CONGRESS_TRADES_API_KEY"));
+  return Boolean(getConnectorValue("MARKET_DATA_API_KEY") || getConnectorValue("FINANCIAL_DATA_API_KEY"));
 }
 function congress(): CongressTradesProvider {
   return hasCongressKey() ? congressApiProvider : congressDemoProvider;

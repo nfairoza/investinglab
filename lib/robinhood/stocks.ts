@@ -25,6 +25,10 @@ interface RhStockState {
   accessToken: string | null;
   refreshToken: string | null;
   connectedAt: string | null;
+  // Transient login state — persisted so it survives dev hot-reloads. Cleared on
+  // success or disconnect. Credentials are local-only (db.json is gitignored).
+  pending: { username: string; password: string } | null;
+  challengeId: string | null; // set when RH uses the SMS/email "challenge" flow
 }
 
 function state(): RhStockState {
@@ -35,10 +39,15 @@ function state(): RhStockState {
       accessToken: null,
       refreshToken: null,
       connectedAt: null,
+      pending: null,
+      challengeId: null,
     };
     db.write();
   }
-  return (db.data as any).robinhood as RhStockState;
+  const s = (db.data as any).robinhood as Partial<RhStockState>;
+  // Backfill new fields for stores created before this version.
+  if (!("pending" in s)) { s.pending = null; s.challengeId = null; db.write(); }
+  return s as RhStockState;
 }
 
 function save(patch: Partial<RhStockState>) {
@@ -60,79 +69,121 @@ export function clearRhStocks(): void {
     accessToken: null,
     refreshToken: null,
     connectedAt: null,
+    pending: null,
+    challengeId: null,
   };
   db.write();
 }
 
-// Step 1: attempt login. Returns { ok } on success, or { mfaRequired } /
-// { workflowId } when a verification code / approval is needed.
-export async function rhLogin(username: string, password: string): Promise<
-  | { ok: true }
-  | { mfaRequired: true }
-  | { workflowId: string }
-  | { error: string }
-> {
-  const s = state();
-  const payload: any = {
+// Build the base password-grant payload. `challengeId` adds the header RH wants
+// once a challenge has been answered.
+function tokenBody(username: string, password: string, deviceToken: string, mfaCode?: string) {
+  const body: any = {
     client_id: CLIENT_ID,
     expires_in: 86400,
     grant_type: "password",
     scope: "internal",
     username,
     password,
-    device_token: s.deviceToken,
+    device_token: deviceToken,
+    // Tell RH we can prompt for an SMS/email challenge (the flow that texts a code).
+    challenge_type: "sms",
   };
+  if (mfaCode) body.mfa_code = mfaCode;
+  return body;
+}
+
+// Step 1: attempt login. Returns { ok } on success, or a signal that a
+// verification code is needed: { mfaRequired } (app/authenticator code) or
+// { challenge } (SMS/email code — RH has already sent it).
+export async function rhLogin(username: string, password: string): Promise<
+  | { ok: true }
+  | { mfaRequired: true }
+  | { challenge: true }
+  | { workflowId: string }
+  | { error: string }
+> {
+  const s = state();
   const res = await fetch(`${BASE}/oauth2/token/`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
+    body: JSON.stringify(tokenBody(username, password, s.deviceToken)),
     cache: "no-store",
   });
   const j = await res.json().catch(() => ({}));
 
   if (j.access_token) {
-    save({ accessToken: j.access_token, refreshToken: j.refresh_token ?? null, connectedAt: new Date().toISOString() });
+    save({ accessToken: j.access_token, refreshToken: j.refresh_token ?? null, connectedAt: new Date().toISOString(), pending: null, challengeId: null });
     return { ok: true };
   }
+  // SMS/email challenge: RH returns a `challenge` object and has already texted
+  // a code. We must POST that code to /challenge/{id}/respond/ then retry.
+  if (j.challenge?.id) {
+    save({ pending: { username, password }, challengeId: j.challenge.id });
+    return { challenge: true };
+  }
   if (j.mfa_required) {
-    // store creds transiently for the mfa step (in-memory module cache)
-    pending = { username, password };
+    save({ pending: { username, password }, challengeId: null });
     return { mfaRequired: true };
   }
   // Newer RH uses a verification "workflow" (device approval / app prompt)
   const workflowId = j.verification_workflow?.id;
   if (workflowId) {
-    pending = { username, password };
+    save({ pending: { username, password }, challengeId: null });
     return { workflowId };
   }
   return { error: j.detail || j.error_description || "Login failed" };
 }
 
-let pending: { username: string; password: string } | null = null;
-
-// Step 2: submit the MFA / SMS / authenticator code.
+// Step 2: submit the verification code. Handles BOTH flows:
+//   - challenge flow: POST code to /challenge/{id}/respond/, then retry the
+//     token request with the x-robinhood-challenge-response-id header.
+//   - mfa flow: resend the token request with mfa_code.
 export async function rhSubmitMfa(code: string): Promise<{ ok: boolean; error?: string }> {
-  if (!pending) return { ok: false, error: "No pending login — start again." };
   const s = state();
+  if (!s.pending) return { ok: false, error: "No pending login — start again." };
+  const { username, password } = s.pending;
+
+  // --- Challenge (SMS/email) flow ---
+  if (s.challengeId) {
+    const cr = await fetch(`${BASE}/challenge/${s.challengeId}/respond/`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ response: code }),
+      cache: "no-store",
+    });
+    const cj = await cr.json().catch(() => ({}));
+    if (cj.status !== "validated") {
+      return { ok: false, error: cj.detail || "Incorrect code — check the text and try again." };
+    }
+    // Challenge validated → retry token with the challenge id in the header.
+    const res = await fetch(`${BASE}/oauth2/token/`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-robinhood-challenge-response-id": s.challengeId,
+      },
+      body: JSON.stringify(tokenBody(username, password, s.deviceToken)),
+      cache: "no-store",
+    });
+    const j = await res.json().catch(() => ({}));
+    if (j.access_token) {
+      save({ accessToken: j.access_token, refreshToken: j.refresh_token ?? null, connectedAt: new Date().toISOString(), pending: null, challengeId: null });
+      return { ok: true };
+    }
+    return { ok: false, error: j.detail || "Login failed after challenge." };
+  }
+
+  // --- MFA (authenticator) flow ---
   const res = await fetch(`${BASE}/oauth2/token/`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      client_id: CLIENT_ID,
-      expires_in: 86400,
-      grant_type: "password",
-      scope: "internal",
-      username: pending.username,
-      password: pending.password,
-      device_token: s.deviceToken,
-      mfa_code: code,
-    }),
+    body: JSON.stringify(tokenBody(username, password, s.deviceToken, code)),
     cache: "no-store",
   });
   const j = await res.json().catch(() => ({}));
   if (j.access_token) {
-    save({ accessToken: j.access_token, refreshToken: j.refresh_token ?? null, connectedAt: new Date().toISOString() });
-    pending = null;
+    save({ accessToken: j.access_token, refreshToken: j.refresh_token ?? null, connectedAt: new Date().toISOString(), pending: null, challengeId: null });
     return { ok: true };
   }
   return { ok: false, error: j.detail || "Invalid code" };

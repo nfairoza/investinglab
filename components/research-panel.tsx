@@ -7,6 +7,7 @@ import type { DataResult } from "@/lib/providers/types";
 import type { ResearchReport } from "@/lib/research/types";
 import { freshness } from "@/lib/research/staleness";
 import { RecommendationGauge } from "./charts/RecommendationGauge";
+import { MiniPrediction } from "./mini-prediction";
 import { ScenarioRangeChart } from "./charts/ScenarioRangeChart";
 import { RevenueEarningsChart } from "./charts/RevenueEarningsChart";
 import { MarginChart } from "./charts/MarginChart";
@@ -88,6 +89,12 @@ export function ResearchPanel({ symbol }: { symbol: string }) {
             {busy ? "Generating…" : report ? "Refresh analysis" : "Generate analysis"}
           </button>
         </div>
+      </div>
+
+      {/* Quick AI prediction (direction + magnitude per horizon) — combined into
+          the memo card so there's one unified AI verdict, not two separate ones. */}
+      <div className="mt-4">
+        <MiniPrediction symbol={symbol} />
       </div>
 
       {isLoading && <div className="mt-4 h-20 animate-pulse rounded bg-slate-800" />}

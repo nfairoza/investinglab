@@ -56,7 +56,8 @@ export function RobinhoodConnector() {
       });
       const j = await r.json();
       if (j.ok) { setPass(""); await refresh(); setMsg("Connected to Robinhood (stocks)."); }
-      else if (j.mfaRequired || j.workflowId) { setMfaStep(true); setMsg("Enter the verification code Robinhood sent you."); }
+      else if (j.challenge) { setMfaStep(true); setMsg("Robinhood texted you a code. Enter it below."); }
+      else if (j.mfaRequired || j.workflowId) { setMfaStep(true); setMsg("Enter the code from your authenticator app."); }
       else setMsg(`Error: ${j.error ?? "login failed"}`);
     } finally { setBusy(false); }
   }
@@ -143,6 +144,9 @@ export function RobinhoodConnector() {
               placeholder="Verification code" className="rounded-md border border-white/10 bg-black/25 px-3 py-2 text-sm text-slate-200 placeholder:text-slate-600 focus:border-brand-500 focus:outline-none" />
             <button onClick={submitMfa} disabled={busy || !code.trim()} className="rounded-md bg-amber-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-amber-500 disabled:opacity-50">
               {busy ? "Verifying…" : "Verify"}
+            </button>
+            <button onClick={() => { setCode(""); login(); }} disabled={busy || !pass} className="rounded-md border border-white/10 px-3 py-1.5 text-xs text-slate-300 hover:bg-slate-800 disabled:opacity-50" title="Robinhood will send a new code">
+              Resend code
             </button>
             <button onClick={() => { setMfaStep(false); setCode(""); }} className="rounded-md border border-white/10 px-3 py-1.5 text-xs text-slate-400 hover:bg-slate-800">Cancel</button>
           </div>

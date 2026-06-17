@@ -94,6 +94,7 @@ export function CongressFeed() {
                 <th className="px-3 py-2">Amount (range)</th>
                 <th className="px-3 py-2">Traded</th>
                 <th className="px-3 py-2">Disclosed</th>
+                <th className="px-3 py-2">Source</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
@@ -112,11 +113,20 @@ export function CongressFeed() {
                   <td className="px-3 py-2 text-slate-300">{t.amountRange}</td>
                   <td className="px-3 py-2 text-slate-400">{t.txDate}</td>
                   <td className="px-3 py-2 text-slate-400">{t.disclosureDate}</td>
+                  <td className="px-3 py-2">
+                    {t.sourceLink ? (
+                      <a href={t.sourceLink} target="_blank" rel="noreferrer" className="text-xs text-brand-400 underline">
+                        {t.chamber === "Senate" ? "Senate eFD" : "House PTR"}
+                      </a>
+                    ) : (
+                      <span className="text-xs text-slate-600">—</span>
+                    )}
+                  </td>
                 </tr>
               ))}
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-3 py-6 text-center text-slate-500">
+                  <td colSpan={7} className="px-3 py-6 text-center text-slate-500">
                     No matching disclosures.
                   </td>
                 </tr>

@@ -51,16 +51,20 @@ export async function callGemini(opts: {
 // Returns the upstream Response whose body streams Gemini SSE chunks.
 export async function streamGemini(opts: {
   system: string;
-  messages: { role: "user" | "assistant"; content: string }[];
+  messages: { role: "user" | "assistant"; content: string; images?: { mediaType: string; data: string }[] }[];
   webSearch?: boolean;
 }): Promise<Response> {
   const key = geminiKey();
   if (!key) throw new Error("No GEMINI_API_KEY configured");
 
-  const contents = opts.messages.map((m) => ({
-    role: m.role === "assistant" ? "model" : "user",
-    parts: [{ text: m.content }],
-  }));
+  const contents = opts.messages.map((m) => {
+    const parts: any[] = [];
+    for (const img of m.images ?? []) {
+      parts.push({ inlineData: { mimeType: img.mediaType, data: img.data } });
+    }
+    if (m.content.trim() || parts.length === 0) parts.push({ text: m.content });
+    return { role: m.role === "assistant" ? "model" : "user", parts };
+  });
 
   const body: any = {
     contents,

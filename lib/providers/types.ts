@@ -127,7 +127,8 @@ export interface AnalystData {
 
 export interface InsiderTrade {
   symbol: string;
-  date: string;
+  date: string; // transaction date — when the insider actually traded
+  filingDate: string | null; // when it was reported to the SEC (Form 4 filing)
   reportingName: string;
   transactionType: string; // "P-Purchase" | "S-Sale" | etc.
   securitiesTransacted: number | null;
@@ -182,6 +183,7 @@ export interface CongressTrade {
   amountRange: string; // disclosed RANGE, e.g. "$1,001–$15,000" — never exact
   txDate: string; // ISO date the trade was made
   disclosureDate: string; // ISO date it was reported (txDate + up to 45 days)
+  sourceLink: string | null; // link to the official filing (Senate eFD / House Clerk PTR)
 }
 
 // Same swappable-adapter pattern as MarketDataProvider. Implement this once

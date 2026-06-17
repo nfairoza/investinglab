@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
-import { MessageCircle, X, Send, RotateCcw, Minus, Maximize2, Minimize2 } from "lucide-react";
+import { MessageCircle, X, Send, RotateCcw, Minus, Maximize2, Minimize2, ImagePlus } from "lucide-react";
 import useSWR from "swr";
 import type { Holding, WatchItem } from "@/lib/db";
 import type { DataResult, Quote } from "@/lib/providers/types";
@@ -10,10 +10,16 @@ import { renderMarkdown } from "@/lib/markdown";
 
 // ── types ────────────────────────────────────────────────────────────────────
 
+interface ChatImage {
+  mediaType: string; // image/png, image/jpeg…
+  data: string; // base64, no prefix
+  preview: string; // data: URL for display
+}
 interface Message {
   id: string;
   role: "user" | "assistant";
   content: string;
+  images?: ChatImage[];
   streaming?: boolean;
 }
 
@@ -91,8 +97,10 @@ export function ChatWidget() {
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
   const [noKey, setNoKey] = useState(false);
+  const [pendingImages, setPendingImages] = useState<ChatImage[]>([]);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
   const pathname = usePathname();
 
   const { data: holdings = [] } = useSWR<Holding[]>("/api/holdings", (url: string) => fetch(url).then((r) => r.json()), { revalidateOnFocus: false });
@@ -129,13 +137,48 @@ export function ChatWidget() {
     return Math.random().toString(36).slice(2);
   }
 
+  // Read an image File into a base64 ChatImage (caps total to 4 images).
+  function addFiles(files: FileList | File[]) {
+    const imgs = Array.from(files).filter((f) => f.type.startsWith("image/"));
+    imgs.forEach((file) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = String(reader.result); // data:image/png;base64,XXXX
+        const comma = result.indexOf(",");
+        const data = comma >= 0 ? result.slice(comma + 1) : result;
+        setPendingImages((prev) => prev.length >= 4 ? prev : [...prev, { mediaType: file.type, data, preview: result }]);
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function handlePaste(e: React.ClipboardEvent) {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    const files: File[] = [];
+    for (const it of Array.from(items)) {
+      if (it.type.startsWith("image/")) {
+        const f = it.getAsFile();
+        if (f) files.push(f);
+      }
+    }
+    if (files.length) { e.preventDefault(); addFiles(files); }
+  }
+
+  function removePending(idx: number) {
+    setPendingImages((prev) => prev.filter((_, i) => i !== idx));
+  }
+
   async function send(text?: string) {
     const userText = (text ?? input).trim();
-    if (!userText || streaming) return;
+    const imgs = pendingImages;
+    // Allow sending if there's text OR at least one image.
+    if ((!userText && imgs.length === 0) || streaming) return;
     setInput("");
+    setPendingImages([]);
     setNoKey(false);
 
-    const userMsg: Message = { id: uid(), role: "user", content: userText };
+    const userMsg: Message = { id: uid(), role: "user", content: userText, images: imgs.length ? imgs : undefined };
     const assistantId = uid();
     const assistantMsg: Message = { id: assistantId, role: "assistant", content: "", streaming: true };
 
@@ -147,11 +190,16 @@ export function ChatWidget() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          // Only send messages with real content (drop empty assistant placeholders)
-          // so the Anthropic API never sees a blank turn (which 400s).
+          // Send messages with text OR images (drop empty assistant placeholders)
+          // so the API never sees a blank turn (which 400s). Strip the data-URL
+          // preview; the server only needs mediaType + base64 data.
           messages: [...messages, userMsg]
-            .filter((m) => m.content.trim())
-            .map((m) => ({ role: m.role, content: m.content })),
+            .filter((m) => m.content.trim() || m.images?.length)
+            .map((m) => ({
+              role: m.role,
+              content: m.content,
+              images: m.images?.map((img) => ({ mediaType: img.mediaType, data: img.data })),
+            })),
           context: {
             holdings: holdingContext,
             watchlist: watchlist.map((w) => w.symbol),
@@ -326,7 +374,17 @@ export function ChatWidget() {
                       m.streaming ? <span className="animate-pulse text-slate-400">▌</span> : ""
                     )
                   ) : (
-                    m.content
+                    <div className="space-y-1.5">
+                      {m.images?.length ? (
+                        <div className="flex flex-wrap gap-1.5">
+                          {m.images.map((img, idx) => (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img key={idx} src={img.preview} alt="attachment" className="max-h-40 rounded-lg border border-white/20" />
+                          ))}
+                        </div>
+                      ) : null}
+                      {m.content && <div className="whitespace-pre-wrap">{m.content}</div>}
+                    </div>
                   )}
                 </div>
               </div>
@@ -336,13 +394,46 @@ export function ChatWidget() {
 
           {/* Input */}
           <div className="border-t border-white/10 px-3 py-2">
+            {/* Pending image previews */}
+            {pendingImages.length > 0 && (
+              <div className="mb-2 flex flex-wrap gap-2">
+                {pendingImages.map((img, idx) => (
+                  <div key={idx} className="relative">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={img.preview} alt="pending" className="h-14 w-14 rounded-lg border border-white/20 object-cover" />
+                    <button
+                      onClick={() => removePending(idx)}
+                      className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-slate-900 text-slate-300 ring-1 ring-white/20 hover:bg-rose-600 hover:text-white"
+                      title="Remove">
+                      <X size={10} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
             <div className="flex items-end gap-2">
+              <input
+                ref={fileRef}
+                type="file"
+                accept="image/*"
+                multiple
+                className="hidden"
+                onChange={(e) => { if (e.target.files) addFiles(e.target.files); e.target.value = ""; }}
+              />
+              <button
+                onClick={() => fileRef.current?.click()}
+                disabled={streaming || pendingImages.length >= 4}
+                title="Attach image"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/10 text-slate-400 hover:bg-slate-800 hover:text-slate-200 disabled:opacity-40">
+                <ImagePlus size={16} />
+              </button>
               <textarea
                 ref={inputRef}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKey}
-                placeholder="Ask about your portfolio… (Enter to send)"
+                onPaste={handlePaste}
+                placeholder="Ask anything, or paste/attach an image… (Enter to send)"
                 rows={1}
                 disabled={streaming}
                 className="flex-1 resize-none rounded-xl border border-white/10 bg-slate-800 px-3 py-2 text-sm text-slate-200 placeholder:text-slate-600 focus:border-brand-500 focus:outline-none disabled:opacity-50"
@@ -355,7 +446,7 @@ export function ChatWidget() {
               />
               <button
                 onClick={() => send()}
-                disabled={!input.trim() || streaming}
+                disabled={(!input.trim() && pendingImages.length === 0) || streaming}
                 className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-600 text-white hover:bg-brand-600 disabled:opacity-40"
               >
                 <Send size={15} />

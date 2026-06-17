@@ -59,13 +59,10 @@ export const CONNECTORS: Connector[] = [
   {
     id: "congress_trades",
     label: "Congress trades",
-    purpose: "STOCK Act disclosures for the Congress tab.",
+    purpose: "STOCK Act disclosures (Senate eFD + House Clerk PTRs) for the Congress tab. Live via your FMP key — no separate key needed.",
     category: "finance",
-    fields: [
-      { id: "CONGRESS_TRADES_API_KEY", label: "API key", secret: true },
-      { id: "CONGRESS_TRADES_API_BASE", label: "Base URL" },
-    ],
-    envVars: ["CONGRESS_TRADES_API_KEY"],
+    fields: [],
+    envVars: ["MARKET_DATA_API_KEY"],
     testUrl: "/api/congress?limit=1",
   },
   {

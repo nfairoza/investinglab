@@ -264,24 +264,26 @@ export const fmpProvider: MarketDataProvider = {
     const KEY = getKey();
     if (!KEY) return unavailable(NAME, "MARKET_DATA_API_KEY missing");
     try {
-      const [targetSummary, gradesConsensus] = await Promise.all([
+      const [targetSummary, targetConsensus, gradesConsensus] = await Promise.all([
         getJson(`${BASE}/price-target-summary?symbol=${symbol}&apikey=${KEY}`).catch(() => null),
+        getJson(`${BASE}/price-target-consensus?symbol=${symbol}&apikey=${KEY}`).catch(() => null),
         getJson(`${BASE}/grades-consensus?symbol=${symbol}&apikey=${KEY}`).catch(() => null),
       ]);
 
       const ts = Array.isArray(targetSummary) ? targetSummary[0] : (targetSummary as any);
+      const tc = Array.isArray(targetConsensus) ? targetConsensus[0] : (targetConsensus as any);
       const gs = Array.isArray(gradesConsensus) ? gradesConsensus[0] : (gradesConsensus as any);
 
-      // stable price-target-summary gives count + avg per window, not high/low.
-      // Use the last-quarter average as the consensus.
-      const consensus = ts?.lastQuarterAvgPriceTarget ?? ts?.lastYearAvgPriceTarget ?? null;
+      // price-target-consensus carries high/low/consensus/median; price-target-summary
+      // carries recent rolling averages. Prefer the consensus endpoint, fall back to summary.
+      const consensus = tc?.targetConsensus ?? ts?.lastQuarterAvgPriceTarget ?? ts?.lastYearAvgPriceTarget ?? null;
 
       const analyst: AnalystData = {
         symbol,
-        priceTargetHigh: null,
-        priceTargetLow: null,
+        priceTargetHigh: tc?.targetHigh ?? null,
+        priceTargetLow: tc?.targetLow ?? null,
         priceTargetConsensus: consensus,
-        priceTargetAvg: ts?.lastYearAvgPriceTarget ?? null,
+        priceTargetAvg: ts?.lastQuarterAvgPriceTarget ?? ts?.lastYearAvgPriceTarget ?? tc?.targetMedian ?? null,
         strongBuy: gs?.strongBuy ?? 0,
         buy: gs?.buy ?? 0,
         hold: gs?.hold ?? 0,
@@ -306,6 +308,7 @@ export const fmpProvider: MarketDataProvider = {
       const trades: InsiderTrade[] = arr.map((t: any) => ({
         symbol,
         date: t.transactionDate ?? t.filingDate ?? "",
+        filingDate: t.filingDate ?? null,
         reportingName: t.reportingName ?? "",
         transactionType: t.transactionType ?? "",
         securitiesTransacted: t.securitiesTransacted ?? null,
