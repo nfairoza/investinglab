@@ -8,16 +8,16 @@ interface Slice {
 }
 
 const COLORS = [
-  "#38bdf8", "#818cf8", "#34d399", "#fbbf24", "#f87171",
-  "#a78bfa", "#fb923c", "#4ade80", "#f472b6", "#60a5fa",
+  "var(--accent)", "var(--neutral)", "var(--positive)", "var(--accent)", "var(--negative)",
+  "var(--neutral)", "#fb923c", "var(--positive)", "#f472b6", "var(--accent)",
 ];
 
 export function AllocationDonut({ slices, title = "Portfolio allocation" }: { slices: Slice[]; title?: string }) {
   if (!slices.length) {
     return (
       <div className="card-hover rounded-xl glass p-4">
-        <div className="text-sm font-semibold text-slate-100">{title}</div>
-        <div className="mt-4 flex h-40 items-center justify-center text-sm text-slate-500">
+        <div className="text-sm font-semibold text-ink">{title}</div>
+        <div className="mt-4 flex h-40 items-center justify-center text-sm text-ink-faint">
           Add holdings to see your allocation.
         </div>
       </div>
@@ -28,8 +28,8 @@ export function AllocationDonut({ slices, title = "Portfolio allocation" }: { sl
 
   return (
     <div className="rounded-xl glass p-4">
-      <div className="text-sm font-semibold text-slate-100">{title}</div>
-      <div className="text-xs text-slate-500 mt-0.5">Am I too concentrated in one stock?</div>
+      <div className="text-sm font-semibold text-ink">{title}</div>
+      <div className="text-xs text-ink-faint mt-0.5">Am I too concentrated in one stock?</div>
       <ResponsiveContainer width="100%" height={220}>
         <PieChart>
           <Pie
@@ -46,16 +46,16 @@ export function AllocationDonut({ slices, title = "Portfolio allocation" }: { sl
             ))}
           </Pie>
           <Tooltip
-            contentStyle={{ background: "rgba(12,16,13,0.95)", border: "1px solid rgba(212,168,42,0.25)", borderRadius: 10, fontSize: 12 }}
+            contentStyle={{ background: "var(--tooltip-bg)", border: "1px solid var(--hairline-gold)", borderRadius: 10, fontSize: 12 }}
             formatter={(v: number, name: string) => [`${v}%`, name]}
           />
           <Legend
-            wrapperStyle={{ fontSize: 11, color: "#94a3b8" }}
+            wrapperStyle={{ fontSize: 11, color: "var(--text-dim)" }}
             formatter={(value, entry) => `${value} ${(entry as any).payload?.value ?? ""}%`}
           />
         </PieChart>
       </ResponsiveContainer>
-      <p className="mt-1 text-[11px] text-slate-600">Research and educational analysis, not financial advice.</p>
+      <p className="mt-1 text-[11px] text-ink-faint">Research and educational analysis, not financial advice.</p>
     </div>
   );
 }

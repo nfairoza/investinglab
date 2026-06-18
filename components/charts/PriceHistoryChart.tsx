@@ -45,18 +45,18 @@ export function PriceHistoryChart({ symbol }: { symbol: string }) {
     <div className="card-hover rounded-xl glass p-4">
       <div className="flex items-center justify-between">
         <div>
-          <div className="text-sm font-semibold text-slate-100">{symbol} — Moving averages</div>
-          <div className="text-xs text-slate-500 mt-0.5">
+          <div className="text-sm font-semibold text-ink">{symbol} — Moving averages</div>
+          <div className="text-xs text-ink-faint mt-0.5">
             Above these lines, the trend is generally healthier.
           </div>
         </div>
         {data && <DataBadge source={data.source} />}
       </div>
 
-      {isLoading && <div className="mt-4 h-48 animate-pulse rounded bg-slate-800" />}
+      {isLoading && <div className="mt-4 h-48 animate-pulse rounded bg-surface-raised" />}
 
       {!isLoading && !chartable && (
-        <div className="mt-4 flex h-48 items-center justify-center rounded-lg border border-white/10 text-sm text-slate-500">
+        <div className="mt-4 flex h-48 items-center justify-center rounded-lg border border-hairline text-sm text-ink-faint">
           <div className="text-center">
             <DataBadge source="unavailable" />
             <p className="mt-2">Price history unavailable — add a stock-data key in Connectors.</p>
@@ -68,34 +68,34 @@ export function PriceHistoryChart({ symbol }: { symbol: string }) {
         <div className="mt-4">
           <ResponsiveContainer width="100%" height={200}>
             <LineChart data={rows} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-              <XAxis dataKey="date" tick={{ fill: "#64748b", fontSize: 10 }} tickLine={false}
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
+              <XAxis dataKey="date" tick={{ fill: "var(--chart-axis)", fontSize: 10 }} tickLine={false}
                 tickFormatter={(v) => v.slice(5)} interval="preserveStartEnd" />
-              <YAxis tick={{ fill: "#64748b", fontSize: 10 }} tickLine={false}
+              <YAxis tick={{ fill: "var(--chart-axis)", fontSize: 10 }} tickLine={false}
                 tickFormatter={(v) => `$${v}`} width={56} domain={["auto", "auto"]} />
               <Tooltip
-                contentStyle={{ background: "rgba(12,16,13,0.95)", border: "1px solid rgba(212,168,42,0.25)", borderRadius: 10, fontSize: 12 }}
-                labelStyle={{ color: "#94a3b8" }}
+                contentStyle={{ background: "var(--tooltip-bg)", border: "1px solid var(--hairline-gold)", borderRadius: 10, fontSize: 12 }}
+                labelStyle={{ color: "var(--text-dim)" }}
                 formatter={(v: number, name: string) => [fmt(v), name]}
               />
-              <Legend wrapperStyle={{ fontSize: 11, color: "#94a3b8" }} />
-              <Line dataKey="sma50" name="50-day avg" stroke="#38bdf8" dot={false} strokeWidth={1.5} connectNulls />
-              <Line dataKey="sma200" name="200-day avg" stroke="#818cf8" dot={false} strokeWidth={1.5} connectNulls />
+              <Legend wrapperStyle={{ fontSize: 11, color: "var(--text-dim)" }} />
+              <Line dataKey="sma50" name="50-day avg" stroke="var(--accent)" dot={false} strokeWidth={1.5} connectNulls />
+              <Line dataKey="sma200" name="200-day avg" stroke="var(--neutral)" dot={false} strokeWidth={1.5} connectNulls />
             </LineChart>
           </ResponsiveContainer>
 
           {t && (
-            <div className="mt-2 flex flex-wrap gap-4 text-xs text-slate-400">
+            <div className="mt-2 flex flex-wrap gap-4 text-xs text-ink-dim">
               {t.sma50 != null && <span>50-day avg: <span className="text-brand-300">${t.sma50.toFixed(2)}</span></span>}
               {t.sma200 != null && <span>200-day avg: <span className="text-indigo-300">${t.sma200.toFixed(2)}</span></span>}
-              {t.rsi14 != null && <span>RSI (14): <span className="text-slate-200">{t.rsi14.toFixed(0)}</span> {t.rsi14 > 70 ? "(overbought)" : t.rsi14 < 30 ? "(oversold)" : ""}</span>}
+              {t.rsi14 != null && <span>RSI (14): <span className="text-ink">{t.rsi14.toFixed(0)}</span> {t.rsi14 > 70 ? "(overbought)" : t.rsi14 < 30 ? "(oversold)" : ""}</span>}
             </div>
           )}
         </div>
       )}
 
       {data && <div className="mt-2"><DataTimestamp asOf={data.asOf} /></div>}
-      <p className="mt-1 text-[11px] text-slate-600">Research and educational analysis, not financial advice.</p>
+      <p className="mt-1 text-[11px] text-ink-faint">Research and educational analysis, not financial advice.</p>
     </div>
   );
 }

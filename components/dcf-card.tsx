@@ -25,37 +25,37 @@ export function DcfCard({ symbol }: { symbol: string }) {
   return (
     <div className="card-hover rounded-xl glass p-5">
       <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-slate-100">{symbol} — DCF fair value</h2>
+        <h2 className="text-sm font-semibold text-ink">{symbol} — DCF fair value</h2>
         {data && <DataBadge source={data.source} />}
       </div>
-      <p className="mt-0.5 text-xs text-slate-500">
+      <p className="mt-0.5 text-xs text-ink-faint">
         FMP's discounted cash flow model. One estimate — not a guarantee. Always use a range.
       </p>
 
-      {isLoading && <div className="mt-4 h-16 animate-pulse rounded bg-slate-800" />}
+      {isLoading && <div className="mt-4 h-16 animate-pulse rounded bg-surface-raised" />}
       {!isLoading && !d && (
-        <p className="mt-3 text-sm text-slate-500">{data?.note ?? "DCF data unavailable."}</p>
+        <p className="mt-3 text-sm text-ink-faint">{data?.note ?? "DCF data unavailable."}</p>
       )}
 
       {d && (
         <div className="mt-4 space-y-3">
           <div className="flex flex-wrap items-end gap-4">
             <div>
-              <div className="text-xs text-slate-500">DCF intrinsic value</div>
-              <div className="text-2xl font-bold text-slate-100">
+              <div className="text-xs text-ink-faint">DCF intrinsic value</div>
+              <div className="text-2xl font-bold text-ink">
                 {d.dcf != null ? `$${d.dcf.toFixed(2)}` : "—"}
               </div>
             </div>
             <div>
-              <div className="text-xs text-slate-500">Current price</div>
-              <div className="text-xl font-semibold text-slate-300">
+              <div className="text-xs text-ink-faint">Current price</div>
+              <div className="text-xl font-semibold text-ink-dim">
                 {d.price != null ? `$${d.price.toFixed(2)}` : "—"}
               </div>
             </div>
             {pct != null && (
               <div>
-                <div className="text-xs text-slate-500">vs fair value</div>
-                <div className={`text-xl font-semibold ${cheap ? "text-emerald-400" : expensive ? "text-rose-400" : "text-slate-300"}`}>
+                <div className="text-xs text-ink-faint">vs fair value</div>
+                <div className={`text-xl font-semibold ${cheap ? "text-emerald-400" : expensive ? "text-rose-400" : "text-ink-dim"}`}>
                   {cheap ? "▼ " : "▲ "}{Math.abs(pct).toFixed(1)}%{" "}
                   <span className="text-sm font-normal">{cheap ? "below (potentially undervalued)" : "above (potentially overvalued)"}</span>
                 </div>

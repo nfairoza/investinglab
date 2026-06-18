@@ -46,7 +46,7 @@ function typeLabel(t: string): string {
 }
 
 function typeStyle(t: string): string {
-  return TYPE_STYLE[t] ?? "border-slate-600 text-slate-400";
+  return TYPE_STYLE[t] ?? "border-hairline-strong text-ink-dim";
 }
 
 function helpFor(t: string): string {
@@ -68,7 +68,7 @@ function insiderSentiment(trades: InsiderTrade[]) {
   const sellVal = sells.reduce((s, t) => s + (t.securitiesTransacted ?? 0) * (t.price ?? 0), 0);
 
   let verdict: "Bullish" | "Bearish" | "Neutral" | "No signal" = "No signal";
-  let cls = "text-slate-300 border-slate-600 bg-slate-700/30";
+  let cls = "text-ink-dim border-hairline-strong bg-surface/30";
   let confidence = 0;
   let note = "No open-market insider buys or sells in the last 90 days (grants and tax withholdings ignored).";
 
@@ -87,7 +87,7 @@ function insiderSentiment(trades: InsiderTrade[]) {
       note = `${sells.length} sell${sells.length !== 1 ? "s" : ""} vs ${buys.length} buy${buys.length !== 1 ? "s" : ""} in 90 days — but insiders sell for many reasons, so weigh this lightly.`;
     } else {
       verdict = "Neutral";
-      cls = "text-slate-200 border-slate-500 bg-slate-700/30";
+      cls = "text-ink border-hairline bg-surface/30";
       confidence = 40;
       note = `Mixed insider activity (${buys.length} buy / ${sells.length} sell) in 90 days — no clear lean.`;
     }
@@ -115,10 +115,10 @@ export function InsiderFeed({ symbol }: { symbol: string }) {
   return (
     <div className="card-hover rounded-xl glass p-5">
       <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-slate-100">{symbol} — Insider transactions</h2>
+        <h2 className="text-sm font-semibold text-ink">{symbol} — Insider transactions</h2>
         {data && <DataBadge source={data.source} />}
       </div>
-      <p className="mt-0.5 text-xs text-slate-500">
+      <p className="mt-0.5 text-xs text-ink-faint">
         Corporate officers and directors buying or selling their own company&apos;s stock. Insiders sell for many reasons; buying is often more meaningful.
       </p>
 
@@ -136,16 +136,16 @@ export function InsiderFeed({ symbol }: { symbol: string }) {
         </div>
       )}
 
-      {isLoading && <div className="mt-4 h-20 animate-pulse rounded bg-slate-800" />}
+      {isLoading && <div className="mt-4 h-20 animate-pulse rounded bg-surface-raised" />}
 
       {!isLoading && !data?.data && (
-        <p className="mt-3 text-sm text-slate-500">{data?.note ?? "Insider data unavailable."}</p>
+        <p className="mt-3 text-sm text-ink-faint">{data?.note ?? "Insider data unavailable."}</p>
       )}
 
       {trades.length > 0 && (
         <div className="mt-4 max-h-[28rem] overflow-auto rounded-lg border border-white/10">
           <table className="w-full text-left text-sm">
-            <thead className="sticky top-0 bg-black/40 backdrop-blur text-xs uppercase tracking-wide text-slate-500">
+            <thead className="sticky top-0 bg-black/40 backdrop-blur text-xs uppercase tracking-wide text-ink-faint">
               <tr>
                 <th className="px-3 py-2">Insider</th>
                 <th className="px-3 py-2" title="What the insider did. Hover a tag for what each code means.">Action</th>
@@ -159,8 +159,8 @@ export function InsiderFeed({ symbol }: { symbol: string }) {
             </thead>
             <tbody className="divide-y divide-white/5">
               {trades.slice(0, 60).map((t, i) => (
-                <tr key={i} className="hover:bg-slate-800/30">
-                  <td className="px-3 py-2 text-slate-200">{t.reportingName}</td>
+                <tr key={i} className="hover:bg-surface">
+                  <td className="px-3 py-2 text-ink">{t.reportingName}</td>
                   <td className="px-3 py-2">
                     <span
                       title={helpFor(t.transactionType)}
@@ -169,19 +169,19 @@ export function InsiderFeed({ symbol }: { symbol: string }) {
                       {typeLabel(t.transactionType)}
                     </span>
                   </td>
-                  <td className="px-3 py-2 text-slate-300">
+                  <td className="px-3 py-2 text-ink-dim">
                     {t.securitiesTransacted != null ? t.securitiesTransacted.toLocaleString() : "—"}
                   </td>
-                  <td className="px-3 py-2 text-slate-300">
+                  <td className="px-3 py-2 text-ink-dim">
                     {t.price != null ? `$${t.price.toFixed(2)}` : "—"}
                   </td>
-                  <td className="px-3 py-2 text-slate-300">
+                  <td className="px-3 py-2 text-ink-dim">
                     {t.securitiesTransacted != null && t.price != null && t.price > 0
                       ? `$${(t.securitiesTransacted * t.price).toLocaleString(undefined, { maximumFractionDigits: 0 })}`
                       : "—"}
                   </td>
-                  <td className="px-3 py-2 text-slate-400" title="Transaction date">{fmtDate(t.date)}</td>
-                  <td className="px-3 py-2 text-slate-500" title="SEC filing date">{fmtDate(t.filingDate)}</td>
+                  <td className="px-3 py-2 text-ink-dim" title="Transaction date">{fmtDate(t.date)}</td>
+                  <td className="px-3 py-2 text-ink-faint" title="SEC filing date">{fmtDate(t.filingDate)}</td>
                   <td className="px-3 py-2">
                     {t.secLink && (
                       <a href={t.secLink} target="_blank" rel="noreferrer" className="text-xs text-brand-400 underline">
@@ -197,7 +197,7 @@ export function InsiderFeed({ symbol }: { symbol: string }) {
       )}
 
       {trades.length === 0 && !isLoading && data?.data && (
-        <p className="mt-3 text-sm text-slate-500">No recent insider transactions found.</p>
+        <p className="mt-3 text-sm text-ink-faint">No recent insider transactions found.</p>
       )}
 
       {data && <div className="mt-2"><DataTimestamp asOf={data.asOf} /></div>}

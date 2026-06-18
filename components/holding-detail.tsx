@@ -105,11 +105,11 @@ export function HoldingDetail({ symbol }: { symbol: string }) {
       {/* Header */}
       <div>
         <div className="flex flex-wrap items-center gap-3">
-          <Link href="/holdings" className="text-sm text-slate-400 hover:text-slate-200">← Holdings</Link>
+          <Link href="/holdings" className="text-sm text-ink-dim hover:text-ink">← Holdings</Link>
         </div>
         <div className="mt-2 flex flex-wrap items-center gap-4">
-          <h1 className="text-2xl font-semibold text-slate-100">{symbol}</h1>
-          {quote?.name && <span className="text-slate-400">{quote.name}</span>}
+          <h1 className="text-2xl font-semibold text-ink">{symbol}</h1>
+          {quote?.name && <span className="text-ink-dim">{quote.name}</span>}
           {quoteResult && <DataBadge source={quoteResult.source} />}
         </div>
       </div>
@@ -180,11 +180,11 @@ export function HoldingDetail({ symbol }: { symbol: string }) {
       <div className="rounded-xl glass p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <h2 className="text-lg font-semibold text-slate-100">{symbol} — Research memo</h2>
+            <h2 className="text-lg font-semibold text-ink">{symbol} — Research memo</h2>
             {researchResult && <DataBadge source={researchResult.source} />}
           </div>
           <div className="flex items-center gap-2">
-            <label className="flex items-center gap-1.5 text-[12px] text-slate-400">
+            <label className="flex items-center gap-1.5 text-[12px] text-ink-dim">
               <input type="checkbox" checked={beginner} onChange={(e) => setBeginner(e.target.checked)} className="accent-brand-500" />
               Explain Like I&apos;m New
             </label>
@@ -214,7 +214,7 @@ export function HoldingDetail({ symbol }: { symbol: string }) {
             />
 
             <div className="flex flex-wrap items-center gap-2 text-[12px]">
-              <span className="text-slate-500">Generated {fresh?.label}.</span>
+              <span className="text-ink-faint">Generated {fresh?.label}.</span>
               {fresh?.stale && (
                 <span className="rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-amber-300">
                   Over 12h old — refresh?
@@ -226,8 +226,8 @@ export function HoldingDetail({ symbol }: { symbol: string }) {
             <div className="space-y-3 border-t border-white/10 pt-3">
               {report.sections.map((s) => (
                 <div key={s.id}>
-                  <div className="text-sm font-medium text-slate-200">{s.id}. {s.title}</div>
-                  <p className="text-sm text-slate-400">{beginner ? s.beginner : s.pro}</p>
+                  <div className="text-sm font-medium text-ink">{s.id}. {s.title}</div>
+                  <p className="text-sm text-ink-dim">{beginner ? s.beginner : s.pro}</p>
                 </div>
               ))}
             </div>
@@ -241,12 +241,12 @@ export function HoldingDetail({ symbol }: { symbol: string }) {
 
             {/* Action table — required by spec §12 */}
             <div className="border-t border-white/10 pt-3">
-              <div className="mb-3 text-sm font-medium text-slate-200">Action table</div>
+              <div className="mb-3 text-sm font-medium text-ink">Action table</div>
               <div className="grid grid-cols-1 gap-x-6 gap-y-1 sm:grid-cols-2">
                 {ACTION_ROWS.map((row) => (
                   <div key={row.key} className="flex justify-between gap-3 border-b border-white/5 py-1 text-sm">
-                    <span className="text-slate-500">{row.label}</span>
-                    <span className="text-right text-slate-300">{report.actionTable[row.key] || "—"}</span>
+                    <span className="text-ink-faint">{row.label}</span>
+                    <span className="text-right text-ink-dim">{report.actionTable[row.key] || "—"}</span>
                   </div>
                 ))}
               </div>
@@ -256,15 +256,15 @@ export function HoldingDetail({ symbol }: { symbol: string }) {
       </div>
 
       {quoteResult && <DataTimestamp asOf={quoteResult.asOf} />}
-      <p className="text-[11px] text-slate-600">Research and educational analysis, not financial advice.</p>
+      <p className="text-[11px] text-ink-faint">Research and educational analysis, not financial advice.</p>
     </div>
   );
 }
 
-function StatCard({ label, value, valueClass = "text-slate-100" }: { label: string; value: string; valueClass?: string }) {
+function StatCard({ label, value, valueClass = "text-ink" }: { label: string; value: string; valueClass?: string }) {
   return (
     <div className="rounded-xl glass p-3">
-      <div className="text-xs text-slate-500">{label}</div>
+      <div className="text-xs text-ink-faint">{label}</div>
       <div className={`mt-1 text-lg font-semibold ${valueClass}`}>{value}</div>
     </div>
   );

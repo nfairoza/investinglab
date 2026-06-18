@@ -62,7 +62,7 @@ export function Journal() {
     mutate();
   }
 
-  const input = "rounded-md border border-white/10 bg-black/25 px-3 py-2 text-sm text-slate-200 placeholder:text-slate-600 focus:border-brand-500 focus:outline-none";
+  const input = "rounded-md border border-white/10 bg-black/25 px-3 py-2 text-sm text-ink placeholder:text-ink-faint focus:border-brand-500 focus:outline-none";
 
   return (
     <div className="space-y-4">
@@ -85,7 +85,7 @@ export function Journal() {
       </div>
 
       {items.length === 0 && (
-        <div className="rounded-lg border border-white/5 bg-black/20 p-6 text-center text-sm text-slate-500">
+        <div className="rounded-lg border border-white/5 bg-black/20 p-6 text-center text-sm text-ink-faint">
           No trades logged yet. Logging your reasoning, target, and exit plan is how you improve over time.
         </div>
       )}
@@ -94,20 +94,20 @@ export function Journal() {
         <div key={e.id} className="rounded-xl glass p-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2">
-              <span className="font-semibold text-slate-100">{e.symbol}</span>
+              <span className="font-semibold text-ink">{e.symbol}</span>
               <span className={`rounded-md border px-2 py-0.5 text-xs ${e.side === "buy" ? "border-emerald-500/40 text-emerald-300" : "border-rose-500/40 text-rose-300"}`}>
                 {e.side === "buy" ? "Bought" : "Sold"}
               </span>
-              <span className="text-xs text-slate-500">{new Date(e.createdAt).toLocaleDateString()}</span>
-              <span className={`rounded-full border px-2 py-0.5 text-[11px] ${e.status === "open" ? "border-brand-500/40 text-brand-300" : "border-slate-600 text-slate-400"}`}>
+              <span className="text-xs text-ink-faint">{new Date(e.createdAt).toLocaleDateString()}</span>
+              <span className={`rounded-full border px-2 py-0.5 text-[11px] ${e.status === "open" ? "border-brand-500/40 text-brand-300" : "border-hairline-strong text-ink-dim"}`}>
                 {e.status}
               </span>
             </div>
             <div className="flex items-center gap-2">
-              <button onClick={() => toggleStatus(e)} className="text-xs text-slate-400 hover:text-slate-200">
+              <button onClick={() => toggleStatus(e)} className="text-xs text-ink-dim hover:text-ink">
                 {e.status === "open" ? "Mark closed" : "Reopen"}
               </button>
-              <button onClick={() => removeEntry(e.id)} className="text-xs text-slate-500 hover:text-rose-300">Remove</button>
+              <button onClick={() => removeEntry(e.id)} className="text-xs text-ink-faint hover:text-rose-300">Remove</button>
             </div>
           </div>
 
@@ -135,7 +135,7 @@ export function Journal() {
         </div>
       ))}
 
-      <p className="text-[11px] text-slate-600">
+      <p className="text-[11px] text-ink-faint">
         Saved to <code>data/db.json</code> — persists across restarts. Research and educational analysis, not financial advice.
       </p>
     </div>
@@ -145,8 +145,8 @@ export function Journal() {
 function Field({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex justify-between gap-3 border-b border-white/5 py-1">
-      <span className="shrink-0 text-slate-500">{label}</span>
-      <span className="text-right text-slate-300">{value}</span>
+      <span className="shrink-0 text-ink-faint">{label}</span>
+      <span className="text-right text-ink-dim">{value}</span>
     </div>
   );
 }

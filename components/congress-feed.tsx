@@ -19,7 +19,7 @@ function TypeTag({ type }: { type: CongressTrade["type"] }) {
   const map = {
     buy: "border-emerald-500/40 bg-emerald-500/10 text-emerald-300",
     sell: "border-rose-500/40 bg-rose-500/10 text-rose-300",
-    exchange: "border-slate-600 bg-slate-700/30 text-slate-300",
+    exchange: "border-hairline-strong bg-surface/30 text-ink-dim",
   } as const;
   const label = type === "buy" ? "Bought" : type === "sell" ? "Sold" : "Exchanged";
   return <span className={`rounded-md border px-2 py-0.5 text-xs ${map[type]}`}>{label}</span>;
@@ -60,21 +60,21 @@ export function CongressFeed() {
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="Filter by member, ticker, or asset…"
-          className="w-72 rounded-md border border-white/10 bg-black/25 px-3 py-1.5 text-sm text-slate-200 placeholder:text-slate-600 focus:border-brand-500 focus:outline-none"
+          className="w-72 rounded-md border border-white/10 bg-black/25 px-3 py-1.5 text-sm text-ink placeholder:text-ink-faint focus:border-brand-500 focus:outline-none"
         />
         <div className="flex items-center gap-2">
           {data && <DataBadge source={data.source} />}
           <button
             onClick={() => mutate()}
             disabled={isValidating}
-            className="rounded-md border border-white/10 px-2 py-1 text-xs text-slate-300 hover:bg-slate-800 disabled:opacity-50"
+            className="rounded-md border border-white/10 px-2 py-1 text-xs text-ink-dim hover:bg-surface-raised disabled:opacity-50"
           >
             {isValidating ? "Refreshing…" : "Refresh"}
           </button>
         </div>
       </div>
 
-      {isLoading && <div className="h-40 animate-pulse rounded-lg bg-slate-800" />}
+      {isLoading && <div className="h-40 animate-pulse rounded-lg bg-surface-raised" />}
 
       {!isLoading && !data?.data && (
         <div className="rounded-lg border border-rose-500/30 bg-rose-500/5 p-4 text-sm text-rose-300">
@@ -86,7 +86,7 @@ export function CongressFeed() {
       {!isLoading && data?.data && (
         <div className="overflow-x-auto rounded-xl border border-white/10">
           <table className="w-full text-left text-sm">
-            <thead className="bg-black/25 text-xs uppercase tracking-wide text-slate-500">
+            <thead className="bg-black/25 text-xs uppercase tracking-wide text-ink-faint">
               <tr>
                 <th className="px-3 py-2">Member</th>
                 <th className="px-3 py-2">Action</th>
@@ -99,34 +99,34 @@ export function CongressFeed() {
             </thead>
             <tbody className="divide-y divide-white/5">
               {filtered.map((t) => (
-                <tr key={t.id} className="hover:bg-slate-800/30">
+                <tr key={t.id} className="hover:bg-surface">
                   <td className="px-3 py-2">
-                    <div className="text-slate-200">{t.member}</div>
-                    <div className="text-[11px] text-slate-500">
+                    <div className="text-ink">{t.member}</div>
+                    <div className="text-[11px] text-ink-faint">
                       {t.chamber}
                       {t.party ? ` · ${t.party}` : ""}
                       {t.state ? `-${t.state}` : ""}
                     </div>
                   </td>
                   <td className="px-3 py-2"><TypeTag type={t.type} /></td>
-                  <td className="px-3 py-2 font-medium text-slate-200">{t.symbol ?? "—"}</td>
-                  <td className="px-3 py-2 text-slate-300">{t.amountRange}</td>
-                  <td className="px-3 py-2 text-slate-400">{t.txDate}</td>
-                  <td className="px-3 py-2 text-slate-400">{t.disclosureDate}</td>
+                  <td className="px-3 py-2 font-medium text-ink">{t.symbol ?? "—"}</td>
+                  <td className="px-3 py-2 text-ink-dim">{t.amountRange}</td>
+                  <td className="px-3 py-2 text-ink-dim">{t.txDate}</td>
+                  <td className="px-3 py-2 text-ink-dim">{t.disclosureDate}</td>
                   <td className="px-3 py-2">
                     {t.sourceLink ? (
                       <a href={t.sourceLink} target="_blank" rel="noreferrer" className="text-xs text-brand-400 underline">
                         {t.chamber === "Senate" ? "Senate eFD" : "House PTR"}
                       </a>
                     ) : (
-                      <span className="text-xs text-slate-600">—</span>
+                      <span className="text-xs text-ink-faint">—</span>
                     )}
                   </td>
                 </tr>
               ))}
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="px-3 py-6 text-center text-slate-500">
+                  <td colSpan={7} className="px-3 py-6 text-center text-ink-faint">
                     No matching disclosures.
                   </td>
                 </tr>

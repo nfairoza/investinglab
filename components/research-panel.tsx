@@ -68,13 +68,13 @@ export function ResearchPanel({ symbol }: { symbol: string }) {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <div>
-            <h2 className="text-lg font-semibold text-slate-100">{symbol} — AI deep-dive memo</h2>
-            <p className="text-[11px] text-slate-500">Full written analysis (A–P sections, scenarios, action table). The quick call is the AI prediction at the top of the page.</p>
+            <h2 className="text-lg font-semibold text-ink">{symbol} — AI deep-dive memo</h2>
+            <p className="text-[11px] text-ink-faint">Full written analysis (A–P sections, scenarios, action table). The quick call is the AI prediction at the top of the page.</p>
           </div>
           {data && <DataBadge source={data.source} />}
         </div>
         <div className="flex items-center gap-2">
-          <label className="flex items-center gap-1.5 text-[12px] text-slate-400">
+          <label className="flex items-center gap-1.5 text-[12px] text-ink-dim">
             <input
               type="checkbox"
               checked={beginner}
@@ -93,7 +93,7 @@ export function ResearchPanel({ symbol }: { symbol: string }) {
         </div>
       </div>
 
-      {isLoading && <div className="mt-4 h-20 animate-pulse rounded bg-slate-800" />}
+      {isLoading && <div className="mt-4 h-20 animate-pulse rounded bg-surface-raised" />}
 
       {unavailable && (
         <div className="mt-4 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-sm text-amber-200">
@@ -117,23 +117,23 @@ export function ResearchPanel({ symbol }: { symbol: string }) {
           />
 
           <div className="flex flex-wrap items-center gap-2 text-[12px]">
-            <span className="text-slate-500">Analysis generated {fresh?.label}.</span>
+            <span className="text-ink-faint">Analysis generated {fresh?.label}.</span>
             {fresh?.stale && (
               <span className="rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-amber-300">
                 Over 12h old — refresh?
               </span>
             )}
-            {data?.note && <span className="text-slate-500">{data.note}</span>}
+            {data?.note && <span className="text-ink-faint">{data.note}</span>}
           </div>
 
           {/* Sections A–P; toggle swaps pro/beginner. */}
           <div className="space-y-3 border-t border-white/10 pt-3">
             {report.sections.map((s) => (
               <div key={s.id}>
-                <div className="text-sm font-medium text-slate-200">
+                <div className="text-sm font-medium text-ink">
                   {s.id}. {s.title}
                 </div>
-                <p className="text-sm text-slate-400">{beginner ? s.beginner : s.pro}</p>
+                <p className="text-sm text-ink-dim">{beginner ? s.beginner : s.pro}</p>
               </div>
             ))}
           </div>
@@ -160,12 +160,12 @@ export function ResearchPanel({ symbol }: { symbol: string }) {
 
           {/* Required Action Table. */}
           <div className="border-t border-white/10 pt-3">
-            <div className="mb-2 text-sm font-medium text-slate-200">Action table</div>
+            <div className="mb-2 text-sm font-medium text-ink">Action table</div>
             <div className="grid grid-cols-1 gap-x-6 gap-y-1 sm:grid-cols-2">
               {ACTION_ROWS.map((row) => (
                 <div key={row.key} className="flex justify-between gap-3 border-b border-white/5 py-1 text-sm">
-                  <span className="text-slate-500">{row.label}</span>
-                  <span className="text-right text-slate-300">{report.actionTable[row.key] || "—"}</span>
+                  <span className="text-ink-faint">{row.label}</span>
+                  <span className="text-right text-ink-dim">{report.actionTable[row.key] || "—"}</span>
                 </div>
               ))}
             </div>
@@ -173,7 +173,7 @@ export function ResearchPanel({ symbol }: { symbol: string }) {
         </div>
       )}
 
-      <p className="mt-4 text-[11px] text-slate-600">
+      <p className="mt-4 text-[11px] text-ink-faint">
         Research and educational analysis, not financial advice.
       </p>
     </div>

@@ -123,7 +123,7 @@ export function StockMap() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <select value={sector} onChange={(e) => setSector(e.target.value)}
-            className="rounded-md border border-white/10 bg-[#11150f] px-3 py-2 text-sm text-slate-200 focus:border-brand-500 focus:outline-none [&>option]:bg-[#11150f] [&>option]:text-slate-200">
+            className="rounded-md border border-white/10 bg-[#11150f] px-3 py-2 text-sm text-ink focus:border-brand-500 focus:outline-none [&>option]:bg-[#11150f] [&>option]:text-ink">
             <option value="All">All sectors</option>
             <option value={MY_HOLDINGS}>★ My Holdings{holdings.length ? ` (${ownedSet.size})` : ""}</option>
             {sectors.map((s) => <option key={s} value={s}>{s}</option>)}
@@ -131,28 +131,28 @@ export function StockMap() {
           {data && <DataBadge source={data.source} />}
         </div>
         <button onClick={() => mutate()} disabled={isValidating}
-          className="rounded-md border border-white/10 px-3 py-1.5 text-sm text-slate-200 hover:bg-slate-800 disabled:opacity-50">
+          className="rounded-md border border-white/10 px-3 py-1.5 text-sm text-ink hover:bg-surface-raised disabled:opacity-50">
           {isValidating ? "Refreshing…" : "↻ Refresh"}
         </button>
       </div>
 
       {/* Timeline selector — color tiles by the return over this window. */}
       <div className="flex flex-wrap items-center gap-1.5">
-        <span className="mr-1 text-xs text-slate-500">Timeline:</span>
+        <span className="mr-1 text-xs text-ink-faint">Timeline:</span>
         {PERIODS.map((p) => (
           <button key={p} onClick={() => setPeriod(p)}
             title={PERIOD_LABEL[p]}
             className={`rounded-md border px-2.5 py-1 text-xs font-medium transition-colors ${
-              p === period ? "border-brand-500/60 bg-brand-500/15 text-brand-200" : "border-white/10 text-slate-400 hover:bg-white/5"
+              p === period ? "border-brand-500/60 bg-brand-500/15 text-brand-200" : "border-white/10 text-ink-dim hover:bg-white/5"
             }`}>
             {p}
           </button>
         ))}
-        <span className="ml-2 text-[11px] text-slate-500">{PERIOD_LABEL[period]} return</span>
+        <span className="ml-2 text-[11px] text-ink-faint">{PERIOD_LABEL[period]} return</span>
       </div>
 
       {/* Legend */}
-      <div className="flex items-center gap-1 text-[11px] text-slate-500">
+      <div className="flex items-center gap-1 text-[11px] text-ink-faint">
         <span>−{scale}%</span>
         {["#e23b4f", "#bf2f42", "#9b2435", "#3b4252", "#249b4a", "#2fbf5a", "#42d672"].map((c, i) => (
           <span key={i} className="inline-block h-3 w-6" style={{ background: c }} />
@@ -165,7 +165,7 @@ export function StockMap() {
       <div className="glass rounded-2xl p-2">
         {isLoading && <div className="h-[560px] animate-pulse rounded-xl bg-black/30" />}
         {!isLoading && treeData.length === 0 && (
-          <div className="flex h-[560px] items-center justify-center px-6 text-center text-sm text-slate-500">
+          <div className="flex h-[560px] items-center justify-center px-6 text-center text-sm text-ink-faint">
             {sector === MY_HOLDINGS
               ? (holdings.length === 0
                   ? "No holdings yet — add positions or sync a broker to see them here."
@@ -195,7 +195,7 @@ export function StockMap() {
       </div>
 
       {data && <DataTimestamp asOf={data.asOf} />}
-      <p className="text-[11px] text-slate-600">
+      <p className="text-[11px] text-ink-faint">
         Live S&amp;P-style heatmap — green up, red down over the selected timeline, tile size = market cap. Research and educational analysis, not financial advice.
       </p>
     </div>

@@ -73,11 +73,11 @@ function MoveRow({ m, kind }: { m: Move; kind: "buy" | "sell" }) {
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-baseline gap-x-2">
           <a href={`/research?symbol=${m.symbol}`} className="font-semibold text-brand-300 hover:underline">{m.symbol}</a>
-          <span className="text-sm text-slate-200">{money(m.amountUsd)}</span>
-          {m.shares != null && <span className="text-xs text-slate-500">≈ {m.shares} sh</span>}
+          <span className="text-sm text-ink">{money(m.amountUsd)}</span>
+          {m.shares != null && <span className="text-xs text-ink-faint">≈ {m.shares} sh</span>}
           {m.isNew && <span className="rounded bg-brand-500/15 px-1 text-[10px] text-brand-300">new idea</span>}
         </div>
-        <p className="text-xs text-slate-400">{m.reason}</p>
+        <p className="text-xs text-ink-dim">{m.reason}</p>
       </div>
     </li>
   );
@@ -115,14 +115,14 @@ export function PortfolioDoctor() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <Stethoscope size={20} className="text-brand-400" />
-            <h2 className="text-lg font-semibold text-slate-100">Portfolio check-up</h2>
+            <h2 className="text-lg font-semibold text-ink">Portfolio check-up</h2>
           </div>
           <button onClick={run} disabled={busy || holdings.length === 0}
             className="btn-gold rounded-md px-4 py-2 text-sm disabled:opacity-50">
             {busy ? "Examining…" : result ? "Re-run diagnosis" : "Run full diagnosis"}
           </button>
         </div>
-        <p className="mt-2 text-sm text-slate-400">
+        <p className="mt-2 text-sm text-ink-dim">
           The doctor reads all {holdings.length} of your holdings and their weights, scores and researches each,
           checks concentration & sector risk, then recommends specific buy/sell amounts — across 1-day, 1-month,
           6-month, 1-year and 5-year horizons. It can also suggest new positions from the whole market.
@@ -133,14 +133,14 @@ export function PortfolioDoctor() {
           </p>
         )}
         {holdings.length > 0 && !result && !busy && (
-          <p className="mt-2 text-xs text-slate-500">Current portfolio value ≈ {money(totalValue)} (at cost; live values load when you run).</p>
+          <p className="mt-2 text-xs text-ink-faint">Current portfolio value ≈ {money(totalValue)} (at cost; live values load when you run).</p>
         )}
       </div>
 
       {busy && (
         <div className="rounded-xl glass p-5">
-          <div className="h-4 w-56 animate-pulse rounded bg-slate-800" />
-          <div className="mt-3 h-24 animate-pulse rounded bg-slate-800" />
+          <div className="h-4 w-56 animate-pulse rounded bg-surface-raised" />
+          <div className="mt-3 h-24 animate-pulse rounded bg-surface-raised" />
           <AiThinking className="mt-3" label="Scoring each holding, pulling live data, and searching recent news…" />
         </div>
       )}
@@ -163,22 +163,22 @@ export function PortfolioDoctor() {
                   {result.analysis.healthGrade}
                 </div>
                 <div>
-                  <div className="text-sm text-slate-400">Portfolio health</div>
-                  <div className="text-2xl font-bold text-slate-100">{result.analysis.healthScore}/100</div>
-                  <div className="text-xs text-slate-500">Value ≈ {money(result.portfolio.totalValue)}</div>
+                  <div className="text-sm text-ink-dim">Portfolio health</div>
+                  <div className="text-2xl font-bold text-ink">{result.analysis.healthScore}/100</div>
+                  <div className="text-xs text-ink-faint">Value ≈ {money(result.portfolio.totalValue)}</div>
                 </div>
               </div>
               <div className="flex items-center gap-2">
                 <DataBadge source={result.dataSource} />
-                <span className="text-[11px] text-slate-600">{result.model}</span>
+                <span className="text-[11px] text-ink-faint">{result.model}</span>
               </div>
             </div>
-            <p className="mt-3 text-sm text-slate-300">{result.analysis.summary}</p>
+            <p className="mt-3 text-sm text-ink-dim">{result.analysis.summary}</p>
             <div className="mt-3 rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-sm">
               <span className="font-medium text-amber-200">Biggest risk: </span>
               <span className="text-amber-100">{result.analysis.biggestRisk}</span>
             </div>
-            <div className="mt-1 text-[11px] text-slate-600">{result.sourceLabel}</div>
+            <div className="mt-1 text-[11px] text-ink-faint">{result.sourceLabel}</div>
           </div>
 
           {/* Allocation + diagnostics */}
@@ -188,8 +188,8 @@ export function PortfolioDoctor() {
               title="Your allocation by holding"
             />
             <div className="rounded-xl glass p-4">
-              <div className="text-sm font-semibold text-slate-100">Diagnostics</div>
-              <div className="mt-1 text-xs text-slate-500">
+              <div className="text-sm font-semibold text-ink">Diagnostics</div>
+              <div className="mt-1 text-xs text-ink-faint">
                 Largest position {result.analysis.concentration.topPositionPct?.toFixed(0)}% · largest sector {result.analysis.concentration.topSectorPct?.toFixed(0)}%
               </div>
               <ul className="mt-3 space-y-2">
@@ -205,15 +205,15 @@ export function PortfolioDoctor() {
 
           {/* Sector exposure bars */}
           <div className="rounded-xl glass p-4">
-            <div className="text-sm font-semibold text-slate-100">Sector exposure</div>
+            <div className="text-sm font-semibold text-ink">Sector exposure</div>
             <div className="mt-3 space-y-1.5">
               {result.portfolio.sectors.map((s) => (
                 <div key={s.sector} className="flex items-center gap-3 text-sm">
-                  <span className="w-40 shrink-0 truncate text-slate-300">{s.sector}</span>
-                  <div className="h-2 flex-1 overflow-hidden rounded bg-slate-800">
+                  <span className="w-40 shrink-0 truncate text-ink-dim">{s.sector}</span>
+                  <div className="h-2 flex-1 overflow-hidden rounded bg-surface-raised">
                     <div className="h-full bg-brand-500" style={{ width: `${Math.min(100, s.pct)}%` }} />
                   </div>
-                  <span className="w-12 shrink-0 text-right text-xs text-slate-400">{s.pct.toFixed(0)}%</span>
+                  <span className="w-12 shrink-0 text-right text-xs text-ink-dim">{s.pct.toFixed(0)}%</span>
                 </div>
               ))}
             </div>
@@ -221,15 +221,15 @@ export function PortfolioDoctor() {
 
           {/* Horizon-based action plan */}
           <div className="rounded-xl glass p-4">
-            <div className="text-sm font-semibold text-slate-100">Action plan by time horizon</div>
-            <div className="mt-1 text-xs text-slate-500">How long do you plan to hold? Pick a horizon — the doctor&apos;s buy/sell calls change with it.</div>
+            <div className="text-sm font-semibold text-ink">Action plan by time horizon</div>
+            <div className="mt-1 text-xs text-ink-faint">How long do you plan to hold? Pick a horizon — the doctor&apos;s buy/sell calls change with it.</div>
 
             {/* Horizon tabs */}
             <div className="mt-3 flex flex-wrap gap-1.5">
               {result.analysis.horizons?.map((h, i) => (
                 <button key={h.horizon} onClick={() => setActiveHorizon(i)}
                   className={`rounded-md border px-3 py-1.5 text-xs font-medium transition-colors ${
-                    i === activeHorizon ? "border-brand-500/60 bg-brand-500/15 text-brand-200" : "border-white/10 text-slate-400 hover:bg-white/5"
+                    i === activeHorizon ? "border-brand-500/60 bg-brand-500/15 text-brand-200" : "border-white/10 text-ink-dim hover:bg-white/5"
                   }`}>
                   {h.horizon}
                 </button>
@@ -238,8 +238,8 @@ export function PortfolioDoctor() {
 
             {active && (
               <div className="mt-4 space-y-3">
-                <div className="rounded-lg border border-white/10 bg-black/15 px-3 py-2 text-sm text-slate-300">
-                  <span className="font-medium text-slate-200">{active.horizon} stance: </span>{active.stance}
+                <div className="rounded-lg border border-white/10 bg-black/15 px-3 py-2 text-sm text-ink-dim">
+                  <span className="font-medium text-ink">{active.horizon} stance: </span>{active.stance}
                 </div>
                 <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
                   {/* Sells */}
@@ -249,7 +249,7 @@ export function PortfolioDoctor() {
                     </div>
                     <ul className="space-y-1.5">
                       {active.sells?.length ? active.sells.map((m, i) => <MoveRow key={i} m={m} kind="sell" />)
-                        : <li className="rounded-lg border border-white/5 bg-black/15 px-3 py-2 text-xs text-slate-500">Nothing to sell at this horizon.</li>}
+                        : <li className="rounded-lg border border-white/5 bg-black/15 px-3 py-2 text-xs text-ink-faint">Nothing to sell at this horizon.</li>}
                     </ul>
                   </div>
                   {/* Buys */}
@@ -259,7 +259,7 @@ export function PortfolioDoctor() {
                     </div>
                     <ul className="space-y-1.5">
                       {active.buys?.length ? active.buys.map((m, i) => <MoveRow key={i} m={m} kind="buy" />)
-                        : <li className="rounded-lg border border-white/5 bg-black/15 px-3 py-2 text-xs text-slate-500">Nothing to buy at this horizon.</li>}
+                        : <li className="rounded-lg border border-white/5 bg-black/15 px-3 py-2 text-xs text-ink-faint">Nothing to buy at this horizon.</li>}
                     </ul>
                   </div>
                 </div>
@@ -269,10 +269,10 @@ export function PortfolioDoctor() {
 
           {/* Per-holding research links */}
           <div className="rounded-xl glass p-4">
-            <div className="text-sm font-semibold text-slate-100">Your holdings — research & predictions</div>
+            <div className="text-sm font-semibold text-ink">Your holdings — research & predictions</div>
             <div className="mt-3 overflow-x-auto rounded-lg border border-white/10">
               <table className="w-full text-left text-sm">
-                <thead className="bg-black/25 text-xs uppercase tracking-wide text-slate-500">
+                <thead className="bg-black/25 text-xs uppercase tracking-wide text-ink-faint">
                   <tr>
                     <th className="px-3 py-2">Ticker</th>
                     <th className="px-3 py-2">Value</th>
@@ -285,15 +285,15 @@ export function PortfolioDoctor() {
                 </thead>
                 <tbody className="divide-y divide-white/5">
                   {result.portfolio.positions.map((p) => (
-                    <tr key={p.symbol} className="hover:bg-slate-800/30">
+                    <tr key={p.symbol} className="hover:bg-surface">
                       <td className="px-3 py-2 font-semibold text-brand-300">{p.symbol}</td>
-                      <td className="px-3 py-2 text-slate-300">{p.value != null ? money(p.value) : "—"}</td>
-                      <td className="px-3 py-2 text-slate-300">{p.weightPct.toFixed(1)}%</td>
-                      <td className={`px-3 py-2 ${p.changePct == null ? "text-slate-500" : p.changePct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                      <td className="px-3 py-2 text-ink-dim">{p.value != null ? money(p.value) : "—"}</td>
+                      <td className="px-3 py-2 text-ink-dim">{p.weightPct.toFixed(1)}%</td>
+                      <td className={`px-3 py-2 ${p.changePct == null ? "text-ink-faint" : p.changePct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
                         {p.changePct == null ? "—" : `${p.changePct >= 0 ? "+" : ""}${p.changePct.toFixed(2)}%`}
                       </td>
-                      <td className="px-3 py-2 text-slate-300">{p.score != null ? `${Math.round(p.score)} ${p.scoreLabel ?? ""}` : "—"}</td>
-                      <td className="px-3 py-2 text-slate-400">{p.sector}</td>
+                      <td className="px-3 py-2 text-ink-dim">{p.score != null ? `${Math.round(p.score)} ${p.scoreLabel ?? ""}` : "—"}</td>
+                      <td className="px-3 py-2 text-ink-dim">{p.sector}</td>
                       <td className="px-3 py-2">
                         <a href={`/research?symbol=${p.symbol}`} className="flex items-center gap-1 text-xs text-brand-400 hover:underline">
                           Research <ArrowRight size={12} />
@@ -306,7 +306,7 @@ export function PortfolioDoctor() {
             </div>
           </div>
 
-          <p className="text-[11px] text-slate-600">
+          <p className="text-[11px] text-ink-faint">
             AI-generated portfolio analysis using live data + web search. Amounts are estimates, not instructions.
             Generated {new Date(result.generatedAt).toLocaleString()}. Research and educational analysis, not financial advice.
           </p>

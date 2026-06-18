@@ -17,7 +17,7 @@ export function renderMarkdown(src: string): string {
 
   // Fenced code blocks ```...```
   s = s.replace(/```([\s\S]*?)```/g, (_m, code) =>
-    `<pre class="my-2 overflow-x-auto rounded-lg bg-black/40 p-2 text-[12px] text-slate-200"><code>${code.trim()}</code></pre>`);
+    `<pre class="my-2 overflow-x-auto rounded-lg bg-black/40 p-2 text-[12px] text-ink"><code>${code.trim()}</code></pre>`);
 
   // Inline code `x`
   s = s.replace(/`([^`]+)`/g, '<code class="rounded bg-black/40 px-1 text-[12px] text-brand-200">$1</code>');
@@ -31,12 +31,12 @@ export function renderMarkdown(src: string): string {
     '$1<a href="$2" target="_blank" rel="noreferrer" class="text-brand-300 underline underline-offset-2 hover:text-brand-200 break-words">$2</a>');
 
   // Bold **x** and italic *x*
-  s = s.replace(/\*\*([^*]+)\*\*/g, '<strong class="font-semibold text-slate-100">$1</strong>');
+  s = s.replace(/\*\*([^*]+)\*\*/g, '<strong class="font-semibold text-ink">$1</strong>');
   s = s.replace(/(^|[^*])\*([^*\n]+)\*/g, '$1<em>$2</em>');
 
   // Headings ## / ###
-  s = s.replace(/^###\s+(.+)$/gm, '<div class="mt-2 font-semibold text-slate-100">$1</div>');
-  s = s.replace(/^##\s+(.+)$/gm, '<div class="mt-2 text-[15px] font-semibold text-slate-100">$1</div>');
+  s = s.replace(/^###\s+(.+)$/gm, '<div class="mt-2 font-semibold text-ink">$1</div>');
+  s = s.replace(/^##\s+(.+)$/gm, '<div class="mt-2 text-[15px] font-semibold text-ink">$1</div>');
 
   // Bullet lists  - x  /  * x
   s = s.replace(/(?:^|\n)((?:[-*]\s+.+(?:\n|$))+)/g, (_m, block) => {

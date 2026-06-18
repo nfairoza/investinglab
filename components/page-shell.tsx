@@ -14,8 +14,8 @@ export function PageShell({
   return (
     <div className="mx-auto max-w-5xl">
       <div className="flex flex-wrap items-center gap-3">
-        <h1 className="text-2xl font-semibold text-slate-100">{title}</h1>
-        <span className="rounded-full bg-slate-800 px-3 py-1 text-xs text-slate-400">
+        <h1 className="text-2xl font-semibold text-ink">{title}</h1>
+        <span className="rounded-full bg-surface-raised px-3 py-1 text-xs text-ink-dim">
           Scaffolded — build in {phase}
         </span>
       </div>
@@ -24,7 +24,7 @@ export function PageShell({
           <span className="font-semibold">What should I look at first?</span> {first}
         </div>
       )}
-      <div className="mt-6 text-slate-400">{children}</div>
+      <div className="mt-6 text-ink-dim">{children}</div>
     </div>
   );
 }

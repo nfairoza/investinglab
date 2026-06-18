@@ -45,7 +45,7 @@ function topBy(scores: StockScore[], h: Horizon, n = 10): StockScore[] {
 const BIAS_STYLE: Record<string, { cls: string; bar: string; arrow: string }> = {
   bullish: { cls: "text-emerald-300", bar: "bg-emerald-500", arrow: "▲" },
   bearish: { cls: "text-rose-300", bar: "bg-rose-500", arrow: "▼" },
-  neutral: { cls: "text-slate-300", bar: "bg-slate-500", arrow: "▬" },
+  neutral: { cls: "text-ink-dim", bar: "bg-surface", arrow: "▬" },
 };
 
 function pct(n: number | null): string {
@@ -61,25 +61,25 @@ function RankRow({ s, i, horizon }: { s: StockScore; i: number; horizon: Horizon
   return (
     <li className="rounded-lg border border-white/5 bg-black/15 px-3 py-2 hover:bg-white/[0.03]">
       <div className="flex items-center gap-3">
-        <span className="w-4 shrink-0 text-right text-xs text-slate-600">{i + 1}</span>
+        <span className="w-4 shrink-0 text-right text-xs text-ink-faint">{i + 1}</span>
         <a href={`/research?symbol=${s.symbol}`} className="w-14 shrink-0 font-semibold text-brand-300 hover:underline">{s.symbol}</a>
         {/* today's REAL move */}
-        <span className={`w-20 shrink-0 text-xs ${today == null ? "text-slate-500" : today >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
-          {pct(today)} <span className="text-slate-600">today</span>
+        <span className={`w-20 shrink-0 text-xs ${today == null ? "text-ink-faint" : today >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+          {pct(today)} <span className="text-ink-faint">today</span>
         </span>
         {/* directional outlook for THIS horizon */}
         <span className={`shrink-0 text-sm font-medium ${st.cls}`}>{st.arrow} {o.word}</span>
-        <span className="ml-auto shrink-0 text-xs text-slate-400">{o.expectedMove}</span>
+        <span className="ml-auto shrink-0 text-xs text-ink-dim">{o.expectedMove}</span>
       </div>
       {/* score strength bar */}
       <div className="mt-1.5 flex items-center gap-2 pl-7">
-        <div className="h-1.5 flex-1 overflow-hidden rounded bg-slate-800">
+        <div className="h-1.5 flex-1 overflow-hidden rounded bg-surface-raised">
           <div className={`h-full ${st.bar}`} style={{ width: `${Math.round(score ?? 0)}%` }} />
         </div>
-        <span className="w-8 shrink-0 text-right text-[11px] text-slate-500">{Math.round(score ?? 0)}/100</span>
+        <span className="w-8 shrink-0 text-right text-[11px] text-ink-faint">{Math.round(score ?? 0)}/100</span>
       </div>
       {/* the WHY + any earnings caveat */}
-      <div className="mt-1 pl-7 text-[11px] leading-snug text-slate-500">
+      <div className="mt-1 pl-7 text-[11px] leading-snug text-ink-faint">
         {s.earningsInDays != null && s.earningsInDays <= 7 && (
           <span className="mr-1 rounded bg-amber-500/15 px-1 text-amber-300">⚠ earnings in {s.earningsInDays}d</span>
         )}
@@ -92,10 +92,10 @@ function RankRow({ s, i, horizon }: { s: StockScore; i: number; horizon: Horizon
 function ScoreList({ title, subtitle, rows, horizon }: { title: string; subtitle: string; rows: StockScore[]; horizon: Horizon }) {
   return (
     <div className="rounded-xl glass p-4">
-      <div className="text-sm font-semibold text-slate-100">{title}</div>
-      <div className="text-xs text-slate-500">{subtitle}</div>
+      <div className="text-sm font-semibold text-ink">{title}</div>
+      <div className="text-xs text-ink-faint">{subtitle}</div>
       <ol className="mt-3 space-y-1.5">
-        {rows.length === 0 && <li className="text-sm text-slate-500">No data.</li>}
+        {rows.length === 0 && <li className="text-sm text-ink-faint">No data.</li>}
         {rows.map((s, i) => (
           <RankRow key={s.symbol} s={s} i={i} horizon={horizon} />
         ))}
@@ -117,7 +117,7 @@ export function Rankings() {
   });
 
   if (isLoading && !result) {
-    return <div className="h-64 animate-pulse rounded-xl bg-slate-800" />;
+    return <div className="h-64 animate-pulse rounded-xl bg-surface-raised" />;
   }
   const all = result?.scores ?? [];
   const source = result?.source; // real source from /api/score — "live" when FMP is working
@@ -142,21 +142,21 @@ export function Rankings() {
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center gap-3">
-        <span className="text-sm text-slate-400">Universe: {all.length} stocks (seed + your tracked tickers)</span>
+        <span className="text-sm text-ink-dim">Universe: {all.length} stocks (seed + your tracked tickers)</span>
         {source && <DataBadge source={source} />}
       </div>
 
       {/* How to read this — legitimacy / methodology */}
-      <details className="rounded-lg border border-white/10 bg-black/15 p-3 text-xs text-slate-400">
-        <summary className="cursor-pointer text-slate-300">How to read these rankings (and where the numbers come from)</summary>
+      <details className="rounded-lg border border-white/10 bg-black/15 p-3 text-xs text-ink-dim">
+        <summary className="cursor-pointer text-ink-dim">How to read these rankings (and where the numbers come from)</summary>
         <div className="mt-2 space-y-1.5 leading-relaxed">
-          <p><span className="text-slate-200">Today</span> = the stock&apos;s actual % move so far today (real quote data).</p>
-          <p><span className="text-slate-200">Lean up / down / range-bound</span> = a directional bias derived from a transparent
+          <p><span className="text-ink">Today</span> = the stock&apos;s actual % move so far today (real quote data).</p>
+          <p><span className="text-ink">Lean up / down / range-bound</span> = a directional bias derived from a transparent
             rules-based score (price trend vs 50/200-day averages, momentum & RSI, revenue/EPS growth, valuation, margins, free cash flow,
-            earnings proximity). It is <span className="text-slate-200">not</span> a guarantee.</p>
-          <p><span className="text-slate-200">Expected move</span> = a rough estimate band for that horizon (wider for longer horizons because
+            earnings proximity). It is <span className="text-ink">not</span> a guarantee.</p>
+          <p><span className="text-ink">Expected move</span> = a rough estimate band for that horizon (wider for longer horizons because
             uncertainty compounds). A higher score nudges the band more positive; it is an estimate, not a price prediction.</p>
-          <p><span className="text-slate-200">The line below each row</span> tells you the single strongest reason behind the score — the &quot;why&quot;.
+          <p><span className="text-ink">The line below each row</span> tells you the single strongest reason behind the score — the &quot;why&quot;.
             Open <span className="text-brand-300">Research</span> for the full factor breakdown, or <span className="text-brand-300">Predictions</span> for an AI call with news.</p>
         </div>
       </details>
@@ -172,7 +172,7 @@ export function Rankings() {
       <div className="rounded-xl border border-rose-500/20 bg-rose-500/5 p-4">
         <div className="text-sm font-semibold text-rose-200">Avoid this week (earnings / momentum risk)</div>
         <ol className="mt-3 grid grid-cols-1 gap-1 sm:grid-cols-2">
-          {avoid.length === 0 && <li className="text-sm text-slate-500">Nothing flagged.</li>}
+          {avoid.length === 0 && <li className="text-sm text-ink-faint">Nothing flagged.</li>}
           {avoid.map((s) => (
             <li key={s.symbol} className="flex items-center gap-3 text-sm">
               <a href={`/research?symbol=${s.symbol}`} className="w-16 shrink-0 font-medium text-brand-300 hover:underline">{s.symbol}</a>
@@ -184,23 +184,23 @@ export function Rankings() {
 
       {/* Portfolio warnings */}
       <div className="rounded-xl glass p-4">
-        <div className="text-sm font-semibold text-slate-100">Your portfolio — hold / add / trim / watch</div>
+        <div className="text-sm font-semibold text-ink">Your portfolio — hold / add / trim / watch</div>
         {portfolio.length === 0 ? (
-          <p className="mt-2 text-sm text-slate-500">Add holdings to see per-position guidance here.</p>
+          <p className="mt-2 text-sm text-ink-faint">Add holdings to see per-position guidance here.</p>
         ) : (
           <ul className="mt-3 space-y-1">
             {portfolio.map(({ s, flag }) => (
               <li key={s.symbol} className="flex items-center gap-3 text-sm">
                 <a href={`/research?symbol=${s.symbol}`} className="w-16 shrink-0 font-medium text-brand-300 hover:underline">{s.symbol}</a>
-                <span className="w-10 shrink-0 text-slate-300">{Math.round(s.overall)}</span>
-                <span className="text-xs text-slate-400">{flag}</span>
+                <span className="w-10 shrink-0 text-ink-dim">{Math.round(s.overall)}</span>
+                <span className="text-xs text-ink-dim">{flag}</span>
               </li>
             ))}
           </ul>
         )}
       </div>
 
-      <p className="text-[11px] text-slate-600">
+      <p className="text-[11px] text-ink-faint">
         Ranking the full US market needs a screener/bulk data source (paid FMP) plus a cache for
         history — wire that in Claude Code; this view ranks a seed list + your tracked tickers.
         Research and educational analysis, not financial advice.

@@ -141,7 +141,7 @@ export function HoldingsManager() {
   const portTotalGain = valued.reduce((s, v) => s + (v.totalGain ?? 0), 0);
   const anySource = quotes ? Object.values(quotes)[0]?.source : undefined;
 
-  const inputCls = "rounded-md border border-white/10 bg-black/25 px-3 py-2 text-sm text-slate-200 placeholder:text-slate-600 focus:border-brand-500 focus:outline-none";
+  const inputCls = "rounded-md border border-white/10 bg-black/25 px-3 py-2 text-sm text-ink placeholder:text-ink-faint focus:border-brand-500 focus:outline-none";
 
   return (
     <div className="space-y-4">
@@ -156,12 +156,12 @@ export function HoldingsManager() {
           {syncingRobinhood ? "Syncing…" : "↓ Sync from Robinhood"}
         </button>
         {syncMsg && (
-          <span className={`text-sm ${syncMsg.includes("expired") || syncMsg.includes("failed") || syncMsg.includes("Connect") ? "text-rose-400" : "text-slate-400"}`}>
+          <span className={`text-sm ${syncMsg.includes("expired") || syncMsg.includes("failed") || syncMsg.includes("Connect") ? "text-rose-400" : "text-ink-dim"}`}>
             {syncMsg}
             {syncMsg.includes("Connectors") && <a href="/connectors" className="ml-1 text-brand-400 underline">Go to Connectors</a>}
           </span>
         )}
-        {!syncMsg && <span className="text-xs text-slate-600">Connect a broker in Connectors first, then sync here.</span>}
+        {!syncMsg && <span className="text-xs text-ink-faint">Connect a broker in Connectors first, then sync here.</span>}
       </div>
 
       {/* Add form */}
@@ -178,7 +178,7 @@ export function HoldingsManager() {
       </div>
 
       {allHoldings.length === 0 && (
-        <div className="rounded-lg border border-white/5 bg-black/20 p-6 text-center text-sm text-slate-500">
+        <div className="rounded-lg border border-white/5 bg-black/20 p-6 text-center text-sm text-ink-faint">
           No holdings yet. Add a ticker above or sync from E*TRADE.
         </div>
       )}
@@ -188,11 +188,11 @@ export function HoldingsManager() {
           {/* Portfolio summary: value, day's gain, total gain */}
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div className="glass card-hover rounded-xl p-3">
-              <div className="text-[11px] uppercase tracking-wide text-slate-500">Portfolio value</div>
-              <div className="mt-0.5 text-lg font-semibold text-slate-100">${total.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
+              <div className="text-[11px] uppercase tracking-wide text-ink-faint">Portfolio value</div>
+              <div className="mt-0.5 text-lg font-semibold text-ink">${total.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
             </div>
             <div className="glass card-hover rounded-xl p-3">
-              <div className="text-[11px] uppercase tracking-wide text-slate-500">Day&apos;s gain/loss</div>
+              <div className="text-[11px] uppercase tracking-wide text-ink-faint">Day&apos;s gain/loss</div>
               <div className={`mt-0.5 text-lg font-semibold ${portDaysGain >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
                 {portDaysGain >= 0 ? "▲" : "▼"} ${Math.abs(portDaysGain).toLocaleString(undefined, { maximumFractionDigits: 0 })}
                 {total - portDaysGain > 0 && (
@@ -201,7 +201,7 @@ export function HoldingsManager() {
               </div>
             </div>
             <div className="glass card-hover rounded-xl p-3">
-              <div className="text-[11px] uppercase tracking-wide text-slate-500">Total gain/loss</div>
+              <div className="text-[11px] uppercase tracking-wide text-ink-faint">Total gain/loss</div>
               <div className={`mt-0.5 text-lg font-semibold ${portTotalGain >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
                 {portTotalGain >= 0 ? "▲" : "▼"} ${Math.abs(portTotalGain).toLocaleString(undefined, { maximumFractionDigits: 0 })}
                 {total - portTotalGain > 0 && (
@@ -212,7 +212,7 @@ export function HoldingsManager() {
           </div>
 
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <span className="text-xs text-slate-500">{holdings.length} position{holdings.length !== 1 ? "s" : ""}</span>
+            <span className="text-xs text-ink-faint">{holdings.length} position{holdings.length !== 1 ? "s" : ""}</span>
             <div className="flex items-center gap-2">
               {anySource && <DataBadge source={anySource} />}
               {/* Source filter — only shown when there's more than one source */}
@@ -226,7 +226,7 @@ export function HoldingsManager() {
                         key={src}
                         onClick={() => setSourceFilter(src as typeof sourceFilter)}
                         className={`rounded-md px-2.5 py-1 text-xs transition-colors ${
-                          active ? "bg-brand-500/15 text-brand-300" : "text-slate-500 hover:text-slate-300"
+                          active ? "bg-brand-500/15 text-brand-300" : "text-ink-faint hover:text-ink-dim"
                         }`}
                       >
                         {label}
@@ -239,7 +239,7 @@ export function HoldingsManager() {
           </div>
 
           {holdings.length === 0 && (
-            <div className="rounded-lg border border-white/5 bg-black/20 p-4 text-center text-sm text-slate-500">
+            <div className="rounded-lg border border-white/5 bg-black/20 p-4 text-center text-sm text-ink-faint">
               No {sourceFilter} holdings.
             </div>
           )}
@@ -247,7 +247,7 @@ export function HoldingsManager() {
           {holdings.length > 0 && (
           <div className="overflow-x-auto rounded-xl border border-white/10">
             <table className="w-full text-left text-sm">
-              <thead className="bg-black/25 text-xs uppercase tracking-wide text-slate-500">
+              <thead className="bg-black/25 text-xs uppercase tracking-wide text-ink-faint">
                 <tr>
                   <th className="px-3 py-2">Ticker</th>
                   <th className="px-3 py-2">Shares</th>
@@ -266,30 +266,30 @@ export function HoldingsManager() {
                   const tUp = (totalGain ?? 0) >= 0;
                   const dUp = (daysGain ?? 0) >= 0;
                   return (
-                    <tr key={h.id} className="hover:bg-slate-800/30">
+                    <tr key={h.id} className="hover:bg-surface">
                       <td className="px-3 py-2 font-medium">
                         <Link href={`/holdings/${h.symbol}`} className="text-brand-400 hover:underline">{h.symbol}</Link>
-                        {h.source === "etrade" && <span className="ml-1 text-[10px] text-slate-600">E*T</span>}
-                        {h.source === "robinhood" && <span className="ml-1 text-[10px] text-slate-600">RH</span>}
+                        {h.source === "etrade" && <span className="ml-1 text-[10px] text-ink-faint">E*T</span>}
+                        {h.source === "robinhood" && <span className="ml-1 text-[10px] text-ink-faint">RH</span>}
                         {h.assetType === "crypto" && <span className="ml-1 rounded bg-lime-500/15 px-1 text-[9px] text-lime-300">CRYPTO</span>}
                       </td>
-                      <td className="px-3 py-2 text-slate-400">{h.shares}</td>
-                      <td className="px-3 py-2 text-slate-400">{h.avgCost > 0 ? `$${h.avgCost.toFixed(2)}` : "—"}</td>
-                      <td className="px-3 py-2 text-slate-300">{price != null ? `$${price.toFixed(2)}` : "—"}</td>
-                      <td className="px-3 py-2 text-slate-300">{value != null ? `$${value.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : "—"}</td>
+                      <td className="px-3 py-2 text-ink-dim">{h.shares}</td>
+                      <td className="px-3 py-2 text-ink-dim">{h.avgCost > 0 ? `$${h.avgCost.toFixed(2)}` : "—"}</td>
+                      <td className="px-3 py-2 text-ink-dim">{price != null ? `$${price.toFixed(2)}` : "—"}</td>
+                      <td className="px-3 py-2 text-ink-dim">{value != null ? `$${value.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : "—"}</td>
                       {/* Day's gain $ + % */}
-                      <td className={`px-3 py-2 ${daysGain == null ? "text-slate-500" : dUp ? "text-emerald-400" : "text-rose-400"}`}>
+                      <td className={`px-3 py-2 ${daysGain == null ? "text-ink-faint" : dUp ? "text-emerald-400" : "text-rose-400"}`}>
                         {daysGain == null
                           ? (daysGainPct != null ? `${daysGainPct >= 0 ? "▲" : "▼"} ${Math.abs(daysGainPct).toFixed(2)}%` : "—")
                           : `${dUp ? "▲" : "▼"} $${Math.abs(daysGain).toFixed(0)}${daysGainPct != null ? ` (${Math.abs(daysGainPct).toFixed(2)}%)` : ""}`}
                       </td>
                       {/* Total gain $ + % */}
-                      <td className={`px-3 py-2 ${totalGain == null || totalGainPct == null ? "text-slate-500" : tUp ? "text-emerald-400" : "text-rose-400"}`}>
+                      <td className={`px-3 py-2 ${totalGain == null || totalGainPct == null ? "text-ink-faint" : tUp ? "text-emerald-400" : "text-rose-400"}`}>
                         {totalGain == null || totalGainPct == null ? "—" : `${tUp ? "▲" : "▼"} $${Math.abs(totalGain).toFixed(0)} (${Math.abs(totalGainPct).toFixed(1)}%)`}
                       </td>
-                      <td className="px-3 py-2 text-slate-400">{weight != null ? `${weight.toFixed(1)}%` : "—"}</td>
+                      <td className="px-3 py-2 text-ink-dim">{weight != null ? `${weight.toFixed(1)}%` : "—"}</td>
                       <td className="px-3 py-2 text-right">
-                        <button onClick={() => removeHolding(h.id)} className="text-xs text-slate-500 hover:text-rose-300">Remove</button>
+                        <button onClick={() => removeHolding(h.id)} className="text-xs text-ink-faint hover:text-rose-300">Remove</button>
                       </td>
                     </tr>
                   );
@@ -302,7 +302,7 @@ export function HoldingsManager() {
         </>
       )}
 
-      <p className="text-[11px] text-slate-600">
+      <p className="text-[11px] text-ink-faint">
         Saved to <code>data/db.json</code> — persists across restarts, independent of browser cache. Research and educational analysis, not financial advice.
       </p>
     </div>

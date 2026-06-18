@@ -30,14 +30,14 @@ export function CompanyProfileCard({ symbol }: { symbol: string }) {
   return (
     <div className="card-hover rounded-xl glass p-5">
       <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-slate-100">{symbol} — Company overview</h2>
+        <h2 className="text-sm font-semibold text-ink">{symbol} — Company overview</h2>
         {data && <DataBadge source={data.source} />}
       </div>
 
-      {isLoading && <div className="mt-4 h-24 animate-pulse rounded bg-slate-800" />}
+      {isLoading && <div className="mt-4 h-24 animate-pulse rounded bg-surface-raised" />}
 
       {!isLoading && !p && (
-        <p className="mt-3 text-sm text-slate-500">{data?.note ?? "Profile unavailable."}</p>
+        <p className="mt-3 text-sm text-ink-faint">{data?.note ?? "Profile unavailable."}</p>
       )}
 
       {p && (
@@ -54,7 +54,7 @@ export function CompanyProfileCard({ symbol }: { symbol: string }) {
             <Fact label="IPO date" value={p.ipoDate ?? "—"} />
             {p.website && (
               <div className="flex justify-between gap-3 border-b border-white/5 py-1">
-                <span className="text-slate-500">Website</span>
+                <span className="text-ink-faint">Website</span>
                 <a href={p.website} target="_blank" rel="noreferrer" className="text-right text-brand-400 underline truncate max-w-[160px]">
                   {p.website.replace(/^https?:\/\//, "")}
                 </a>
@@ -64,17 +64,17 @@ export function CompanyProfileCard({ symbol }: { symbol: string }) {
 
           {/* Description */}
           {p.description && (
-            <p className="text-sm text-slate-400 leading-relaxed line-clamp-4">{p.description}</p>
+            <p className="text-sm text-ink-dim leading-relaxed line-clamp-4">{p.description}</p>
           )}
 
           {/* Peers */}
           {p.peers.length > 0 && (
             <div>
-              <div className="text-xs text-slate-500 mb-1">Peers</div>
+              <div className="text-xs text-ink-faint mb-1">Peers</div>
               <div className="flex flex-wrap gap-2">
                 {p.peers.slice(0, 8).map((peer) => (
                   <a key={peer} href={`/research?symbol=${peer}`}
-                    className="rounded-md border border-white/10 px-2 py-0.5 text-xs text-brand-300 hover:bg-slate-800">
+                    className="rounded-md border border-white/10 px-2 py-0.5 text-xs text-brand-300 hover:bg-surface-raised">
                     {peer}
                   </a>
                 ))}
@@ -90,8 +90,8 @@ export function CompanyProfileCard({ symbol }: { symbol: string }) {
 function Fact({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex justify-between gap-3 border-b border-white/5 py-1">
-      <span className="text-slate-500 shrink-0">{label}</span>
-      <span className="text-right text-slate-300">{value}</span>
+      <span className="text-ink-faint shrink-0">{label}</span>
+      <span className="text-right text-ink-dim">{value}</span>
     </div>
   );
 }

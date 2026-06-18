@@ -280,7 +280,7 @@ export function ChatWidget() {
       <button
         onClick={() => setOpen((o) => !o)}
         className={`fixed bottom-5 right-5 z-50 flex items-center justify-center rounded-full shadow-lg transition-all duration-200 hover:scale-110 active:scale-95
-          ${open ? "bg-slate-700 hover:bg-slate-600" : "bg-brand-600 hover:bg-brand-500"}`}
+          ${open ? "bg-surface hover:bg-surface" : "bg-brand-600 hover:bg-brand-500"}`}
         style={{ width: 52, height: 52 }}
         aria-label="Open AI chat"
       >
@@ -304,9 +304,9 @@ export function ChatWidget() {
           <div className="flex items-center justify-between border-b border-white/10 bg-white/[0.03] px-4 py-3"
             style={{ borderTopLeftRadius: size === "full" ? 16 : 16, borderTopRightRadius: size === "full" ? 0 : 16 }}>
             <button onClick={() => setMinimized((m) => !m)} className="flex-1 text-left" title={minimized ? "Expand" : "Minimize"}>
-              <div className="text-sm font-semibold text-slate-100">Noor Investing Lab</div>
+              <div className="text-sm font-semibold text-ink">Noor Investing Lab</div>
               {!minimized && (
-                <div className="text-[11px] text-slate-500">
+                <div className="text-[11px] text-ink-faint">
                   Live data + web search · {holdings.length} holding{holdings.length !== 1 ? "s" : ""}
                   {watchlist.length > 0 ? ` + ${watchlist.length} watch` : ""}
                 </div>
@@ -317,19 +317,19 @@ export function ChatWidget() {
               <button
                 onClick={() => setSize((s) => (s === "compact" ? "large" : s === "large" ? "full" : "compact"))}
                 title={`Size: ${SIZES[size].label} (click to change)`}
-                className="rounded-md p-1.5 text-slate-500 hover:bg-slate-800 hover:text-slate-300">
+                className="rounded-md p-1.5 text-ink-faint hover:bg-surface-raised hover:text-ink-dim">
                 {size === "full" ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
               </button>
               <button onClick={() => setMinimized((m) => !m)} title="Minimize"
-                className="rounded-md p-1.5 text-slate-500 hover:bg-slate-800 hover:text-slate-300">
+                className="rounded-md p-1.5 text-ink-faint hover:bg-surface-raised hover:text-ink-dim">
                 <Minus size={14} />
               </button>
               <button onClick={clearChat} title="Clear chat"
-                className="rounded-md p-1.5 text-slate-500 hover:bg-slate-800 hover:text-slate-300">
+                className="rounded-md p-1.5 text-ink-faint hover:bg-surface-raised hover:text-ink-dim">
                 <RotateCcw size={14} />
               </button>
               <button onClick={() => setOpen(false)} title="Close"
-                className="rounded-md p-1.5 text-slate-500 hover:bg-slate-800 hover:text-slate-300">
+                className="rounded-md p-1.5 text-ink-faint hover:bg-surface-raised hover:text-ink-dim">
                 <X size={14} />
               </button>
             </div>
@@ -350,10 +350,10 @@ export function ChatWidget() {
           <div className="flex-1 overflow-y-auto px-3 py-3 space-y-3">
             {messages.length === 0 && (
               <div className="space-y-2">
-                <p className="text-center text-xs text-slate-500 pt-2">Ask anything about your portfolio</p>
+                <p className="text-center text-xs text-ink-faint pt-2">Ask anything about your portfolio</p>
                 {SUGGESTIONS.map((s) => (
                   <button key={s} onClick={() => send(s)}
-                    className="w-full rounded-lg border border-white/10 bg-slate-800/50 px-3 py-2 text-left text-xs text-slate-300 hover:bg-slate-800 hover:text-slate-100 transition-colors">
+                    className="w-full rounded-lg border border-white/10 bg-surface px-3 py-2 text-left text-xs text-ink-dim hover:bg-surface-raised hover:text-ink transition-colors">
                     {s}
                   </button>
                 ))}
@@ -365,13 +365,13 @@ export function ChatWidget() {
                 <div className={`max-w-[88%] rounded-2xl px-3 py-2 text-sm leading-relaxed
                   ${m.role === "user"
                     ? "bg-brand-600 text-white rounded-br-sm whitespace-pre-wrap"
-                    : "bg-slate-800 text-slate-200 rounded-bl-sm"
+                    : "bg-surface-raised text-ink rounded-bl-sm"
                   }`}>
                   {m.role === "assistant" ? (
                     m.content ? (
                       <span className="chat-md" dangerouslySetInnerHTML={{ __html: renderMarkdown(m.content) + (m.streaming ? '<span class="animate-pulse">▌</span>' : "") }} />
                     ) : (
-                      m.streaming ? <span className="animate-pulse text-slate-400">▌</span> : ""
+                      m.streaming ? <span className="animate-pulse text-ink-dim">▌</span> : ""
                     )
                   ) : (
                     <div className="space-y-1.5">
@@ -403,7 +403,7 @@ export function ChatWidget() {
                     <img src={img.preview} alt="pending" className="h-14 w-14 rounded-lg border border-white/20 object-cover" />
                     <button
                       onClick={() => removePending(idx)}
-                      className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-slate-900 text-slate-300 ring-1 ring-white/20 hover:bg-rose-600 hover:text-white"
+                      className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-surface-raised text-ink-dim ring-1 ring-white/20 hover:bg-rose-600 hover:text-white"
                       title="Remove">
                       <X size={10} />
                     </button>
@@ -424,7 +424,7 @@ export function ChatWidget() {
                 onClick={() => fileRef.current?.click()}
                 disabled={streaming || pendingImages.length >= 4}
                 title="Attach image"
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/10 text-slate-400 hover:bg-slate-800 hover:text-slate-200 disabled:opacity-40">
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/10 text-ink-dim hover:bg-surface-raised hover:text-ink disabled:opacity-40">
                 <ImagePlus size={16} />
               </button>
               <textarea
@@ -436,7 +436,7 @@ export function ChatWidget() {
                 placeholder="Ask anything, or paste/attach an image… (Enter to send)"
                 rows={1}
                 disabled={streaming}
-                className="flex-1 resize-none rounded-xl border border-white/10 bg-slate-800 px-3 py-2 text-sm text-slate-200 placeholder:text-slate-600 focus:border-brand-500 focus:outline-none disabled:opacity-50"
+                className="flex-1 resize-none rounded-xl border border-white/10 bg-surface-raised px-3 py-2 text-sm text-ink placeholder:text-ink-faint focus:border-brand-500 focus:outline-none disabled:opacity-50"
                 style={{ maxHeight: 96, overflowY: "auto" }}
                 onInput={(e) => {
                   const el = e.currentTarget;
@@ -452,7 +452,7 @@ export function ChatWidget() {
                 <Send size={15} />
               </button>
             </div>
-            <p className="mt-1 text-center text-[10px] text-slate-600">
+            <p className="mt-1 text-center text-[10px] text-ink-faint">
               Educational analysis, not financial advice.
             </p>
           </div>

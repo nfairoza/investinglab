@@ -29,13 +29,13 @@ export function RecommendationGauge({
       <div className="flex flex-wrap items-center gap-3">
         <span className={`text-2xl font-bold ${style.text}`}>{rating}</span>
         <div className="flex items-center gap-1.5">
-          <span className="text-sm text-slate-400">Confidence:</span>
+          <span className="text-sm text-ink-dim">Confidence:</span>
           <span className={`text-sm font-semibold ${style.text}`}>{confidence}%</span>
         </div>
       </div>
 
       {oneLineThesis && (
-        <p className="mt-2 text-sm text-slate-300">{oneLineThesis}</p>
+        <p className="mt-2 text-sm text-ink-dim">{oneLineThesis}</p>
       )}
 
       <div className="mt-3 rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-sm">
@@ -43,7 +43,7 @@ export function RecommendationGauge({
         <span className="text-amber-100">{biggestRisk}</span>
       </div>
 
-      <p className="mt-2 text-[11px] text-slate-600">
+      <p className="mt-2 text-[11px] text-ink-faint">
         Always state what would change this recommendation. Research and educational analysis, not financial advice.
       </p>
     </div>

@@ -7,6 +7,7 @@ import {
 } from "recharts";
 import { DataBadge, DataTimestamp } from "@/components/data-state";
 import type { DataResult, PriceHistory } from "@/lib/providers/types";
+import { useChartTheme, tooltipStyle } from "./chart-theme";
 
 async function getHistory(url: string): Promise<DataResult<PriceHistory>> {
   const r = await fetch(url);
@@ -24,6 +25,7 @@ const RANGES = [
 
 export function PriceChart({ symbol }: { symbol: string }) {
   const [range, setRange] = useState<string>("3M");
+  const ct = useChartTheme();
   const isIntraday = range === "1D";
   // Daily history (all non-1D ranges share one fetch). Intraday is a separate
   // endpoint hit only when 1D is selected.
@@ -49,7 +51,7 @@ export function PriceChart({ symbol }: { symbol: string }) {
   const last = points[points.length - 1]?.close ?? 0;
   const up = last >= first;
   const changePct = first > 0 ? ((last - first) / first) * 100 : 0;
-  const stroke = up ? "#10b981" : "#f87171";
+  const stroke = up ? ct.positive : ct.negative;
 
   const chartable = points.length > 1;
 
@@ -57,10 +59,10 @@ export function PriceChart({ symbol }: { symbol: string }) {
     <div className="card-hover rounded-xl glass p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <div className="text-sm font-semibold text-slate-100">{symbol} — Price history</div>
+          <div className="text-sm font-semibold text-ink">{symbol} — Price history</div>
           {chartable && (
             <div className="text-xs mt-0.5">
-              <span className="text-slate-400">${last.toFixed(2)}</span>{" "}
+              <span className="text-ink-dim">${last.toFixed(2)}</span>{" "}
               <span className={up ? "text-emerald-400" : "text-rose-400"}>
                 {up ? "▲" : "▼"} {Math.abs(changePct).toFixed(1)}% {isIntraday ? "today" : `over ${range}`}
               </span>
@@ -79,7 +81,7 @@ export function PriceChart({ symbol }: { symbol: string }) {
             className={`rounded-md px-2.5 py-1 text-xs transition-colors ${
               range === r.key
                 ? "bg-brand-500/15 text-brand-300"
-                : "text-slate-500 hover:bg-slate-800 hover:text-slate-300"
+                : "text-ink-faint hover:bg-surface-raised hover:text-ink-dim"
             }`}
           >
             {r.key}
@@ -87,10 +89,10 @@ export function PriceChart({ symbol }: { symbol: string }) {
         ))}
       </div>
 
-      {loading && <div className="mt-4 h-56 animate-pulse rounded bg-slate-800" />}
+      {loading && <div className="mt-4 h-56 animate-pulse rounded bg-surface-raised" />}
 
       {!loading && !chartable && (
-        <div className="mt-4 flex h-56 items-center justify-center rounded-lg border border-white/10 text-sm text-slate-500">
+        <div className="mt-4 flex h-56 items-center justify-center rounded-lg border border-hairline text-sm text-ink-faint">
           <div className="text-center">
             <DataBadge source="unavailable" />
             <p className="mt-2">{active?.note ?? "Price history unavailable."}</p>
@@ -108,14 +110,14 @@ export function PriceChart({ symbol }: { symbol: string }) {
                   <stop offset="100%" stopColor={stroke} stopOpacity={0} />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
-              <XAxis dataKey="date" tick={{ fill: "#64748b", fontSize: 10 }} tickLine={false}
+              <CartesianGrid strokeDasharray="3 3" stroke={ct.grid} vertical={false} />
+              <XAxis dataKey="date" tick={{ fill: ct.axis, fontSize: 10, fontFamily: "var(--font-mono)" }} tickLine={false}
                 minTickGap={40} tickFormatter={(v) => (isIntraday ? v : range === "5Y" || range === "1Y" ? v.slice(0, 7) : v.slice(5))} />
-              <YAxis tick={{ fill: "#64748b", fontSize: 10 }} tickLine={false}
+              <YAxis tick={{ fill: ct.axis, fontSize: 10, fontFamily: "var(--font-mono)" }} tickLine={false}
                 domain={["auto", "auto"]} tickFormatter={(v) => `$${v}`} width={52} />
               <Tooltip
-                contentStyle={{ background: "rgba(12,16,13,0.95)", border: "1px solid rgba(212,168,42,0.25)", borderRadius: 10, fontSize: 12 }}
-                labelStyle={{ color: "#94a3b8" }}
+                contentStyle={tooltipStyle(ct)}
+                labelStyle={{ color: ct.axis }}
                 formatter={(v: number) => [`$${v.toFixed(2)}`, "Close"]}
               />
               <Area dataKey="close" stroke={stroke} strokeWidth={1.5} fill={`url(#grad-${symbol})`} />
@@ -125,7 +127,7 @@ export function PriceChart({ symbol }: { symbol: string }) {
       )}
 
       {active && <div className="mt-2"><DataTimestamp asOf={active.asOf} /></div>}
-      <p className="mt-1 text-[11px] text-slate-600">Research and educational analysis, not financial advice.</p>
+      <p className="mt-1 text-[11px] text-ink-faint">Research and educational analysis, not financial advice.</p>
     </div>
   );
 }

@@ -82,25 +82,25 @@ export function RobinhoodConnector() {
     finally { setBusy(false); }
   }
 
-  const input = "w-full rounded-md border border-white/10 bg-black/25 px-3 py-2 text-sm text-slate-200 placeholder:text-slate-600 focus:border-brand-500 focus:outline-none";
+  const input = "w-full rounded-md border border-white/10 bg-black/25 px-3 py-2 text-sm text-ink placeholder:text-ink-faint focus:border-brand-500 focus:outline-none";
 
   return (
     <div className="card-hover rounded-2xl glass p-4 space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <span className="font-medium text-slate-100">Robinhood — portfolio sync</span>
-        <span className="rounded-full border border-white/10 px-2 py-0.5 text-[10px] text-slate-400">Read-only</span>
+        <span className="font-medium text-ink">Robinhood — portfolio sync</span>
+        <span className="rounded-full border border-white/10 px-2 py-0.5 text-[10px] text-ink-dim">Read-only</span>
       </div>
 
       {/* ── Crypto (official API) ── */}
       <div className="rounded-xl border border-white/10 bg-black/20 p-3 space-y-2">
         <div className="flex items-center justify-between">
-          <span className="text-sm font-medium text-slate-200">Crypto — official API</span>
+          <span className="text-sm font-medium text-ink">Crypto — official API</span>
           {status?.cryptoConfigured
             ? <span className="rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-[11px] text-emerald-300">Configured</span>
-            : <span className="rounded-full border border-slate-600 px-2 py-0.5 text-[11px] text-slate-400">Not set</span>}
+            : <span className="rounded-full border border-hairline-strong px-2 py-0.5 text-[11px] text-ink-dim">Not set</span>}
         </div>
-        <p className="text-xs text-slate-500">
-          Robinhood&apos;s <span className="text-slate-300">official, supported</span> crypto API — no password.
+        <p className="text-xs text-ink-faint">
+          Robinhood&apos;s <span className="text-ink-dim">official, supported</span> crypto API — no password.
           Create credentials at Robinhood (web) → Account → Crypto → API. Paste the API key + base64 private key.
         </p>
         <input type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder="Crypto API key" className={input} />
@@ -114,10 +114,10 @@ export function RobinhoodConnector() {
       {/* ── Stocks (unofficial login) ── */}
       <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-3 space-y-2">
         <div className="flex items-center justify-between">
-          <span className="text-sm font-medium text-slate-200">Stocks — login (unofficial)</span>
+          <span className="text-sm font-medium text-ink">Stocks — login (unofficial)</span>
           {status?.stocksConnected
             ? <span className="rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-[11px] text-emerald-300">● Connected</span>
-            : <span className="rounded-full border border-slate-600 px-2 py-0.5 text-[11px] text-slate-400">Not connected</span>}
+            : <span className="rounded-full border border-hairline-strong px-2 py-0.5 text-[11px] text-ink-dim">Not connected</span>}
         </div>
         <p className="text-xs text-amber-200/80">
           ⚠ Robinhood has no official stocks API. This logs in with your password via their private API —
@@ -126,7 +126,7 @@ export function RobinhoodConnector() {
         </p>
 
         {status?.stocksConnected ? (
-          <button onClick={disconnect} disabled={busy} className="rounded-md border border-white/10 px-3 py-1.5 text-sm text-slate-400 hover:bg-slate-800">
+          <button onClick={disconnect} disabled={busy} className="rounded-md border border-white/10 px-3 py-1.5 text-sm text-ink-dim hover:bg-surface-raised">
             Disconnect stocks
           </button>
         ) : !mfaStep ? (
@@ -141,20 +141,20 @@ export function RobinhoodConnector() {
         ) : (
           <div className="flex flex-wrap items-center gap-2">
             <input value={code} onChange={(e) => setCode(e.target.value)} onKeyDown={(e) => e.key === "Enter" && submitMfa()}
-              placeholder="Verification code" className="rounded-md border border-white/10 bg-black/25 px-3 py-2 text-sm text-slate-200 placeholder:text-slate-600 focus:border-brand-500 focus:outline-none" />
+              placeholder="Verification code" className="rounded-md border border-white/10 bg-black/25 px-3 py-2 text-sm text-ink placeholder:text-ink-faint focus:border-brand-500 focus:outline-none" />
             <button onClick={submitMfa} disabled={busy || !code.trim()} className="rounded-md bg-amber-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-amber-500 disabled:opacity-50">
               {busy ? "Verifying…" : "Verify"}
             </button>
-            <button onClick={() => { setCode(""); login(); }} disabled={busy || !pass} className="rounded-md border border-white/10 px-3 py-1.5 text-xs text-slate-300 hover:bg-slate-800 disabled:opacity-50" title="Robinhood will send a new code">
+            <button onClick={() => { setCode(""); login(); }} disabled={busy || !pass} className="rounded-md border border-white/10 px-3 py-1.5 text-xs text-ink-dim hover:bg-surface-raised disabled:opacity-50" title="Robinhood will send a new code">
               Resend code
             </button>
-            <button onClick={() => { setMfaStep(false); setCode(""); }} className="rounded-md border border-white/10 px-3 py-1.5 text-xs text-slate-400 hover:bg-slate-800">Cancel</button>
+            <button onClick={() => { setMfaStep(false); setCode(""); }} className="rounded-md border border-white/10 px-3 py-1.5 text-xs text-ink-dim hover:bg-surface-raised">Cancel</button>
           </div>
         )}
       </div>
 
-      <p className="text-xs text-slate-500">After connecting, go to <a href="/holdings" className="text-brand-400 underline">Holdings</a> and use Sync from Robinhood.</p>
-      {msg && <p className={`text-sm ${msg.toLowerCase().includes("error") ? "text-rose-400" : "text-slate-400"}`}>{msg}</p>}
+      <p className="text-xs text-ink-faint">After connecting, go to <a href="/holdings" className="text-brand-400 underline">Holdings</a> and use Sync from Robinhood.</p>
+      {msg && <p className={`text-sm ${msg.toLowerCase().includes("error") ? "text-rose-400" : "text-ink-dim"}`}>{msg}</p>}
     </div>
   );
 }

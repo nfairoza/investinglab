@@ -6,7 +6,7 @@ export default function Page({ searchParams }: { searchParams: { symbol?: string
     <div className="space-y-5">
       <div>
         <h1 className="font-display text-3xl font-semibold text-[#ece9e0]">AI Predictions</h1>
-        <p className="mt-1 max-w-2xl text-sm text-slate-400">
+        <p className="mt-1 max-w-2xl text-sm text-ink-dim">
           Ask Claude to research any stock — it pulls live financials and searches the web for
           recent news, then gives a probabilistic prediction across 1 week, 1 month, and 1 year.
           This is an AI opinion, not a guarantee or market-implied odds.

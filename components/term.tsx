@@ -30,15 +30,15 @@ export function Term({ id, children }: { id: string; children?: React.ReactNode 
       {open && (
         <span
           role="tooltip"
-          className="absolute left-0 top-full z-50 mt-1 block w-64 rounded-lg border border-white/10 bg-slate-900 p-3 text-left text-xs leading-relaxed shadow-xl"
+          className="absolute left-0 top-full z-50 mt-1 block w-64 rounded-lg border border-white/10 bg-surface-raised p-3 text-left text-xs leading-relaxed shadow-xl"
         >
-          <span className="block font-semibold text-slate-100">{entry.term}</span>
-          <span className="mt-1 block text-slate-300">{entry.short}</span>
-          <span className="mt-1 block text-slate-400">
-            <b className="text-slate-300">Why it matters:</b> {entry.why}
+          <span className="block font-semibold text-ink">{entry.term}</span>
+          <span className="mt-1 block text-ink-dim">{entry.short}</span>
+          <span className="mt-1 block text-ink-dim">
+            <b className="text-ink-dim">Why it matters:</b> {entry.why}
           </span>
           {entry.example && (
-            <span className="mt-1 block italic text-slate-500">e.g. {entry.example}</span>
+            <span className="mt-1 block italic text-ink-faint">e.g. {entry.example}</span>
           )}
         </span>
       )}

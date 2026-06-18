@@ -51,7 +51,7 @@ export function Hero({ subtitle }: { subtitle?: string }) {
         <h1 className="mt-2 font-display text-4xl font-semibold leading-tight text-[#ece9e0] md:text-5xl">
           <span className="text-shimmer">Noor Investing Lab</span>
         </h1>
-        <p className="mt-3 max-w-md text-sm leading-relaxed text-slate-300">
+        <p className="mt-3 max-w-md text-sm leading-relaxed text-ink-dim">
           {subtitle ??
             "Your portfolio, researched and explained — live data, AI analysis, and a clear-eyed view of risk."}
         </p>

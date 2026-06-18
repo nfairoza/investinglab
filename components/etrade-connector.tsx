@@ -156,8 +156,8 @@ export function EtradeConnector() {
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          <span className="font-medium text-slate-100">E*TRADE — Portfolio sync</span>
-          <span className="rounded-full border border-slate-600 px-2 py-0.5 text-[10px] text-slate-400">Read-only</span>
+          <span className="font-medium text-ink">E*TRADE — Portfolio sync</span>
+          <span className="rounded-full border border-hairline-strong px-2 py-0.5 text-[10px] text-ink-dim">Read-only</span>
           {status?.sandbox && (
             <span className="rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10px] text-amber-300">SANDBOX</span>
           )}
@@ -167,30 +167,30 @@ export function EtradeConnector() {
             ● Connected
           </span>
         ) : (
-          <span className="rounded-full border border-slate-600 bg-slate-800/40 px-2 py-0.5 text-[11px] text-slate-400">
+          <span className="rounded-full border border-hairline-strong bg-surface px-2 py-0.5 text-[11px] text-ink-dim">
             Not connected
           </span>
         )}
       </div>
 
-      <p className="text-sm text-slate-400">
+      <p className="text-sm text-ink-dim">
         Pull your real brokerage positions from E*TRADE — no password ever touches this app.
         You log in on E*TRADE's own site, paste back the code it gives you, then pick which account to sync.
-        <span className="ml-1 text-slate-500">Tokens expire at midnight ET daily (just reconnect when that happens).</span>
+        <span className="ml-1 text-ink-faint">Tokens expire at midnight ET daily (just reconnect when that happens).</span>
       </p>
 
       {/* Step 1: Credentials (only shown when not yet configured) */}
       {!status?.hasCredentials && (
         <div className="space-y-2 rounded-lg glass p-4">
-          <div className="text-xs font-medium text-slate-400 uppercase tracking-wide">Step 1 — Developer credentials</div>
-          <p className="text-xs text-slate-500">
+          <div className="text-xs font-medium text-ink-dim uppercase tracking-wide">Step 1 — Developer credentials</div>
+          <p className="text-xs text-ink-faint">
             Get a free consumer key from{" "}
             <a href="https://developer.etrade.com" target="_blank" rel="noreferrer" className="text-brand-400 underline">
               developer.etrade.com
             </a>
-            . Or set <code className="rounded bg-slate-800 px-1 text-slate-300">ETRADE_CONSUMER_KEY</code> and{" "}
-            <code className="rounded bg-slate-800 px-1 text-slate-300">ETRADE_CONSUMER_SECRET</code> in{" "}
-            <code className="rounded bg-slate-800 px-1 text-slate-300">.env.local</code> to persist across restarts.
+            . Or set <code className="rounded bg-surface-raised px-1 text-ink-dim">ETRADE_CONSUMER_KEY</code> and{" "}
+            <code className="rounded bg-surface-raised px-1 text-ink-dim">ETRADE_CONSUMER_SECRET</code> in{" "}
+            <code className="rounded bg-surface-raised px-1 text-ink-dim">.env.local</code> to persist across restarts.
           </p>
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             <input
@@ -198,14 +198,14 @@ export function EtradeConnector() {
               value={consumerKey}
               onChange={(e) => setConsumerKey(e.target.value)}
               placeholder="Consumer key"
-              className="rounded-md border border-white/10 bg-black/25 px-3 py-2 text-sm text-slate-200 placeholder:text-slate-600 focus:border-brand-500 focus:outline-none"
+              className="rounded-md border border-white/10 bg-black/25 px-3 py-2 text-sm text-ink placeholder:text-ink-faint focus:border-brand-500 focus:outline-none"
             />
             <input
               type="password"
               value={consumerSecret}
               onChange={(e) => setConsumerSecret(e.target.value)}
               placeholder="Consumer secret"
-              className="rounded-md border border-white/10 bg-black/25 px-3 py-2 text-sm text-slate-200 placeholder:text-slate-600 focus:border-brand-500 focus:outline-none"
+              className="rounded-md border border-white/10 bg-black/25 px-3 py-2 text-sm text-ink placeholder:text-ink-faint focus:border-brand-500 focus:outline-none"
             />
           </div>
           <button
@@ -221,23 +221,23 @@ export function EtradeConnector() {
       {/* Step 2: OAuth connect (out-of-band code flow) */}
       {status?.hasCredentials && !status.connected && (
         <div className="space-y-3 rounded-lg glass p-4">
-          <div className="text-xs font-medium text-slate-400 uppercase tracking-wide">Authorize access</div>
-          <p className="text-xs text-slate-500">
+          <div className="text-xs font-medium text-ink-dim uppercase tracking-wide">Authorize access</div>
+          <p className="text-xs text-ink-faint">
             Your developer key is set, so this app is registered with E*TRADE. You still need to
-            <span className="text-slate-300"> log in once</span> so E*TRADE can grant this app read access to
-            <span className="text-slate-300"> your</span> account — the consumer key only identifies the app, not you.
+            <span className="text-ink-dim"> log in once</span> so E*TRADE can grant this app read access to
+            <span className="text-ink-dim"> your</span> account — the consumer key only identifies the app, not you.
           </p>
           {status?.sandbox && (
             <p className="text-xs text-amber-400/80">
-              Sandbox mode — uses test account data, not your real portfolio. To switch to production, remove <code className="rounded bg-slate-800 px-1">ETRADE_SANDBOX=true</code> from <code className="rounded bg-slate-800 px-1">.env.local</code>.
+              Sandbox mode — uses test account data, not your real portfolio. To switch to production, remove <code className="rounded bg-surface-raised px-1">ETRADE_SANDBOX=true</code> from <code className="rounded bg-surface-raised px-1">.env.local</code>.
             </p>
           )}
 
           {!awaitingCode ? (
             <>
-              <p className="text-xs text-slate-500">
-                Clicking below opens E*TRADE in a <span className="text-slate-300">new tab</span>. Log in, click
-                <span className="text-slate-300"> Accept</span>, and E*TRADE will show you a short verification code.
+              <p className="text-xs text-ink-faint">
+                Clicking below opens E*TRADE in a <span className="text-ink-dim">new tab</span>. Log in, click
+                <span className="text-ink-dim"> Accept</span>, and E*TRADE will show you a short verification code.
                 Come back here and paste it.
               </p>
               <button onClick={connect} disabled={busy}
@@ -247,7 +247,7 @@ export function EtradeConnector() {
             </>
           ) : (
             <>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-ink-faint">
                 Paste the verification code E*TRADE showed you after you clicked Accept:
               </p>
               <div className="flex flex-wrap items-center gap-2">
@@ -256,14 +256,14 @@ export function EtradeConnector() {
                   onChange={(e) => setCode(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && submitCode()}
                   placeholder="Verification code"
-                  className="rounded-md border border-white/10 bg-black/25 px-3 py-2 text-sm text-slate-200 placeholder:text-slate-600 focus:border-brand-500 focus:outline-none"
+                  className="rounded-md border border-white/10 bg-black/25 px-3 py-2 text-sm text-ink placeholder:text-ink-faint focus:border-brand-500 focus:outline-none"
                 />
                 <button onClick={submitCode} disabled={busy || !code.trim()}
                   className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-50">
                   {busy ? "Verifying…" : "Verify & connect"}
                 </button>
                 <button onClick={() => { setAwaitingCode(false); setCode(""); setMsg(null); }}
-                  className="rounded-md border border-white/10 px-3 py-2 text-xs text-slate-400 hover:bg-slate-800">
+                  className="rounded-md border border-white/10 px-3 py-2 text-xs text-ink-dim hover:bg-surface-raised">
                   Cancel
                 </button>
               </div>
@@ -275,11 +275,11 @@ export function EtradeConnector() {
       {/* Step 3: Pick account */}
       {status?.connected && !status.selectedAccountIdKey && (
         <div className="space-y-2 rounded-lg glass p-4">
-          <div className="text-xs font-medium text-slate-400 uppercase tracking-wide">Step 3 — Select account to sync</div>
+          <div className="text-xs font-medium text-ink-dim uppercase tracking-wide">Step 3 — Select account to sync</div>
           <select
             value={selectedKey}
             onChange={(e) => setSelectedKey(e.target.value)}
-            className="w-full rounded-md border border-white/10 bg-black/25 px-3 py-2 text-sm text-slate-200 focus:border-brand-500 focus:outline-none"
+            className="w-full rounded-md border border-white/10 bg-black/25 px-3 py-2 text-sm text-ink focus:border-brand-500 focus:outline-none"
           >
             <option value="">Pick an account…</option>
             {status.accounts.map((a) => (
@@ -308,7 +308,7 @@ export function EtradeConnector() {
               </div>
             </div>
             {status.connectedAt && (
-              <div className="text-xs text-slate-500">
+              <div className="text-xs text-ink-faint">
                 Connected {new Date(status.connectedAt).toLocaleTimeString()}
               </div>
             )}
@@ -325,7 +325,7 @@ export function EtradeConnector() {
             <select
               value={selectedKey}
               onChange={(e) => setSelectedKey(e.target.value)}
-              className="rounded-md border border-white/10 bg-black/25 px-2 py-1.5 text-xs text-slate-300 focus:border-brand-500 focus:outline-none"
+              className="rounded-md border border-white/10 bg-black/25 px-2 py-1.5 text-xs text-ink-dim focus:border-brand-500 focus:outline-none"
             >
               {status.accounts.map((a) => (
                 <option key={a.accountIdKey} value={a.accountIdKey}>
@@ -334,11 +334,11 @@ export function EtradeConnector() {
               ))}
             </select>
             {selectedKey !== status.selectedAccountIdKey && (
-              <button onClick={selectAccount} disabled={busy} className="rounded-md border border-white/10 px-2 py-1.5 text-xs text-slate-300 hover:bg-slate-800 disabled:opacity-50">
+              <button onClick={selectAccount} disabled={busy} className="rounded-md border border-white/10 px-2 py-1.5 text-xs text-ink-dim hover:bg-surface-raised disabled:opacity-50">
                 Switch account
               </button>
             )}
-            <button onClick={disconnect} disabled={busy} className="rounded-md border border-white/10 px-3 py-1.5 text-xs text-slate-400 hover:bg-slate-800 disabled:opacity-50">
+            <button onClick={disconnect} disabled={busy} className="rounded-md border border-white/10 px-3 py-1.5 text-xs text-ink-dim hover:bg-surface-raised disabled:opacity-50">
               Disconnect
             </button>
           </div>
@@ -356,12 +356,12 @@ export function EtradeConnector() {
       )}
 
       {msg && (
-        <p className={`text-sm ${msg.toLowerCase().includes("error") || msg.includes("failed") ? "text-rose-400" : "text-slate-400"}`}>
+        <p className={`text-sm ${msg.toLowerCase().includes("error") || msg.includes("failed") ? "text-rose-400" : "text-ink-dim"}`}>
           {msg}
         </p>
       )}
 
-      <p className="text-[11px] text-slate-600">
+      <p className="text-[11px] text-ink-faint">
         This app never sees your E*TRADE password. OAuth tokens are stored in server memory only and expire at midnight ET.
         No trading, order placement, or account modification is possible through this connector.
       </p>

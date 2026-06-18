@@ -5,7 +5,7 @@ export default function Page() {
     <div className="space-y-5">
       <div>
         <h1 className="font-display text-3xl font-semibold text-[#ece9e0]">Congress Tracker</h1>
-        <p className="mt-1 max-w-2xl text-sm text-slate-400">
+        <p className="mt-1 max-w-2xl text-sm text-ink-dim">
           STOCK Act disclosures, scored for conviction. The <span className="text-brand-300">Alpha Feed</span> filters
           out routine retail-size trades and surfaces high-conviction ones using capital scale, the member&apos;s
           committee jurisdiction over the stock&apos;s sector, cross-party clustering, and an AI-estimated options read.
@@ -22,7 +22,7 @@ export default function Page() {
 
       <CongressTabs />
 
-      <p className="text-[11px] text-slate-600">
+      <p className="text-[11px] text-ink-faint">
         Research &amp; educational analysis, not financial advice.
       </p>
     </div>

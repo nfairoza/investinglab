@@ -151,15 +151,15 @@ export function SettingsAI() {
   return (
     <div className="max-w-2xl space-y-4 rounded-xl glass p-5">
       <div>
-        <h2 className="text-lg font-semibold text-slate-100">AI research (Claude)</h2>
-        <p className="mt-1 text-sm text-slate-400">
+        <h2 className="text-lg font-semibold text-ink">AI research (Claude)</h2>
+        <p className="mt-1 text-sm text-ink-dim">
           The research engine uses Anthropic&apos;s Claude. Add a key here to enable it.
         </p>
       </div>
 
       {/* Status line */}
       <div className="flex items-center gap-2 text-sm">
-        <span className="text-slate-400">Status:</span>
+        <span className="text-ink-dim">Status:</span>
         {status?.configured ? (
           <span className="rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-emerald-300">
             Configured ({status.source === "env" ? "from environment" : "this session"})
@@ -169,19 +169,19 @@ export function SettingsAI() {
             No key set
           </span>
         )}
-        <button onClick={refresh} className="ml-1 rounded-md border border-white/10 px-2 py-0.5 text-xs text-slate-300 hover:bg-slate-800">
+        <button onClick={refresh} className="ml-1 rounded-md border border-white/10 px-2 py-0.5 text-xs text-ink-dim hover:bg-surface-raised">
           Refresh
         </button>
       </div>
 
       {/* Model picker — applies immediately, independent of the key */}
       <div className="space-y-2">
-        <label className="block text-sm text-slate-300">Model</label>
+        <label className="block text-sm text-ink-dim">Model</label>
         <select
           value={model}
           onChange={(e) => applyModel(e.target.value)}
           disabled={busy}
-          className="w-full rounded-md border border-white/10 bg-black/25 px-3 py-2 text-sm text-slate-200 focus:border-brand-500 focus:outline-none disabled:opacity-50"
+          className="w-full rounded-md border border-white/10 bg-black/25 px-3 py-2 text-sm text-ink focus:border-brand-500 focus:outline-none disabled:opacity-50"
         >
           {MODELS.map((m) => (
             <option key={m.id} value={m.id}>
@@ -190,7 +190,7 @@ export function SettingsAI() {
           ))}
         </select>
         {status?.model && (
-          <p className="text-xs text-slate-500">
+          <p className="text-xs text-ink-faint">
             Active model: <span className="text-brand-300">{status.model}</span>
             {" "}— the manual default. In Smart mode the router may pick a different model per task (below).
           </p>
@@ -199,24 +199,24 @@ export function SettingsAI() {
 
       {/* Routing strategy — task-aware model selection */}
       <div className="space-y-2 border-t border-white/10 pt-4">
-        <label className="block text-sm text-slate-300">Routing strategy</label>
+        <label className="block text-sm text-ink-dim">Routing strategy</label>
         <select
           value={strategy}
           onChange={(e) => applyStrategy(e.target.value)}
           disabled={busy}
-          className="w-full rounded-md border border-white/10 bg-black/25 px-3 py-2 text-sm text-slate-200 focus:border-brand-500 focus:outline-none disabled:opacity-50"
+          className="w-full rounded-md border border-white/10 bg-black/25 px-3 py-2 text-sm text-ink focus:border-brand-500 focus:outline-none disabled:opacity-50"
         >
           {STRATEGIES.map((s) => (
             <option key={s.id} value={s.id}>{s.label}</option>
           ))}
         </select>
-        <p className="text-xs text-slate-500">{STRATEGIES.find((s) => s.id === strategy)?.desc}</p>
+        <p className="text-xs text-ink-faint">{STRATEGIES.find((s) => s.id === strategy)?.desc}</p>
         {/* Provider availability — routing needs both for full benefit */}
         <div className="flex flex-wrap gap-2 text-[11px]">
-          <span className={`rounded-full border px-2 py-0.5 ${status?.hasClaude ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300" : "border-slate-600 text-slate-500"}`}>
+          <span className={`rounded-full border px-2 py-0.5 ${status?.hasClaude ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300" : "border-hairline-strong text-ink-faint"}`}>
             Claude {status?.hasClaude ? "✓" : "— no key"}
           </span>
-          <span className={`rounded-full border px-2 py-0.5 ${status?.hasGemini ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300" : "border-slate-600 text-slate-500"}`}>
+          <span className={`rounded-full border px-2 py-0.5 ${status?.hasGemini ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300" : "border-hairline-strong text-ink-faint"}`}>
             Gemini {status?.hasGemini ? "✓" : "— no key"}
           </span>
           {!(status?.hasClaude && status?.hasGemini) && (
@@ -227,9 +227,9 @@ export function SettingsAI() {
 
       {/* API key */}
       <div className="space-y-2 border-t border-white/10 pt-4">
-        <label className="block text-sm text-slate-300">Claude API key</label>
-        <p className="text-xs text-slate-500">
-          Already set via <code className="rounded bg-slate-800 px-1">.env.local</code>? You can leave this blank.
+        <label className="block text-sm text-ink-dim">Claude API key</label>
+        <p className="text-xs text-ink-faint">
+          Already set via <code className="rounded bg-surface-raised px-1">.env.local</code>? You can leave this blank.
           Enter a key here only to override it for this session.
         </p>
         <input
@@ -237,7 +237,7 @@ export function SettingsAI() {
           value={apiKey}
           onChange={(e) => setApiKey(e.target.value)}
           placeholder="sk-ant-…"
-          className="w-full rounded-md border border-white/10 bg-black/25 px-3 py-2 text-sm text-slate-200 placeholder:text-slate-600 focus:border-brand-500 focus:outline-none"
+          className="w-full rounded-md border border-white/10 bg-black/25 px-3 py-2 text-sm text-ink placeholder:text-ink-faint focus:border-brand-500 focus:outline-none"
         />
       </div>
 
@@ -252,26 +252,26 @@ export function SettingsAI() {
         <button
           onClick={test}
           disabled={busy || !status?.configured}
-          className="rounded-md border border-white/10 px-3 py-1.5 text-sm text-slate-200 hover:bg-slate-800 disabled:opacity-50"
+          className="rounded-md border border-white/10 px-3 py-1.5 text-sm text-ink hover:bg-surface-raised disabled:opacity-50"
         >
           Test connection
         </button>
         <button
           onClick={clear}
           disabled={busy || status?.source !== "runtime"}
-          className="rounded-md border border-white/10 px-3 py-1.5 text-sm text-slate-400 hover:bg-slate-800 disabled:opacity-50"
+          className="rounded-md border border-white/10 px-3 py-1.5 text-sm text-ink-dim hover:bg-surface-raised disabled:opacity-50"
         >
           Clear
         </button>
-        {msg && <span className="text-sm text-slate-400">{msg}</span>}
+        {msg && <span className="text-sm text-ink-dim">{msg}</span>}
       </div>
 
       <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-xs leading-relaxed text-amber-200/90">
         <span className="font-medium">Security note.</span> A key entered here is sent to your own
         server and held in memory for this dev session only — it is never stored in the browser and
         does not survive a restart. For a real deployment, set{" "}
-        <code className="rounded bg-slate-800 px-1">ANTHROPIC_API_KEY</code> in your environment
-        (e.g. <code className="rounded bg-slate-800 px-1">.env.local</code> or Vercel) instead, and
+        <code className="rounded bg-surface-raised px-1">ANTHROPIC_API_KEY</code> in your environment
+        (e.g. <code className="rounded bg-surface-raised px-1">.env.local</code> or Vercel) instead, and
         keep keys server-side. Get a key from the Anthropic Console.
       </div>
     </div>

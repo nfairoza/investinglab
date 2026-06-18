@@ -34,16 +34,16 @@ export function MarginChart({ symbol, financials }: { symbol: string; financials
     <div className="card-hover rounded-xl glass p-4">
       <div className="flex items-center justify-between">
         <div>
-          <div className="text-sm font-semibold text-slate-100">{symbol} — Margins trend</div>
-          <div className="text-xs text-slate-500 mt-0.5">Keeping more of each dollar over time?</div>
+          <div className="text-sm font-semibold text-ink">{symbol} — Margins trend</div>
+          <div className="text-xs text-ink-faint mt-0.5">Keeping more of each dollar over time?</div>
         </div>
         {data && <DataBadge source={data.source} />}
       </div>
 
-      {isLoading && !data && <div className="mt-4 h-48 animate-pulse rounded bg-slate-800" />}
+      {isLoading && !data && <div className="mt-4 h-48 animate-pulse rounded bg-surface-raised" />}
 
       {!isLoading && !rows.length && (
-        <div className="mt-4 flex h-48 items-center justify-center rounded-lg border border-white/10 text-sm text-slate-500">
+        <div className="mt-4 flex h-48 items-center justify-center rounded-lg border border-hairline text-sm text-ink-faint">
           <div className="text-center">
             <DataBadge source="unavailable" />
             <p className="mt-2">Margin data unavailable.</p>
@@ -55,25 +55,25 @@ export function MarginChart({ symbol, financials }: { symbol: string; financials
         <div className="mt-4">
           <ResponsiveContainer width="100%" height={200}>
             <LineChart data={rows} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-              <XAxis dataKey="period" tick={{ fill: "#64748b", fontSize: 10 }} tickLine={false} />
-              <YAxis tick={{ fill: "#64748b", fontSize: 10 }} tickLine={false}
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
+              <XAxis dataKey="period" tick={{ fill: "var(--chart-axis)", fontSize: 10 }} tickLine={false} />
+              <YAxis tick={{ fill: "var(--chart-axis)", fontSize: 10 }} tickLine={false}
                 tickFormatter={(v) => `${v}%`} width={44} />
               <Tooltip
-                contentStyle={{ background: "rgba(12,16,13,0.95)", border: "1px solid rgba(212,168,42,0.25)", borderRadius: 10, fontSize: 12 }}
-                labelStyle={{ color: "#94a3b8" }}
+                contentStyle={{ background: "var(--tooltip-bg)", border: "1px solid var(--hairline-gold)", borderRadius: 10, fontSize: 12 }}
+                labelStyle={{ color: "var(--text-dim)" }}
                 formatter={(v: number) => [`${v}%`]}
               />
-              <Legend wrapperStyle={{ fontSize: 11, color: "#94a3b8" }} />
-              <Line dataKey="Gross margin %" stroke="#34d399" dot={false} strokeWidth={1.5} connectNulls />
-              <Line dataKey="Operating margin %" stroke="#fbbf24" dot={false} strokeWidth={1.5} connectNulls />
+              <Legend wrapperStyle={{ fontSize: 11, color: "var(--text-dim)" }} />
+              <Line dataKey="Gross margin %" stroke="var(--positive)" dot={false} strokeWidth={1.5} connectNulls />
+              <Line dataKey="Operating margin %" stroke="var(--accent)" dot={false} strokeWidth={1.5} connectNulls />
             </LineChart>
           </ResponsiveContainer>
         </div>
       )}
 
       {data && <div className="mt-2"><DataTimestamp asOf={data.asOf} /></div>}
-      <p className="mt-1 text-[11px] text-slate-600">Research and educational analysis, not financial advice.</p>
+      <p className="mt-1 text-[11px] text-ink-faint">Research and educational analysis, not financial advice.</p>
     </div>
   );
 }

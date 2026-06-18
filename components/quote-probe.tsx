@@ -59,13 +59,13 @@ export function QuoteProbe({
   return (
     <div className="max-w-sm rounded-xl glass p-4">
       <div className="flex items-center justify-between">
-        <span className="font-semibold text-slate-100" title={hint}>{label ?? symbol}</span>
+        <span className="font-semibold text-ink" title={hint}>{label ?? symbol}</span>
         <div className="flex items-center gap-2">
           {data && <DataBadge source={data.source} />}
           <button
             onClick={() => mutate()}
             disabled={isValidating}
-            className="rounded-md border border-white/10 px-2 py-0.5 text-[11px] text-slate-300 hover:bg-slate-800 disabled:opacity-50"
+            className="rounded-md border border-white/10 px-2 py-0.5 text-[11px] text-ink-dim hover:bg-surface-raised disabled:opacity-50"
             aria-label={`Refresh ${symbol} quote`}
           >
             {refreshing ? "Refreshing…" : "Refresh"}
@@ -73,13 +73,13 @@ export function QuoteProbe({
         </div>
       </div>
 
-      {hint && <p className="mt-0.5 text-[11px] leading-snug text-slate-500">{hint}</p>}
+      {hint && <p className="mt-0.5 text-[11px] leading-snug text-ink-faint">{hint}</p>}
 
-      {isLoading && <div className="mt-3 h-7 w-28 animate-pulse rounded bg-slate-800" />}
+      {isLoading && <div className="mt-3 h-7 w-28 animate-pulse rounded bg-surface-raised" />}
 
       {!isLoading && data?.data && (
         <div className="mt-2">
-          <div className="text-2xl font-semibold text-slate-100">
+          <div className="text-2xl font-semibold text-ink">
             ${data.data.price?.toFixed(2)}
           </div>
           <div className={up ? "text-emerald-400" : "text-rose-400"}>
@@ -98,7 +98,7 @@ export function QuoteProbe({
 
       <div className="mt-3 flex items-center gap-2">
         {data && <DataTimestamp asOf={data.asOf} />}
-        {refreshing && <span className="text-[11px] text-slate-600">updating…</span>}
+        {refreshing && <span className="text-[11px] text-ink-faint">updating…</span>}
       </div>
     </div>
   );

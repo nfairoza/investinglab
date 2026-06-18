@@ -73,22 +73,22 @@ function ConnectorCard({ connector, stat, onChanged }: { connector: Connector; s
   return (
     <div className="card-hover rounded-xl glass p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <span className="font-medium text-slate-100">{connector.label}</span>
+        <span className="font-medium text-ink">{connector.label}</span>
         {/* Status line — same style as the Claude card */}
         <div className="flex items-center gap-2 text-sm">
-          <span className="text-slate-500">Status:</span>
+          <span className="text-ink-faint">Status:</span>
           {stat?.configured ? (
             <span className="rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-[11px] text-emerald-300">
               Configured ({stat.source === "env" ? "from environment" : "this session"})
             </span>
           ) : (
-            <span className="rounded-full border border-slate-600 bg-slate-800/40 px-2 py-0.5 text-[11px] text-slate-400">
+            <span className="rounded-full border border-hairline-strong bg-surface px-2 py-0.5 text-[11px] text-ink-dim">
               Not set
             </span>
           )}
         </div>
       </div>
-      <p className="mt-1 text-sm text-slate-400">{connector.purpose}</p>
+      <p className="mt-1 text-sm text-ink-dim">{connector.purpose}</p>
 
       <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
         {connector.fields.map((f) => (
@@ -98,7 +98,7 @@ function ConnectorCard({ connector, stat, onChanged }: { connector: Connector; s
             value={vals[f.id] ?? ""}
             onChange={(e) => setVals((v) => ({ ...v, [f.id]: e.target.value }))}
             placeholder={f.placeholder ?? f.label}
-            className="rounded-md border border-white/10 bg-black/25 px-3 py-2 text-sm text-slate-200 placeholder:text-slate-600 focus:border-brand-500 focus:outline-none"
+            className="rounded-md border border-white/10 bg-black/25 px-3 py-2 text-sm text-ink placeholder:text-ink-faint focus:border-brand-500 focus:outline-none"
           />
         ))}
       </div>
@@ -108,15 +108,15 @@ function ConnectorCard({ connector, stat, onChanged }: { connector: Connector; s
           Save
         </button>
         {connector.testUrl && (
-          <button onClick={test} disabled={busy} className="rounded-md border border-white/10 px-3 py-1.5 text-sm text-slate-200 hover:bg-slate-800 disabled:opacity-50">
+          <button onClick={test} disabled={busy} className="rounded-md border border-white/10 px-3 py-1.5 text-sm text-ink hover:bg-surface-raised disabled:opacity-50">
             Test
           </button>
         )}
-        <button onClick={onChanged} disabled={busy} className="rounded-md border border-white/10 px-3 py-1.5 text-sm text-slate-300 hover:bg-slate-800 disabled:opacity-50">
+        <button onClick={onChanged} disabled={busy} className="rounded-md border border-white/10 px-3 py-1.5 text-sm text-ink-dim hover:bg-surface-raised disabled:opacity-50">
           Refresh
         </button>
         {stat?.source === "runtime" && (
-          <button onClick={clear} disabled={busy} className="rounded-md border border-white/10 px-3 py-1.5 text-sm text-slate-400 hover:bg-slate-800 disabled:opacity-50">
+          <button onClick={clear} disabled={busy} className="rounded-md border border-white/10 px-3 py-1.5 text-sm text-ink-dim hover:bg-surface-raised disabled:opacity-50">
             Clear
           </button>
         )}
@@ -125,7 +125,7 @@ function ConnectorCard({ connector, stat, onChanged }: { connector: Connector; s
             Get a key
           </a>
         )}
-        {msg && <span className="text-sm text-slate-400">{msg}</span>}
+        {msg && <span className="text-sm text-ink-dim">{msg}</span>}
       </div>
     </div>
   );
@@ -173,7 +173,7 @@ export function Connectors() {
       <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-xs leading-relaxed text-amber-200/90">
         <span className="font-medium">Where keys live.</span> Keys you save here are held on your own
         server for this session only — never in the browser, never committed. To make them permanent,
-        put them in <code className="rounded bg-slate-800 px-1">.env.local</code> (already done for your
+        put them in <code className="rounded bg-surface-raised px-1">.env.local</code> (already done for your
         FMP, Claude, Gemini, and E*TRADE keys) — those show as <span className="text-amber-100">from environment</span>.
       </div>
     </div>
@@ -184,7 +184,7 @@ export function SectionHeading({ title, subtitle }: { title: string; subtitle?: 
   return (
     <div className="border-b border-white/10 pb-2">
       <h2 className="font-display text-xl font-semibold text-[#ece9e0]">{title}</h2>
-      {subtitle && <p className="mt-0.5 text-xs text-slate-500">{subtitle}</p>}
+      {subtitle && <p className="mt-0.5 text-xs text-ink-faint">{subtitle}</p>}
     </div>
   );
 }

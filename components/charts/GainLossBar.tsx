@@ -19,8 +19,8 @@ export function GainLossBar({ holdings, title = "Gain / loss by holding" }: { ho
   if (!holdings.length) {
     return (
       <div className="card-hover rounded-xl glass p-4">
-        <div className="text-sm font-semibold text-slate-100">{title}</div>
-        <div className="mt-4 flex h-32 items-center justify-center text-sm text-slate-500">
+        <div className="text-sm font-semibold text-ink">{title}</div>
+        <div className="mt-4 flex h-32 items-center justify-center text-sm text-ink-faint">
           Add holdings to see gains and losses.
         </div>
       </div>
@@ -31,33 +31,33 @@ export function GainLossBar({ holdings, title = "Gain / loss by holding" }: { ho
 
   return (
     <div className="rounded-xl glass p-4">
-      <div className="text-sm font-semibold text-slate-100">{title}</div>
-      <div className="text-xs text-slate-500 mt-0.5">What's winning and losing? Green = up, red = down, labeled.</div>
+      <div className="text-sm font-semibold text-ink">{title}</div>
+      <div className="text-xs text-ink-faint mt-0.5">What's winning and losing? Green = up, red = down, labeled.</div>
       <div className="mt-4">
         <ResponsiveContainer width="100%" height={Math.max(160, sorted.length * 36)}>
           <BarChart data={sorted} layout="vertical" margin={{ top: 0, right: 48, left: 8, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" horizontal={false} />
-            <XAxis type="number" tick={{ fill: "#64748b", fontSize: 10 }} tickLine={false}
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" horizontal={false} />
+            <XAxis type="number" tick={{ fill: "var(--chart-axis)", fontSize: 10 }} tickLine={false}
               tickFormatter={(v) => `$${v >= 0 ? "+" : ""}${v.toFixed(0)}`} />
             <YAxis type="category" dataKey="symbol" tick={{ fill: "#cbd5e1", fontSize: 12 }} tickLine={false} width={44} />
             <ReferenceLine x={0} stroke="#475569" />
             <Tooltip
-              contentStyle={{ background: "rgba(12,16,13,0.95)", border: "1px solid rgba(212,168,42,0.25)", borderRadius: 10, fontSize: 12 }}
+              contentStyle={{ background: "var(--tooltip-bg)", border: "1px solid var(--hairline-gold)", borderRadius: 10, fontSize: 12 }}
               formatter={(v: number, _: string, props: any) => {
                 const { gainPct } = props.payload as HoldingGain;
                 const sign = v >= 0 ? "▲ up" : "▼ down";
                 return [`${fmt(v)} (${gainPct.toFixed(1)}%) ${sign}`];
               }}
             />
-            <Bar dataKey="gain" radius={[0, 3, 3, 0]} label={{ position: "right", formatter: (v: number) => fmt(v), fill: "#94a3b8", fontSize: 11 }}>
+            <Bar dataKey="gain" radius={[0, 3, 3, 0]} label={{ position: "right", formatter: (v: number) => fmt(v), fill: "var(--text-dim)", fontSize: 11 }}>
               {sorted.map((entry, i) => (
-                <Cell key={i} fill={entry.gain >= 0 ? "#10b981" : "#f87171"} />
+                <Cell key={i} fill={entry.gain >= 0 ? "var(--positive)" : "var(--negative)"} />
               ))}
             </Bar>
           </BarChart>
         </ResponsiveContainer>
       </div>
-      <p className="mt-2 text-[11px] text-slate-600">Research and educational analysis, not financial advice.</p>
+      <p className="mt-2 text-[11px] text-ink-faint">Research and educational analysis, not financial advice.</p>
     </div>
   );
 }

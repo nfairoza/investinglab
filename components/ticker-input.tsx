@@ -75,7 +75,7 @@ export function TickerInput({
         onFocus={() => matches.length && setOpen(true)}
         placeholder={placeholder}
         autoComplete="off"
-        className={className || "w-64 rounded-md border border-white/10 bg-black/25 px-3 py-2 text-sm text-slate-200 placeholder:text-slate-600 focus:border-brand-500 focus:outline-none"}
+        className={className || "w-64 rounded-md border border-white/10 bg-black/25 px-3 py-2 text-sm text-ink placeholder:text-ink-faint focus:border-brand-500 focus:outline-none"}
       />
       {open && matches.length > 0 && (
         <ul
@@ -94,9 +94,9 @@ export function TickerInput({
               >
                 <span className="flex items-baseline gap-2">
                   <span className="font-medium text-brand-300">{m.symbol}</span>
-                  <span className="truncate text-xs text-slate-400">{m.name}</span>
+                  <span className="truncate text-xs text-ink-dim">{m.name}</span>
                 </span>
-                <span className="shrink-0 text-[10px] text-slate-600">{m.exchange}</span>
+                <span className="shrink-0 text-[10px] text-ink-faint">{m.exchange}</span>
               </button>
             </li>
           ))}

@@ -97,7 +97,7 @@ export function WatchlistManager() {
   }
 
   const anySource = quotes ? Object.values(quotes)[0]?.source : undefined;
-  const inputCls = "w-full rounded-md border border-white/10 bg-black/25 px-3 py-2 text-sm text-slate-200 placeholder:text-slate-600 focus:border-brand-500 focus:outline-none";
+  const inputCls = "w-full rounded-md border border-white/10 bg-black/25 px-3 py-2 text-sm text-ink placeholder:text-ink-faint focus:border-brand-500 focus:outline-none";
 
   return (
     <div className="space-y-4">
@@ -111,11 +111,11 @@ export function WatchlistManager() {
           <button onClick={() => addItem()} className="btn-gold rounded-md px-3 py-2 text-sm">Add to watchlist</button>
         </div>
         {addErr && <p className="mt-2 text-[11px] text-rose-400">{addErr}</p>}
-        <p className="mt-2 text-[11px] text-slate-500">Tip: pick a ticker from the dropdown to add it instantly. Then use <span className="text-brand-300">Analyze</span> — AI fills the ideal buy, fair value, and thesis from live data.</p>
+        <p className="mt-2 text-[11px] text-ink-faint">Tip: pick a ticker from the dropdown to add it instantly. Then use <span className="text-brand-300">Analyze</span> — AI fills the ideal buy, fair value, and thesis from live data.</p>
       </div>
 
       {items.length === 0 && (
-        <div className="rounded-lg border border-white/5 bg-black/20 p-6 text-center text-sm text-slate-500">
+        <div className="rounded-lg border border-white/5 bg-black/20 p-6 text-center text-sm text-ink-faint">
           Nothing on your watchlist yet. Add a ticker you&apos;re considering above.
         </div>
       )}
@@ -133,9 +133,9 @@ export function WatchlistManager() {
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div className="flex items-center gap-3">
                       <a href={`/research?symbol=${w.symbol}`} className="font-display text-lg font-semibold text-brand-300 hover:underline">{w.symbol}</a>
-                      <span className="text-sm text-slate-300">{price != null ? `$${price.toFixed(2)}` : "—"}</span>
+                      <span className="text-sm text-ink-dim">{price != null ? `$${price.toFixed(2)}` : "—"}</span>
                       {w.aiAction && (
-                        <span className={`rounded-full border px-2 py-0.5 text-xs ${ACTION_STYLE[w.aiAction] ?? "border-slate-600 text-slate-300"}`}>{w.aiAction}</span>
+                        <span className={`rounded-full border px-2 py-0.5 text-xs ${ACTION_STYLE[w.aiAction] ?? "border-hairline-strong text-ink-dim"}`}>{w.aiAction}</span>
                       )}
                     </div>
                     <div className="flex items-center gap-2">
@@ -143,14 +143,14 @@ export function WatchlistManager() {
                         className="rounded-md border border-brand-500/50 bg-brand-500/10 px-3 py-1.5 text-xs font-medium text-brand-300 hover:bg-brand-500/20 disabled:opacity-50">
                         {busy ? "Analyzing…" : w.analyzedAt ? "Refresh analysis" : "Analyze"}
                       </button>
-                      <button onClick={() => removeItem(w.id)} className="text-xs text-slate-500 hover:text-rose-300">Remove</button>
+                      <button onClick={() => removeItem(w.id)} className="text-xs text-ink-faint hover:text-rose-300">Remove</button>
                     </div>
                   </div>
 
                   {/* metrics row */}
                   <div className="mt-3 grid grid-cols-2 gap-x-6 gap-y-1 text-sm sm:grid-cols-4">
                     <Field label="Ideal buy" value={w.idealBuy != null ? `$${w.idealBuy.toFixed(2)}` : "—"} />
-                    <Field label="Vs. target" value={atOrBelow == null ? "—" : atOrBelow ? "● at/below" : "above"} cls={atOrBelow ? "text-emerald-400" : "text-slate-400"} />
+                    <Field label="Vs. target" value={atOrBelow == null ? "—" : atOrBelow ? "● at/below" : "above"} cls={atOrBelow ? "text-emerald-400" : "text-ink-dim"} />
                     <Field label="Fair value" value={w.fairValue ?? "—"} />
                     <Field label="Next catalyst" value={w.catalyst ?? "—"} />
                   </div>
@@ -162,8 +162,8 @@ export function WatchlistManager() {
                     </div>
                   )}
 
-                  {w.note && <p className="mt-2 text-xs text-slate-500">{w.note}</p>}
-                  {w.analyzedAt && <p className="mt-1 text-[10px] text-slate-600">AI analysis {new Date(w.analyzedAt).toLocaleString()}</p>}
+                  {w.note && <p className="mt-2 text-xs text-ink-faint">{w.note}</p>}
+                  {w.analyzedAt && <p className="mt-1 text-[10px] text-ink-faint">AI analysis {new Date(w.analyzedAt).toLocaleString()}</p>}
                 </div>
               );
             })}
@@ -172,17 +172,17 @@ export function WatchlistManager() {
         </>
       )}
 
-      <p className="text-[11px] text-slate-600">
+      <p className="text-[11px] text-ink-faint">
         Saved to <code>data/db.json</code> — persists across restarts. Research and educational analysis, not financial advice.
       </p>
     </div>
   );
 }
 
-function Field({ label, value, cls = "text-slate-300" }: { label: string; value: string; cls?: string }) {
+function Field({ label, value, cls = "text-ink-dim" }: { label: string; value: string; cls?: string }) {
   return (
     <div className="border-b border-white/5 py-1">
-      <div className="text-[10px] uppercase tracking-wide text-slate-500">{label}</div>
+      <div className="text-[10px] uppercase tracking-wide text-ink-faint">{label}</div>
       <div className={`text-sm ${cls}`}>{value}</div>
     </div>
   );

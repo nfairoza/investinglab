@@ -51,7 +51,7 @@ interface Result {
 const DIR_STYLE: Record<string, { cls: string; arrow: string; word: string }> = {
   up:   { cls: "text-emerald-400", arrow: "▲", word: "Up" },
   down: { cls: "text-rose-400",    arrow: "▼", word: "Down" },
-  flat: { cls: "text-slate-400",   arrow: "▬", word: "Flat" },
+  flat: { cls: "text-ink-dim",   arrow: "▬", word: "Flat" },
 };
 
 export function PredictionWorkspace({ initial = "AMD" }: { initial?: string }) {
@@ -99,8 +99,8 @@ export function PredictionWorkspace({ initial = "AMD" }: { initial?: string }) {
 
       {busy && (
         <div className="rounded-xl glass p-5">
-          <div className="h-4 w-48 animate-pulse rounded bg-slate-800" />
-          <div className="mt-3 h-20 animate-pulse rounded bg-slate-800" />
+          <div className="h-4 w-48 animate-pulse rounded bg-surface-raised" />
+          <div className="mt-3 h-20 animate-pulse rounded bg-surface-raised" />
           <AiThinking className="mt-3" />
         </div>
       )}
@@ -117,21 +117,21 @@ export function PredictionWorkspace({ initial = "AMD" }: { initial?: string }) {
         <div className="space-y-4 animate-fade-in-up">
           {/* Header */}
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="text-lg font-semibold text-slate-100">{result.symbol} — AI prediction</h2>
+            <h2 className="text-lg font-semibold text-ink">{result.symbol} — AI prediction</h2>
             <div className="flex items-center gap-2">
               <DataBadge source={result.dataSource} />
-              <span className="text-[11px] text-slate-600">{result.model}</span>
+              <span className="text-[11px] text-ink-faint">{result.model}</span>
             </div>
           </div>
           {result.sourceLabel && (
-            <div className="text-xs text-slate-500">
-              Source: <span className="text-slate-400">{result.sourceLabel}</span>
+            <div className="text-xs text-ink-faint">
+              Source: <span className="text-ink-dim">{result.sourceLabel}</span>
             </div>
           )}
 
           {/* Summary */}
           <div className="card-hover rounded-xl glass p-5">
-            <p className="text-slate-300">{result.prediction.summary}</p>
+            <p className="text-ink-dim">{result.prediction.summary}</p>
           </div>
 
           {/* Horizons */}
@@ -141,19 +141,19 @@ export function PredictionWorkspace({ initial = "AMD" }: { initial?: string }) {
               const move = fmtPct(moveForHorizon(result.prediction, h.horizon));
               return (
                 <div key={h.horizon} className="card-hover rounded-xl glass p-4">
-                  <div className="text-xs uppercase tracking-wide text-slate-500">{h.horizon}</div>
+                  <div className="text-xs uppercase tracking-wide text-ink-faint">{h.horizon}</div>
                   <div className={`mt-1 flex items-baseline gap-2 text-lg font-bold ${d.cls}`}>
                     <span>{d.arrow} {d.word}</span>
                     {move && <span className="text-base font-semibold">{move}</span>}
                   </div>
-                  {move && <div className="text-[11px] text-slate-500">expected move (estimate)</div>}
-                  <div className="mt-1 text-xs text-slate-400">Confidence: <span className="text-slate-200">{h.confidence}%</span></div>
+                  {move && <div className="text-[11px] text-ink-faint">expected move (estimate)</div>}
+                  <div className="mt-1 text-xs text-ink-dim">Confidence: <span className="text-ink">{h.confidence}%</span></div>
                   {/* confidence bar */}
-                  <div className="mt-2 h-1.5 overflow-hidden rounded bg-slate-800">
-                    <div className={`h-full ${h.direction === "down" ? "bg-rose-500" : h.direction === "up" ? "bg-emerald-500" : "bg-slate-500"}`}
+                  <div className="mt-2 h-1.5 overflow-hidden rounded bg-surface-raised">
+                    <div className={`h-full ${h.direction === "down" ? "bg-rose-500" : h.direction === "up" ? "bg-emerald-500" : "bg-surface"}`}
                       style={{ width: `${h.confidence}%` }} />
                   </div>
-                  <p className="mt-2 text-xs text-slate-400">{h.reason}</p>
+                  <p className="mt-2 text-xs text-ink-dim">{h.reason}</p>
                 </div>
               );
             })}
@@ -162,11 +162,11 @@ export function PredictionWorkspace({ initial = "AMD" }: { initial?: string }) {
           {/* Price target + risk */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="card-hover rounded-xl glass p-4">
-              <div className="text-xs uppercase tracking-wide text-slate-500">Price target (12-month)</div>
+              <div className="text-xs uppercase tracking-wide text-ink-faint">Price target (12-month)</div>
               {result.prediction.priceTarget != null && (
                 <div className="mt-1 text-2xl font-bold text-brand-300">${result.prediction.priceTarget.toFixed(2)}</div>
               )}
-              <div className="mt-1 text-sm text-slate-300">{result.prediction.priceTargetRange}</div>
+              <div className="mt-1 text-sm text-ink-dim">{result.prediction.priceTargetRange}</div>
             </div>
             <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4">
               <div className="text-xs uppercase tracking-wide text-amber-300/80">Biggest risk</div>
@@ -176,14 +176,14 @@ export function PredictionWorkspace({ initial = "AMD" }: { initial?: string }) {
 
           {/* What would change my mind */}
           <div className="card-hover rounded-xl glass p-4">
-            <div className="text-xs uppercase tracking-wide text-slate-500">What would change this call</div>
-            <p className="mt-1 text-sm text-slate-300">{result.prediction.whatWouldChangeMyMind}</p>
+            <div className="text-xs uppercase tracking-wide text-ink-faint">What would change this call</div>
+            <p className="mt-1 text-sm text-ink-dim">{result.prediction.whatWouldChangeMyMind}</p>
           </div>
 
           {/* Headlines from web search */}
           {result.prediction.keyHeadlines?.length > 0 && (
             <div className="card-hover rounded-xl glass p-4">
-              <div className="mb-2 text-sm font-medium text-slate-200">Recent headlines Claude found</div>
+              <div className="mb-2 text-sm font-medium text-ink">Recent headlines Claude found</div>
               <ul className="space-y-2">
                 {result.prediction.keyHeadlines.map((hl, i) => (
                   <li key={i} className="border-b border-white/5 pb-2 last:border-0">
@@ -192,16 +192,16 @@ export function PredictionWorkspace({ initial = "AMD" }: { initial?: string }) {
                         {hl.title} ↗
                       </a>
                     ) : (
-                      <div className="text-sm text-slate-300">{hl.title}</div>
+                      <div className="text-sm text-ink-dim">{hl.title}</div>
                     )}
-                    <div className="text-xs text-slate-500">{hl.takeaway}</div>
+                    <div className="text-xs text-ink-faint">{hl.takeaway}</div>
                   </li>
                 ))}
               </ul>
             </div>
           )}
 
-          <p className="text-[11px] text-slate-600">
+          <p className="text-[11px] text-ink-faint">
             AI-generated probabilistic opinion using live data + web search, not a guarantee.
             Generated {new Date(result.generatedAt).toLocaleString()}. Research and educational analysis, not financial advice.
           </p>

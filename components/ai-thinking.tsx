@@ -71,7 +71,7 @@ export function AiThinking({ label, className = "" }: { label?: string; classNam
   return (
     <div className={`flex items-center gap-2.5 ${className}`}>
       {provider === "gemini" ? <GeminiMark /> : <ClaudeMark />}
-      <span className="text-xs text-slate-400">{text}</span>
+      <span className="text-xs text-ink-dim">{text}</span>
       <Dots color={color} />
     </div>
   );
