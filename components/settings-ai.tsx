@@ -181,7 +181,8 @@ export function SettingsAI() {
           value={model}
           onChange={(e) => applyModel(e.target.value)}
           disabled={busy}
-          className="w-full rounded-md border border-hairline bg-surface px-3 py-2 text-sm text-ink focus:border-brand-500 focus:outline-none disabled:opacity-50"
+          className="w-full rounded-md border border-hairline px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none disabled:opacity-50 [&>option]:bg-[var(--surface-solid)] [&>option]:text-[var(--text)]"
+          style={{ background: "var(--surface-solid)" }}
         >
           {MODELS.map((m) => (
             <option key={m.id} value={m.id}>
@@ -204,7 +205,8 @@ export function SettingsAI() {
           value={strategy}
           onChange={(e) => applyStrategy(e.target.value)}
           disabled={busy}
-          className="w-full rounded-md border border-hairline bg-surface px-3 py-2 text-sm text-ink focus:border-brand-500 focus:outline-none disabled:opacity-50"
+          className="w-full rounded-md border border-hairline px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none disabled:opacity-50 [&>option]:bg-[var(--surface-solid)] [&>option]:text-[var(--text)]"
+          style={{ background: "var(--surface-solid)" }}
         >
           {STRATEGIES.map((s) => (
             <option key={s.id} value={s.id}>{s.label}</option>

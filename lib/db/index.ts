@@ -4,7 +4,8 @@
 // Works on your laptop, on EC2, anywhere — no external service needed.
 // =============================================================================
 
-import { join } from "path";
+import { join, dirname } from "path";
+import { existsSync } from "fs";
 import { LowSync } from "lowdb";
 import { JSONFileSync } from "lowdb/node";
 
@@ -95,7 +96,21 @@ const EMPTY_ETRADE: EtradeState = {
 
 const DEFAULT: Schema = { holdings: [], watchlist: [], journal: [], etrade: { ...EMPTY_ETRADE } };
 
-const dbPath = join(process.cwd(), "data", "db.json");
+// Anchor the DB file to the project root. The dev server's cwd can vary (e.g.
+// if launched from a parent dir), which would split reads/writes across
+// different db.json files and lose data between requests. Walk up from cwd to
+// the dir that has package.json; allow an explicit DB_PATH override.
+const dbPath = (() => {
+  if (process.env.DB_PATH) return process.env.DB_PATH;
+  let dir = process.cwd();
+  for (let i = 0; i < 6; i++) {
+    if (existsSync(join(dir, "package.json"))) return join(dir, "data", "db.json");
+    const parent = dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+  return join(process.cwd(), "data", "db.json");
+})();
 const adapter = new JSONFileSync<Schema>(dbPath);
 const db = new LowSync<Schema>(adapter, DEFAULT);
 

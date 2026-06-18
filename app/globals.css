@@ -209,6 +209,12 @@ html.light .hero-img { background-image: url("/images/hero-jasmine-light.jpg"); 
 .btn-gold:hover { filter: brightness(1.06); }
 .btn-gold:active { filter: brightness(0.97); }
 
+/* Native select dropdowns: the popup <option> list is rendered by the OS and
+   won't inherit translucent backgrounds — force a solid surface + readable text
+   so options are legible in dark mode. */
+select { background-color: var(--surface-solid); color: var(--text); }
+select option { background-color: var(--surface-solid); color: var(--text); }
+
 /* Luxe input */
 .input-luxe {
   background: var(--surface);

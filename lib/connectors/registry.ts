@@ -50,10 +50,12 @@ export const CONNECTORS: Connector[] = [
   {
     id: "news",
     label: "News (FMP / news provider)",
-    purpose: "Headlines and news-risk signals. Uses your FMP key, or a separate news key.",
+    purpose: "Headlines and news-risk signals. Powered by your FMP key — no separate key needed (optional override below).",
     category: "finance",
-    fields: [{ id: "NEWS_API_KEY", label: "News API key (optional)", secret: true }],
-    envVars: ["NEWS_API_KEY"],
+    fields: [{ id: "NEWS_API_KEY", label: "News API key (optional override)", secret: true }],
+    // News runs on the FMP market-data key, so it's "configured" when either the
+    // optional news key OR the FMP key is present.
+    envVars: ["NEWS_API_KEY", "MARKET_DATA_API_KEY", "FINANCIAL_DATA_API_KEY"],
     testUrl: "/api/news?symbol=AAPL",
   },
   {

@@ -279,7 +279,8 @@ export function EtradeConnector() {
           <select
             value={selectedKey}
             onChange={(e) => setSelectedKey(e.target.value)}
-            className="w-full rounded-md border border-hairline bg-surface px-3 py-2 text-sm text-ink focus:border-brand-500 focus:outline-none"
+            className="w-full rounded-md border border-hairline px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none [&>option]:bg-[var(--surface-solid)] [&>option]:text-[var(--text)]"
+            style={{ background: "var(--surface-solid)" }}
           >
             <option value="">Pick an account…</option>
             {status.accounts.map((a) => (
@@ -325,7 +326,8 @@ export function EtradeConnector() {
             <select
               value={selectedKey}
               onChange={(e) => setSelectedKey(e.target.value)}
-              className="rounded-md border border-hairline bg-surface px-2 py-1.5 text-xs text-ink-dim focus:border-brand-500 focus:outline-none"
+              className="rounded-md border border-hairline px-2 py-1.5 text-xs text-ink-dim focus:border-accent focus:outline-none [&>option]:bg-[var(--surface-solid)] [&>option]:text-[var(--text)]"
+              style={{ background: "var(--surface-solid)" }}
             >
               {status.accounts.map((a) => (
                 <option key={a.accountIdKey} value={a.accountIdKey}>
