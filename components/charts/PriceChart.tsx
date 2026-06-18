@@ -80,7 +80,7 @@ export function PriceChart({ symbol }: { symbol: string }) {
             onClick={() => setRange(r.key)}
             className={`rounded-md px-2.5 py-1 text-xs transition-colors ${
               range === r.key
-                ? "bg-brand-500/15 text-brand-300"
+                ? "tab-active"
                 : "text-ink-faint hover:bg-surface-raised hover:text-ink-dim"
             }`}
           >

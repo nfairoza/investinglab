@@ -232,7 +232,7 @@ export function PortfolioDoctor() {
               {result.analysis.horizons?.map((h, i) => (
                 <button key={h.horizon} onClick={() => setActiveHorizon(i)}
                   className={`rounded-md border px-3 py-1.5 text-xs font-medium transition-colors ${
-                    i === activeHorizon ? "border-brand-500/60 bg-brand-500/15 text-ink" : "border-hairline text-ink-dim hover:bg-surface"
+                    i === activeHorizon ? "tab-active" : "border-hairline text-ink-dim hover:bg-surface"
                   }`}>
                   {h.horizon}
                 </button>

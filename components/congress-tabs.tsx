@@ -13,13 +13,13 @@ export function CongressTabs() {
       <div className="flex gap-1.5">
         <button onClick={() => setTab("alpha")}
           className={`rounded-md border px-3 py-1.5 text-sm font-medium transition-colors ${
-            tab === "alpha" ? "border-brand-500/60 bg-brand-500/15 text-ink" : "border-hairline text-ink-dim hover:bg-surface"
+            tab === "alpha" ? "tab-active" : "border-hairline text-ink-dim hover:bg-surface"
           }`}>
           Alpha Feed (scored)
         </button>
         <button onClick={() => setTab("raw")}
           className={`rounded-md border px-3 py-1.5 text-sm font-medium transition-colors ${
-            tab === "raw" ? "border-brand-500/60 bg-brand-500/15 text-ink" : "border-hairline text-ink-dim hover:bg-surface"
+            tab === "raw" ? "tab-active" : "border-hairline text-ink-dim hover:bg-surface"
           }`}>
           Raw disclosures
         </button>

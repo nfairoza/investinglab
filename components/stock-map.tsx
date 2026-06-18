@@ -143,7 +143,7 @@ export function StockMap() {
           <button key={p} onClick={() => setPeriod(p)}
             title={PERIOD_LABEL[p]}
             className={`rounded-md border px-2.5 py-1 text-xs font-medium transition-colors ${
-              p === period ? "border-brand-500/60 bg-brand-500/15 text-ink" : "border-hairline text-ink-dim hover:bg-surface"
+              p === period ? "tab-active" : "border-hairline text-ink-dim hover:bg-surface"
             }`}>
             {p}
           </button>

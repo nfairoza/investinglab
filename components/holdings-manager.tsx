@@ -226,7 +226,7 @@ export function HoldingsManager() {
                         key={src}
                         onClick={() => setSourceFilter(src as typeof sourceFilter)}
                         className={`rounded-md px-2.5 py-1 text-xs transition-colors ${
-                          active ? "bg-brand-500/15 text-brand-300" : "text-ink-faint hover:text-ink-dim"
+                          active ? "tab-active" : "text-ink-faint hover:text-ink-dim"
                         }`}
                       >
                         {label}

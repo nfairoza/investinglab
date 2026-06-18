@@ -184,8 +184,7 @@ export function DashboardClient() {
                   <div className="flex gap-0.5">
                     {RANGES.map((r) => (
                       <button key={r.k} onClick={() => setRange(r.k)}
-                        className={`rounded px-2 py-1 text-[11px] font-medium transition-colors ${range === r.k ? "text-ink" : "text-ink-faint hover:text-ink-dim"}`}
-                        style={range === r.k ? { background: "var(--accent-soft)" } : undefined}>{r.k}</button>
+                        className={`rounded-md px-2 py-1 text-[11px] font-medium transition-colors ${range === r.k ? "tab-active" : "text-ink-faint hover:text-ink-dim"}`}>{r.k}</button>
                     ))}
                   </div>
                 </div>

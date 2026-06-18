@@ -121,7 +121,7 @@ export function CongressAlphaFeed() {
             {(["HIGH", "MEDIUM", "ALL"] as const).map((t) => (
               <button key={t} onClick={() => setMinTier(t)}
                 className={`rounded-md border px-2.5 py-1 text-xs font-medium transition-colors ${
-                  t === minTier ? "border-brand-500/60 bg-brand-500/15 text-ink" : "border-hairline text-ink-dim hover:bg-surface"
+                  t === minTier ? "tab-active" : "border-hairline text-ink-dim hover:bg-surface"
                 }`}>
                 {t === "HIGH" ? "High conviction" : t === "MEDIUM" ? "Medium+" : "All"}
               </button>
@@ -133,7 +133,7 @@ export function CongressAlphaFeed() {
             {WINDOWS.map((w) => (
               <button key={w.days} onClick={() => setDays(w.days)}
                 className={`rounded-md border px-2.5 py-1 text-xs font-medium transition-colors ${
-                  w.days === days ? "border-brand-500/60 bg-brand-500/15 text-ink" : "border-hairline text-ink-dim hover:bg-surface"
+                  w.days === days ? "tab-active" : "border-hairline text-ink-dim hover:bg-surface"
                 }`}>
                 {w.label}
               </button>

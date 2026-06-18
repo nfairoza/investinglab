@@ -289,6 +289,17 @@ a, button, input, select, textarea {
 /* Static gold wordmark — no animation (distracting on a finance app). */
 .text-shimmer { color: var(--accent); }
 
+/* Active tab / range / segmented selector — shared gradient pill (matches the
+   active sidebar item). Use for the selected option in any tab group so
+   selection styling is consistent app-wide. */
+.tab-active {
+  background: var(--nav-active) !important;
+  color: var(--nav-active-fg) !important;
+  border-color: transparent !important;
+  box-shadow: var(--nav-active-glow);
+}
+.tab-active * { color: var(--nav-active-fg) !important; }
+
 /* Scroll-reveal: hidden until .is-visible (added by ScrollReveal/IO) */
 .reveal { opacity: 0; transform: translateY(16px); transition: opacity 0.6s var(--ease-out), transform 0.6s var(--ease-out); }
 .reveal.is-visible { opacity: 1; transform: none; }
