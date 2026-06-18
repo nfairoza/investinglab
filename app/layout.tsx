@@ -4,6 +4,7 @@ import { Sidebar } from "@/components/sidebar";
 import { ChatWidget } from "@/components/chat-widget";
 import { PageTransition } from "@/components/page-transition";
 import { CommandPalette } from "@/components/command-palette";
+import { SwrProvider } from "@/components/swr-provider";
 
 // Fonts load browser-side via <link> (corp SSL blocks build-time next/font fetch).
 // Display serif = Fraunces (optical sizing); UI = Inter Tight; numbers = JetBrains Mono.
@@ -41,14 +42,16 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <div className="bg-vines" aria-hidden />
         <div className="bg-grain" aria-hidden />
 
-        <div className="relative flex min-h-screen">
-          <Sidebar />
-          <main className="flex-1 px-5 py-6 md:px-10 md:py-8">
-            <PageTransition>{children}</PageTransition>
-          </main>
-        </div>
-        <ChatWidget />
-        <CommandPalette />
+        <SwrProvider>
+          <div className="relative flex min-h-screen">
+            <Sidebar />
+            <main className="flex-1 px-5 py-6 md:px-10 md:py-8">
+              <PageTransition>{children}</PageTransition>
+            </main>
+          </div>
+          <ChatWidget />
+          <CommandPalette />
+        </SwrProvider>
       </body>
     </html>
   );

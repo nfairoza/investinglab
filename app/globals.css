@@ -286,6 +286,10 @@ a, button, input, select, textarea {
 @keyframes ai-bounce { 0%,100% { transform: translateY(0); opacity: 0.5; } 50% { transform: translateY(-4px); opacity: 1; } }
 
 .animate-fade-in-up { animation: fadeInUp 0.55s var(--ease-out) both; }
+/* Snappy page-change entrance — shorter + less travel than fadeInUp so
+   navigation feels instant rather than animated. */
+@keyframes pageIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+.animate-page-in { animation: pageIn 0.18s var(--ease-out) both; }
 .animate-fade-in    { animation: fadeIn 0.4s ease-out both; }
 .animate-scale-in   { animation: scaleIn 0.25s var(--ease-out) both; }
 .animate-hero-zoom  { animation: heroZoom 1.6s var(--ease-out) both; }
