@@ -12,19 +12,20 @@ export function PageShell({
   children?: React.ReactNode;
 }) {
   return (
-    <div className="mx-auto max-w-5xl">
+    <div className="mx-auto max-w-5xl space-y-5">
       <div className="flex flex-wrap items-center gap-3">
-        <h1 className="text-2xl font-semibold text-ink">{title}</h1>
-        <span className="rounded-full bg-surface-raised px-3 py-1 text-xs text-ink-dim">
-          Scaffolded — build in {phase}
+        <h1 className="font-display text-3xl font-semibold text-ink">{title}</h1>
+        <span className="rounded-full border border-hairline bg-surface px-3 py-1 text-xs text-ink-dim">
+          Coming in {phase}
         </span>
       </div>
       {first && (
-        <div className="mt-5 rounded-xl border border-[var(--hairline-gold)] bg-[var(--accent-soft)] p-4 text-sm text-ink">
-          <span className="font-semibold">What should I look at first?</span> {first}
+        <div className="rounded-md border px-4 py-3 text-sm" style={{ borderColor: "var(--hairline-gold)", background: "var(--accent-soft)" }}>
+          <span className="font-medium text-accent">What to look at first — </span>
+          <span className="text-ink-dim">{first}</span>
         </div>
       )}
-      <div className="mt-6 text-ink-dim">{children}</div>
+      {children && <div className="text-ink-dim">{children}</div>}
     </div>
   );
 }

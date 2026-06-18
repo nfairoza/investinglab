@@ -5,7 +5,7 @@ import useSWR from "swr";
 import { Stethoscope, TrendingUp, TrendingDown, ArrowRight } from "lucide-react";
 import { DataBadge } from "./data-state";
 import { AllocationDonut } from "./charts/AllocationDonut";
-import { AiThinking } from "./ai-thinking";
+import { AiVideoLoader } from "./ai-video-loader";
 import type { Holding } from "@/lib/db";
 import type { DataSource } from "@/lib/providers/types";
 
@@ -138,10 +138,8 @@ export function PortfolioDoctor() {
       </div>
 
       {busy && (
-        <div className="rounded-xl glass p-5">
-          <div className="h-4 w-56 animate-pulse rounded bg-surface-raised" />
-          <div className="mt-3 h-24 animate-pulse rounded bg-surface-raised" />
-          <AiThinking className="mt-3" label="Scoring each holding, pulling live data, and searching recent news…" />
+        <div className="rounded-xl glass p-3">
+          <AiVideoLoader height={180} label="Scoring each holding, pulling live data, and searching recent news…" />
         </div>
       )}
 
@@ -163,9 +161,9 @@ export function PortfolioDoctor() {
                   {result.analysis.healthGrade}
                 </div>
                 <div>
-                  <div className="text-sm text-ink-dim">Portfolio health</div>
+                  <div className="text-sm text-ink-dim">Whole-portfolio health</div>
                   <div className="text-2xl font-bold text-ink">{result.analysis.healthScore}/100</div>
-                  <div className="text-xs text-ink-faint">Value ≈ {money(result.portfolio.totalValue)}</div>
+                  <div className="text-xs text-ink-faint">Diversification & concentration · value ≈ {money(result.portfolio.totalValue)}</div>
                 </div>
               </div>
               <div className="flex items-center gap-2">

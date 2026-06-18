@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { DataBadge } from "./data-state";
 import { TickerInput } from "./ticker-input";
-import { AiThinking } from "./ai-thinking";
+import { AiVideoLoader } from "./ai-video-loader";
 import type { DataSource } from "@/lib/providers/types";
 
 interface Horizon {
@@ -98,10 +98,8 @@ export function PredictionWorkspace({ initial = "AMD" }: { initial?: string }) {
       </div>
 
       {busy && (
-        <div className="rounded-xl glass p-5">
-          <div className="h-4 w-48 animate-pulse rounded bg-surface-raised" />
-          <div className="mt-3 h-20 animate-pulse rounded bg-surface-raised" />
-          <AiThinking className="mt-3" />
+        <div className="rounded-xl glass p-3">
+          <AiVideoLoader height={170} />
         </div>
       )}
 

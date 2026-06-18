@@ -250,12 +250,18 @@ export function DashboardClient() {
           {/* Right rail */}
           <div className="space-y-5">
             <GlassCard hover>
-              <div className="text-xs uppercase tracking-wide text-ink-faint">Portfolio health</div>
+              <div className="flex items-center justify-between">
+                <div className="text-xs uppercase tracking-wide text-ink-faint">Top holding score</div>
+                {topSym && <span className="font-mono text-xs text-ink-dim">{topSym}</span>}
+              </div>
               {score ? (
                 <>
                   <div className="mt-3"><ScoreGauge score={score.overall} label={score.label} size={104} /></div>
                   <p className="mt-3 text-xs text-ink-dim">{score.topReason}</p>
-                  <Link href="/portfolio-doctor" className="mt-2 inline-flex items-center gap-1 text-xs text-accent hover:underline">Full check-up <ArrowUpRight size={12} /></Link>
+                  <p className="mt-2 text-[11px] text-ink-faint">
+                    A rules-based score for your largest position ({topSym}) — not a whole-portfolio grade.
+                    For concentration & diversification, run the <Link href="/portfolio-doctor" className="text-accent hover:underline">Portfolio Doctor</Link>.
+                  </p>
                 </>
               ) : <p className="mt-4 text-sm text-ink-faint">Scoring your largest holding…</p>}
             </GlassCard>
