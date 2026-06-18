@@ -172,25 +172,30 @@ export function WatchlistManager() {
                 <div key={w.id}
                   onDragOver={(e) => { if (dragId) e.preventDefault(); }}
                   onDrop={() => onDrop(w.id)}
-                  className={`glass card-hover rounded-2xl p-4 transition-opacity ${dragId === w.id ? "opacity-50" : ""}`}>
+                  onClick={() => { window.location.href = `/research?symbol=${w.symbol}`; }}
+                  role="link" tabIndex={0}
+                  onKeyDown={(e) => { if (e.key === "Enter") window.location.href = `/research?symbol=${w.symbol}`; }}
+                  title={`Open research for ${w.symbol}`}
+                  className={`glass card-hover cursor-pointer rounded-2xl p-4 transition-opacity ${dragId === w.id ? "opacity-50" : ""}`}>
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div className="flex items-center gap-2">
                       <span
                         draggable
-                        onDragStart={() => setDragId(w.id)}
+                        onClick={(e) => e.stopPropagation()}
+                        onDragStart={(e) => { e.stopPropagation(); setDragId(w.id); }}
                         onDragEnd={() => setDragId(null)}
                         title="Drag to reorder"
                         className="cursor-grab touch-none text-ink-faint hover:text-ink-dim active:cursor-grabbing"
                       >
                         <GripVertical size={16} />
                       </span>
-                      <a href={`/research?symbol=${w.symbol}`} className="font-display text-lg font-semibold text-brand-300 hover:underline">{w.symbol}</a>
+                      <span className="font-display text-lg font-semibold text-brand-300">{w.symbol}</span>
                       <span className="text-sm text-ink-dim">{price != null ? `$${price.toFixed(2)}` : "—"}</span>
                       {w.aiAction && (
                         <span className={`rounded-full border px-2 py-0.5 text-xs ${ACTION_STYLE[w.aiAction] ?? "border-hairline-strong text-ink-dim"}`}>{w.aiAction}</span>
                       )}
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center">
                         <button onClick={() => move(w.id, -1)} disabled={idx === 0} title="Move up"
                           className="rounded-md p-1 text-ink-faint hover:text-ink hover:bg-surface disabled:opacity-30 disabled:hover:bg-transparent"><ChevronUp size={15} /></button>

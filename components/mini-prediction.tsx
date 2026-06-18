@@ -91,21 +91,25 @@ export function MiniPrediction({ symbol, autoRun = false }: { symbol: string; au
   const moves = result?.prediction.expectedMovePct;
 
   return (
-    <div className="rounded-xl border border-brand-500/20 bg-gradient-to-br from-brand-500/[0.07] to-transparent p-4">
+    <a
+      href={`/predictions?symbol=${symbol}`}
+      className="card-hover group block rounded-xl border border-brand-500/20 bg-gradient-to-br from-brand-500/[0.07] to-transparent p-4"
+      title={`Open the full AI prediction for ${symbol}`}
+    >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <span className="text-sm font-semibold text-ink">AI prediction — {symbol}</span>
           <span className="rounded-full border border-brand-500/30 bg-brand-500/10 px-2 py-0.5 text-[10px] text-brand-300">mini</span>
         </div>
-        <a href={`/predictions?symbol=${symbol}`} className="flex items-center gap-1 text-xs text-brand-400 hover:underline">
-          Full prediction <ArrowRight size={12} />
-        </a>
+        <span className="flex items-center gap-1 text-xs text-brand-400">
+          Full prediction <ArrowRight size={12} className="transition-transform group-hover:translate-x-0.5" />
+        </span>
       </div>
 
       {!result && !busy && !error && (
         <div className="mt-2 flex flex-wrap items-center gap-3">
           <p className="text-xs text-ink-faint">Get a quick AI buy/sell read with expected move and confidence — based on live data + web news.</p>
-          <button onClick={run} className="btn-gold rounded-md px-3 py-1.5 text-xs">Predict {symbol}</button>
+          <button onClick={(e) => { e.preventDefault(); run(); }} className="btn-gold rounded-md px-3 py-1.5 text-xs">Predict {symbol}</button>
         </div>
       )}
 
@@ -120,7 +124,10 @@ export function MiniPrediction({ symbol, autoRun = false }: { symbol: string; au
         <div className="mt-2 text-xs text-rose-300">
           {error}{" "}
           {(error.includes("Connectors") || error.includes("Claude") || error.includes("key")) && (
-            <a href="/connectors" className="underline">Open Connectors</a>
+            <span
+              role="link" tabIndex={0}
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); window.location.href = "/connectors"; }}
+              className="cursor-pointer underline">Open Connectors</span>
           )}
         </div>
       )}
@@ -160,6 +167,6 @@ export function MiniPrediction({ symbol, autoRun = false }: { symbol: string; au
           <p className="text-[10px] text-ink-faint">AI estimate using live data + web search, not a guarantee. Not financial advice.</p>
         </div>
       )}
-    </div>
+    </a>
   );
 }

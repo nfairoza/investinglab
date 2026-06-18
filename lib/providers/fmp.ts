@@ -52,18 +52,22 @@ function cacheKey(url: string): string {
   return url.replace(/([?&])apikey=[^&]*/i, "$1apikey=__");
 }
 
-// Thrown when FMP says the daily quota is exhausted (429, or a 200/403 body
-// containing "Limit Reach"). Callers surface a clear "daily limit" message.
+// Thrown only when FMP's body explicitly says the quota is exhausted (true
+// daily cap). A bare 429 is a transient per-minute RATE limit — we retry those
+// instead, so a burst of parallel calls on a research page doesn't flash a scary
+// "limit reached" before the data loads.
 class FmpLimitError extends Error {
   status = 429;
   constructor() {
-    super("FMP daily limit reached — free tier is 250 calls/day. Resets at midnight UTC, or upgrade your FMP plan.");
+    super("FMP plan limit reached — you've hit your API quota. It resets per your FMP plan, or upgrade for more calls.");
   }
 }
 
-// Fetch JSON with caching + limit detection. Throws with .status so callers can
-// distinguish 402 (paid endpoint), 429 (daily limit), and other failures.
-async function getJson(url: string): Promise<unknown> {
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+// Fetch JSON with caching + retry-on-rate-limit. Throws with .status so callers
+// can distinguish 402 (paid-only endpoint), 429 (limit), and other failures.
+async function getJson(url: string, attempt = 0): Promise<unknown> {
   const key = cacheKey(url);
   const hit = cache.get(key);
   if (hit && Date.now() - hit.at < CACHE_TTL_MS) return hit.data;
@@ -71,8 +75,15 @@ async function getJson(url: string): Promise<unknown> {
   const res = await fetch(url, { cache: "no-store" });
   const text = await res.text();
 
-  // FMP sometimes returns the limit message with a 429 or 403, sometimes 200.
-  if (res.status === 429 || /limit reach/i.test(text)) throw new FmpLimitError();
+  // Body literally says the quota is exhausted → real (daily/plan) limit.
+  if (/limit reach/i.test(text)) throw new FmpLimitError();
+
+  // Bare 429 = transient per-minute rate limit (common when a page fires many
+  // calls at once). Retry up to 3x with backoff before giving up.
+  if (res.status === 429) {
+    if (attempt < 3) { await sleep(350 * (attempt + 1)); return getJson(url, attempt + 1); }
+    throw new FmpLimitError();
+  }
   if (!res.ok) {
     const err = new Error(`HTTP ${res.status}`);
     (err as any).status = res.status;
