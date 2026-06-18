@@ -311,7 +311,7 @@ export function ChatWidget() {
             height: size === "full" ? "100vh" : (minimized ? 52 : SIZES[size].h),
             maxWidth: "95vw",
             transformOrigin: "bottom right",
-            background: "rgba(12,16,13,0.94)",
+            background: "var(--surface-solid)",
             transition: "height 200ms ease, width 200ms ease",
           }}
         >

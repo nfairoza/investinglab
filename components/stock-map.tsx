@@ -183,7 +183,7 @@ export function StockMap() {
               isAnimationActive={false}
             >
               <Tooltip
-                contentStyle={{ background: "rgba(12,16,13,0.95)", border: "1px solid rgba(212,168,42,0.25)", borderRadius: 10, fontSize: 12 }}
+                contentStyle={{ background: "var(--tooltip-bg)", border: "1px solid var(--hairline-strong)", borderRadius: 10, fontSize: 12, color: "var(--text)" }}
                 formatter={(v: number, _n: string, p: any) => {
                   const pct = p?.payload?.changePct;
                   return [`${pct != null ? (pct >= 0 ? "+" : "") + pct.toFixed(2) + "%" : ""} · cap ${(v / 1e9).toFixed(0)}B`, p?.payload?.name];

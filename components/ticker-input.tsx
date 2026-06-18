@@ -80,7 +80,7 @@ export function TickerInput({
       {open && matches.length > 0 && (
         <ul
           className="absolute z-40 mt-1 max-h-72 w-full min-w-[18rem] overflow-auto rounded-xl border border-hairline-strong py-1 shadow-2xl"
-          style={{ background: "rgba(14,18,15,0.98)", backdropFilter: "blur(8px)" }}
+          style={{ background: "var(--surface-solid)", backdropFilter: "blur(8px)" }}
         >
           {matches.map((m, i) => (
             <li key={`${m.symbol}-${i}`}>
