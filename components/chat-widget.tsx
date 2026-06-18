@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { usePathname } from "next/navigation";
 import { MessageCircle, X, Send, RotateCcw, Minus, Maximize2, Minimize2, ImagePlus } from "lucide-react";
 import useSWR from "swr";
@@ -98,7 +99,9 @@ export function ChatWidget() {
   const [streaming, setStreaming] = useState(false);
   const [noKey, setNoKey] = useState(false);
   const [pendingImages, setPendingImages] = useState<ChatImage[]>([]);
+  const [mounted, setMounted] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const pathname = usePathname();
@@ -123,10 +126,17 @@ export function ChatWidget() {
     return { symbol: h.symbol, shares: h.shares, avgCost: h.avgCost, price, gain, gainPct };
   });
 
-  // Auto-scroll to bottom on new content
+  // Portals need the DOM — only render after mount.
+  useEffect(() => setMounted(true), []);
+
+  // Auto-scroll the MESSAGE LIST to its bottom (not the whole page). Using
+  // scrollIntoView scrolls the nearest scrollable ancestor — which here is the
+  // document — yanking the page down whenever the panel opens. Scroll the
+  // inner container directly instead so the page never moves.
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+    const el = scrollRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [messages, open]);
 
   // Focus input when panel opens
   useEffect(() => {
@@ -274,7 +284,12 @@ export function ChatWidget() {
     setNoKey(false);
   }
 
-  return (
+  if (!mounted) return null;
+
+  // Render through a portal to <body> so no ancestor's transform/filter can
+  // re-anchor our position:fixed panel (that's what pinned it to the left and
+  // made it move on scroll). Anchored to the viewport, it stays bottom-right.
+  return createPortal(
     <>
       {/* Floating button */}
       <button
@@ -347,7 +362,7 @@ export function ChatWidget() {
           )}
 
           {/* Messages */}
-          <div className="flex-1 overflow-y-auto px-3 py-3 space-y-3">
+          <div ref={scrollRef} className="flex-1 overflow-y-auto px-3 py-3 space-y-3">
             {messages.length === 0 && (
               <div className="space-y-2">
                 <p className="text-center text-xs text-ink-faint pt-2">Ask anything about your portfolio</p>
@@ -459,6 +474,7 @@ export function ChatWidget() {
           </>)}
         </div>
       )}
-    </>
+    </>,
+    document.body,
   );
 }

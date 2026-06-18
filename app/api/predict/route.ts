@@ -28,6 +28,40 @@ Rules:
 - You are giving an opinion, not a guarantee. Markets are uncertain.
 Return ONLY valid JSON (no markdown fences) matching the schema given.`;
 
+// Models occasionally return JSON that's truncated (hit the token cap mid-array)
+// or has trailing commas. Try a strict parse first, then repair: strip trailing
+// commas, and if it's truncated, close any still-open strings/brackets so we can
+// recover a partial-but-valid object instead of failing the whole prediction.
+function parseLooseJson(raw: string): any {
+  try { return JSON.parse(raw); } catch { /* fall through to repair */ }
+
+  // 1) strip trailing commas before } or ]
+  let s = raw.replace(/,(\s*[}\]])/g, "$1");
+  try { return JSON.parse(s); } catch { /* fall through */ }
+
+  // 2) repair truncation: walk the string tracking strings/escapes + bracket
+  // stack, drop a dangling partial token, then close everything still open.
+  const stack: string[] = [];
+  let inStr = false, esc = false, lastSafe = 0;
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i];
+    if (inStr) {
+      if (esc) esc = false;
+      else if (c === "\\") esc = true;
+      else if (c === '"') { inStr = false; lastSafe = i + 1; }
+      continue;
+    }
+    if (c === '"') { inStr = true; }
+    else if (c === "{" || c === "[") { stack.push(c === "{" ? "}" : "]"); }
+    else if (c === "}" || c === "]") { stack.pop(); lastSafe = i + 1; }
+    else if (c === "," || /\s/.test(c)) { lastSafe = i + 1; }
+  }
+  // cut back to the last structurally safe point (drops a half-written value)
+  s = s.slice(0, lastSafe).replace(/,(\s*)$/, "");
+  for (let i = stack.length - 1; i >= 0; i--) s += stack[i];
+  return JSON.parse(s);
+}
+
 function buildPrompt(symbol: string, dataBlock: string): string {
   return `Predict the likely direction of ${symbol}.
 
@@ -98,14 +132,14 @@ export async function POST(req: NextRequest) {
       task: "deep-analysis",
       system: SYSTEM,
       user: prompt,
-      maxTokens: 2048,
+      maxTokens: 4096,
       webSearch: true,
     });
     const cleaned = text.replace(/```json|```/g, "").trim();
     const start = cleaned.indexOf("{");
     const end = cleaned.lastIndexOf("}");
     const jsonStr = start !== -1 && end !== -1 ? cleaned.slice(start, end + 1) : cleaned;
-    const prediction = JSON.parse(jsonStr);
+    const prediction = parseLooseJson(jsonStr);
 
     const aiName = provider === "claude" ? "Claude" : "Gemini";
     return NextResponse.json({
