@@ -301,6 +301,24 @@ a, button, input, select, textarea {
   .reveal { opacity: 1; transform: none; }
 }
 
+/* ── Light-mode legibility for tinted status text ────────────────────────────
+   amber/rose/emerald 100–300 are pale shades tuned for dark surfaces; on the
+   light theme's white tinted boxes they wash out. Darken them in light mode so
+   captions/badges stay AA-legible. Scoped to html.light only. */
+html.light .text-amber-100,
+html.light .text-amber-200,
+html.light .text-amber-300,
+html.light [class*="text-amber-200/"],
+html.light [class*="text-amber-300/"] { color: #92600a; }
+html.light .text-rose-200,
+html.light .text-rose-300,
+html.light [class*="text-rose-200/"],
+html.light [class*="text-rose-300/"] { color: #b42318; }
+html.light .text-emerald-200,
+html.light .text-emerald-300,
+html.light [class*="text-emerald-200/"],
+html.light [class*="text-emerald-300/"] { color: #047857; }
+
 /* Chat markdown */
 .chat-md a { word-break: break-word; color: var(--accent); }
 .chat-md ul, .chat-md ol { margin: 0.25rem 0; }
