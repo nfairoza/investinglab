@@ -137,3 +137,19 @@ export const congressApiProvider: CongressTradesProvider = {
     }
   },
 };
+
+// Fetch recent trades for a set of named members (e.g. the most-watched traders)
+// so they surface even when they're not in the latest global disclosure pages.
+// Not part of the swappable provider interface — a Congress-specific helper.
+export async function getTradesByMembers(names: string[]): Promise<CongressTrade[]> {
+  if (!getKey() || !names.length) return [];
+  const jobs = names.flatMap((name) => {
+    const n = encodeURIComponent(name.trim());
+    return [
+      fetchRows(`senate-trades-by-name?name=${n}`).then((rows) => rows.map((r, i) => mapRow(r, "Senate", i))).catch(() => []),
+      fetchRows(`house-trades-by-name?name=${n}`).then((rows) => rows.map((r, i) => mapRow(r, "House", i))).catch(() => []),
+    ];
+  });
+  const all = (await Promise.all(jobs)).flat();
+  return all.sort(byDisclosureDesc);
+}

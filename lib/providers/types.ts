@@ -79,6 +79,11 @@ export interface Technicals {
   sma50: number | null;
   sma200: number | null;
   rsi14: number | null;
+  macd?: number | null; // MACD line minus signal (>0 bullish momentum)
+  volume?: number | null; // latest day volume
+  avgVolume?: number | null; // ~50-day average volume (for unusual-volume detection)
+  debtToEquity?: number | null; // total debt / equity (TTM)
+  analystAction?: { action: string; firm: string; date: string } | null; // latest upgrade/downgrade
   sma50Series?: SmaPoint[]; // light history for overlaying moving averages
   sma200Series?: SmaPoint[];
 }

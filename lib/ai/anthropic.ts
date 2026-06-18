@@ -1,4 +1,4 @@
-import { getRuntimeKey, getRuntimeModel } from "./runtime-key";
+import { getRuntimeKey, getRuntimeModel, getRuntimeStrategy } from "./runtime-key";
 import { callGemini, geminiKey, geminiModel } from "./gemini";
 
 // AI provider layer. Primary = Anthropic Claude. Fallback = Google Gemini
@@ -23,14 +23,27 @@ export function resolveModel(): string {
 
 export type AiSource = "runtime" | "env" | "none";
 
-// AI is "configured" if EITHER Claude or Gemini has a key.
-export function aiStatus(): { configured: boolean; source: AiSource; model: string } {
-  if (getRuntimeKey()) return { configured: true, source: "runtime", model: resolveModel() };
+// AI is "configured" if EITHER Claude or Gemini has a key. Also reports which
+// providers are available + the active routing strategy so the UI can explain
+// how tasks are routed.
+export function aiStatus(): {
+  configured: boolean;
+  source: AiSource;
+  model: string;
+  hasClaude: boolean;
+  hasGemini: boolean;
+  strategy: string;
+} {
+  const hasClaude = Boolean(getRuntimeKey() || process.env.ANTHROPIC_API_KEY || process.env.AI_API_KEY);
+  const hasGemini = Boolean(geminiKey());
+  const strategy = (getRuntimeStrategy() || process.env.AI_STRATEGY || "smart").toLowerCase();
+  const base = { hasClaude, hasGemini, strategy };
+  if (getRuntimeKey()) return { configured: true, source: "runtime", model: resolveModel(), ...base };
   if (process.env.ANTHROPIC_API_KEY || process.env.AI_API_KEY) {
-    return { configured: true, source: "env", model: resolveModel() };
+    return { configured: true, source: "env", model: resolveModel(), ...base };
   }
-  if (geminiKey()) return { configured: true, source: "env", model: geminiModel() };
-  return { configured: false, source: "none", model: resolveModel() };
+  if (hasGemini) return { configured: true, source: "env", model: geminiModel(), ...base };
+  return { configured: false, source: "none", model: resolveModel(), ...base };
 }
 
 // Is a network/connectivity error (vs. an auth/HTTP error)? Used to decide

@@ -31,13 +31,17 @@ async function fetchQuote(url: string): Promise<DataResult<Quote>> {
 //   * the manual "Refresh" button calls mutate() for an on-demand pull.
 export function QuoteProbe({
   symbol,
+  label,
+  hint,
   refreshMs = 60_000,
 }: {
-  symbol: string;
+  symbol: string;       // the symbol sent to the API (e.g. "^VIX")
+  label?: string;       // optional display name (e.g. "VIX")
+  hint?: string;        // optional one-line explainer under the title
   refreshMs?: number;
 }) {
   const { data, isLoading, isValidating, mutate } = useSWR<DataResult<Quote>>(
-    `/api/quote?symbol=${symbol}`,
+    `/api/quote?symbol=${encodeURIComponent(symbol)}`,
     fetchQuote,
     {
       refreshInterval: refreshMs,
@@ -55,7 +59,7 @@ export function QuoteProbe({
   return (
     <div className="max-w-sm rounded-xl glass p-4">
       <div className="flex items-center justify-between">
-        <span className="font-semibold text-slate-100">{symbol}</span>
+        <span className="font-semibold text-slate-100" title={hint}>{label ?? symbol}</span>
         <div className="flex items-center gap-2">
           {data && <DataBadge source={data.source} />}
           <button
@@ -68,6 +72,8 @@ export function QuoteProbe({
           </button>
         </div>
       </div>
+
+      {hint && <p className="mt-0.5 text-[11px] leading-snug text-slate-500">{hint}</p>}
 
       {isLoading && <div className="mt-3 h-7 w-28 animate-pulse rounded bg-slate-800" />}
 

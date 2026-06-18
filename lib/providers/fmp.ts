@@ -85,6 +85,28 @@ async function getJson(url: string): Promise<unknown> {
   return data;
 }
 
+// MACD histogram (EMA12 − EMA26, minus EMA9 of that line) from oldest→newest
+// closes. Returns the latest histogram value, or null if not enough data.
+function computeMacdHist(closes: number[]): number | null {
+  if (closes.length < 35) return null;
+  const ema = (data: number[], period: number): number[] => {
+    const k = 2 / (period + 1);
+    const out: number[] = [];
+    let prev = data[0];
+    for (let i = 0; i < data.length; i++) {
+      prev = i === 0 ? data[0] : data[i] * k + prev * (1 - k);
+      out.push(prev);
+    }
+    return out;
+  };
+  const ema12 = ema(closes, 12);
+  const ema26 = ema(closes, 26);
+  const macdLine = closes.map((_, i) => ema12[i] - ema26[i]);
+  const signal = ema(macdLine, 9);
+  const last = closes.length - 1;
+  return macdLine[last] - signal[last];
+}
+
 export const fmpProvider: MarketDataProvider = {
   name: NAME,
 
@@ -189,10 +211,13 @@ export const fmpProvider: MarketDataProvider = {
     const tech = (type: string, period: number) =>
       `${BASE}/technical-indicators/${type}?symbol=${symbol}&periodLength=${period}&timeframe=1day&apikey=${KEY}`;
     try {
-      const [sma50Raw, sma200Raw, rsiRaw] = await Promise.all([
+      const [sma50Raw, sma200Raw, rsiRaw, quoteArr, ratiosArr, gradesArr] = await Promise.all([
         getJson(tech("sma", 50)).catch(() => []),
         getJson(tech("sma", 200)).catch(() => []),
-        getJson(tech("rsi", 14)).catch(() => []),
+        getJson(tech("rsi", 14)).catch(() => []), // rsi endpoint also returns OHLC closes
+        getJson(`${BASE}/quote?symbol=${symbol}&apikey=${KEY}`).catch(() => []),
+        getJson(`${BASE}/ratios-ttm?symbol=${symbol}&apikey=${KEY}`).catch(() => []),
+        getJson(`${BASE}/grades?symbol=${symbol}&apikey=${KEY}`).catch(() => []),
       ]);
       const head = (a: unknown) => (Array.isArray(a) && a[0] ? a[0] : null);
       // series: newest-first from FMP → reverse to oldest→newest, cap to ~250 pts
@@ -202,20 +227,40 @@ export const fmpProvider: MarketDataProvider = {
           : [];
 
       // Fall back to quote averages if the indicator endpoints returned nothing.
+      const q = Array.isArray(quoteArr) ? quoteArr[0] : null;
       let sma50 = head(sma50Raw)?.sma ?? null;
       let sma200 = head(sma200Raw)?.sma ?? null;
-      if (sma50 == null || sma200 == null) {
-        const qArr = (await getJson(`${BASE}/quote?symbol=${symbol}&apikey=${KEY}`).catch(() => [])) as any[];
-        const q = Array.isArray(qArr) ? qArr[0] : null;
-        sma50 = sma50 ?? q?.priceAvg50 ?? null;
-        sma200 = sma200 ?? q?.priceAvg200 ?? null;
-      }
+      sma50 = sma50 ?? q?.priceAvg50 ?? null;
+      sma200 = sma200 ?? q?.priceAvg200 ?? null;
+
+      // MACD: FMP's macd indicator endpoint is unavailable on this plan, so we
+      // compute the MACD histogram (EMA12 − EMA26, minus its EMA9 signal) from
+      // the daily closes the RSI endpoint returns (newest-first → oldest-first).
+      const closes = Array.isArray(rsiRaw)
+        ? (rsiRaw as any[]).map((p) => Number(p.close)).filter((n) => Number.isFinite(n)).reverse()
+        : [];
+      const macd = computeMacdHist(closes);
+
+      // Debt/equity from TTM ratios.
+      const ratios = Array.isArray(ratiosArr) ? ratiosArr[0] : null;
+      const debtToEquity = ratios?.debtToEquityRatioTTM ?? ratios?.debtEquityRatioTTM ?? null;
+
+      // Latest analyst upgrade/downgrade.
+      const g = Array.isArray(gradesArr) ? gradesArr[0] : null;
+      const analystAction = g
+        ? { action: g.action ?? "", firm: g.gradingCompany ?? "", date: g.date ?? "" }
+        : null;
 
       const t: Technicals = {
         symbol,
         sma50,
         sma200,
         rsi14: head(rsiRaw)?.rsi ?? null,
+        macd,
+        volume: q?.volume ?? null,
+        avgVolume: q?.avgVolume ?? null,
+        debtToEquity: typeof debtToEquity === "number" ? debtToEquity : null,
+        analystAction,
         sma50Series: toSeries(sma50Raw),
         sma200Series: toSeries(sma200Raw),
       };

@@ -14,6 +14,7 @@ async function getHistory(url: string): Promise<DataResult<PriceHistory>> {
 }
 
 const RANGES = [
+  { key: "1D", days: 1 },
   { key: "1M", days: 22 },
   { key: "3M", days: 66 },
   { key: "6M", days: 132 },
@@ -23,15 +24,25 @@ const RANGES = [
 
 export function PriceChart({ symbol }: { symbol: string }) {
   const [range, setRange] = useState<string>("3M");
+  const isIntraday = range === "1D";
+  // Daily history (all non-1D ranges share one fetch). Intraday is a separate
+  // endpoint hit only when 1D is selected.
   const { data, isLoading } = useSWR<DataResult<PriceHistory>>(
     `/api/price-history?symbol=${symbol}`,
     getHistory,
     { keepPreviousData: true },
   );
+  const { data: intraday, isLoading: intradayLoading } = useSWR<DataResult<PriceHistory>>(
+    isIntraday ? `/api/price-history?symbol=${symbol}&range=1D` : null,
+    getHistory,
+    { keepPreviousData: true, refreshInterval: 60_000 },
+  );
 
-  const allPoints = data?.data?.points ?? [];
+  const active = isIntraday ? intraday : data;
+  const loading = isIntraday ? intradayLoading : isLoading;
+  const allPoints = active?.data?.points ?? [];
   const days = RANGES.find((r) => r.key === range)?.days ?? 66;
-  const points = allPoints.slice(-days);
+  const points = isIntraday ? allPoints : allPoints.slice(-days);
 
   // Up over the visible window? color the area green, else red.
   const first = points[0]?.close ?? 0;
@@ -51,12 +62,12 @@ export function PriceChart({ symbol }: { symbol: string }) {
             <div className="text-xs mt-0.5">
               <span className="text-slate-400">${last.toFixed(2)}</span>{" "}
               <span className={up ? "text-emerald-400" : "text-rose-400"}>
-                {up ? "▲" : "▼"} {Math.abs(changePct).toFixed(1)}% over {range}
+                {up ? "▲" : "▼"} {Math.abs(changePct).toFixed(1)}% {isIntraday ? "today" : `over ${range}`}
               </span>
             </div>
           )}
         </div>
-        {data && <DataBadge source={data.source} />}
+        {active && <DataBadge source={active.source} />}
       </div>
 
       {/* Range buttons */}
@@ -76,13 +87,13 @@ export function PriceChart({ symbol }: { symbol: string }) {
         ))}
       </div>
 
-      {isLoading && <div className="mt-4 h-56 animate-pulse rounded bg-slate-800" />}
+      {loading && <div className="mt-4 h-56 animate-pulse rounded bg-slate-800" />}
 
-      {!isLoading && !chartable && (
+      {!loading && !chartable && (
         <div className="mt-4 flex h-56 items-center justify-center rounded-lg border border-white/10 text-sm text-slate-500">
           <div className="text-center">
             <DataBadge source="unavailable" />
-            <p className="mt-2">{data?.note ?? "Price history unavailable."}</p>
+            <p className="mt-2">{active?.note ?? "Price history unavailable."}</p>
           </div>
         </div>
       )}
@@ -99,7 +110,7 @@ export function PriceChart({ symbol }: { symbol: string }) {
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
               <XAxis dataKey="date" tick={{ fill: "#64748b", fontSize: 10 }} tickLine={false}
-                minTickGap={40} tickFormatter={(v) => (range === "5Y" || range === "1Y" ? v.slice(0, 7) : v.slice(5))} />
+                minTickGap={40} tickFormatter={(v) => (isIntraday ? v : range === "5Y" || range === "1Y" ? v.slice(0, 7) : v.slice(5))} />
               <YAxis tick={{ fill: "#64748b", fontSize: 10 }} tickLine={false}
                 domain={["auto", "auto"]} tickFormatter={(v) => `$${v}`} width={52} />
               <Tooltip
@@ -113,7 +124,7 @@ export function PriceChart({ symbol }: { symbol: string }) {
         </div>
       )}
 
-      {data && <div className="mt-2"><DataTimestamp asOf={data.asOf} /></div>}
+      {active && <div className="mt-2"><DataTimestamp asOf={active.asOf} /></div>}
       <p className="mt-1 text-[11px] text-slate-600">Research and educational analysis, not financial advice.</p>
     </div>
   );

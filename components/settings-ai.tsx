@@ -2,7 +2,14 @@
 
 import { useEffect, useState } from "react";
 
-type Status = { configured: boolean; source: "runtime" | "env" | "none"; model: string };
+type Status = {
+  configured: boolean;
+  source: "runtime" | "env" | "none";
+  model: string;
+  hasClaude?: boolean;
+  hasGemini?: boolean;
+  strategy?: string;
+};
 
 // id = exact Anthropic model id; label = friendly name + when to use it.
 const MODELS: { id: string; label: string }[] = [
@@ -11,12 +18,42 @@ const MODELS: { id: string; label: string }[] = [
   { id: "claude-haiku-4-5-20251001", label: "Haiku 4.5 — fastest + cheapest" },
 ];
 
+const STRATEGIES: { id: string; label: string; desc: string }[] = [
+  { id: "smart", label: "Smart (auto)", desc: "Opus 4.8 leads deep analysis (predictions, Portfolio Doctor, research, congress); Gemini handles big-context & casual chat. Each falls back to the other. Best accuracy where it matters, lowest cost elsewhere." },
+  { id: "quality", label: "Quality (always best)", desc: "Always use the most capable model for every task. Highest accuracy, highest cost." },
+  { id: "economy", label: "Economy (cost-saving)", desc: "Prefer cheap/fast models; only escalate the heaviest analysis to Opus." },
+];
+
 export function SettingsAI() {
   const [status, setStatus] = useState<Status | null>(null);
   const [apiKey, setApiKey] = useState("");
   const [model, setModel] = useState(MODELS[0].id);
+  const [strategy, setStrategy] = useState("smart");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+
+  async function applyStrategy(next: string) {
+    setStrategy(next);
+    setBusy(true);
+    setMsg(null);
+    try {
+      const r = await fetch("/api/ai/strategy", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ strategy: next }),
+      });
+      if (r.ok) {
+        setStatus((await r.json()) as Status);
+        setMsg(`Routing strategy set to ${next}.`);
+      } else {
+        setMsg("Could not set strategy.");
+      }
+    } catch {
+      setMsg("Could not set strategy.");
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function applyModel(next: string) {
     setModel(next);
@@ -48,6 +85,7 @@ export function SettingsAI() {
       const s = (await r.json()) as Status;
       setStatus(s);
       if (s.model) setModel(s.model);
+      if (s.strategy) setStrategy(s.strategy);
     } catch {
       setStatus(null);
     }
@@ -154,9 +192,37 @@ export function SettingsAI() {
         {status?.model && (
           <p className="text-xs text-slate-500">
             Active model: <span className="text-brand-300">{status.model}</span>
-            {" "}— used by Research, Predictions, and the chat widget.
+            {" "}— the manual default. In Smart mode the router may pick a different model per task (below).
           </p>
         )}
+      </div>
+
+      {/* Routing strategy — task-aware model selection */}
+      <div className="space-y-2 border-t border-white/10 pt-4">
+        <label className="block text-sm text-slate-300">Routing strategy</label>
+        <select
+          value={strategy}
+          onChange={(e) => applyStrategy(e.target.value)}
+          disabled={busy}
+          className="w-full rounded-md border border-white/10 bg-black/25 px-3 py-2 text-sm text-slate-200 focus:border-brand-500 focus:outline-none disabled:opacity-50"
+        >
+          {STRATEGIES.map((s) => (
+            <option key={s.id} value={s.id}>{s.label}</option>
+          ))}
+        </select>
+        <p className="text-xs text-slate-500">{STRATEGIES.find((s) => s.id === strategy)?.desc}</p>
+        {/* Provider availability — routing needs both for full benefit */}
+        <div className="flex flex-wrap gap-2 text-[11px]">
+          <span className={`rounded-full border px-2 py-0.5 ${status?.hasClaude ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300" : "border-slate-600 text-slate-500"}`}>
+            Claude {status?.hasClaude ? "✓" : "— no key"}
+          </span>
+          <span className={`rounded-full border px-2 py-0.5 ${status?.hasGemini ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300" : "border-slate-600 text-slate-500"}`}>
+            Gemini {status?.hasGemini ? "✓" : "— no key"}
+          </span>
+          {!(status?.hasClaude && status?.hasGemini) && (
+            <span className="text-amber-300/80">Add both keys for full smart routing + fallback.</span>
+          )}
+        </div>
       </div>
 
       {/* API key */}

@@ -10,11 +10,21 @@ export function geminiModel(): string {
   return process.env.GEMINI_MODEL || "gemini-flash-latest";
 }
 
+// Default Gemini models for the smart router. "Pro" = big-context/structured
+// heavy jobs; "Flash" = fast/cheap casual chat. Overridable via env.
+export function geminiProModel(): string {
+  return process.env.GEMINI_PRO_MODEL || "gemini-2.5-pro";
+}
+export function geminiFlashModel(): string {
+  return process.env.GEMINI_FLASH_MODEL || "gemini-flash-latest";
+}
+
 // Non-streaming text generation. Returns concatenated text.
 export async function callGemini(opts: {
   system: string;
   user: string;
   webSearch?: boolean;
+  model?: string;
 }): Promise<string> {
   const key = geminiKey();
   if (!key) throw new Error("No GEMINI_API_KEY configured");
@@ -27,7 +37,7 @@ export async function callGemini(opts: {
   if (opts.webSearch) body.tools = [{ google_search: {} }];
 
   const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel()}:generateContent`,
+    `https://generativelanguage.googleapis.com/v1beta/models/${opts.model || geminiModel()}:generateContent`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json", "X-goog-api-key": key },
@@ -53,6 +63,7 @@ export async function streamGemini(opts: {
   system: string;
   messages: { role: "user" | "assistant"; content: string; images?: { mediaType: string; data: string }[] }[];
   webSearch?: boolean;
+  model?: string;
 }): Promise<Response> {
   const key = geminiKey();
   if (!key) throw new Error("No GEMINI_API_KEY configured");
@@ -73,7 +84,7 @@ export async function streamGemini(opts: {
   if (opts.webSearch) body.tools = [{ google_search: {} }];
 
   return fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel()}:streamGenerateContent?alt=sse`,
+    `https://generativelanguage.googleapis.com/v1beta/models/${opts.model || geminiModel()}:streamGenerateContent?alt=sse`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json", "X-goog-api-key": key },

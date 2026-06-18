@@ -151,6 +151,7 @@ export function InsiderFeed({ symbol }: { symbol: string }) {
                 <th className="px-3 py-2" title="What the insider did. Hover a tag for what each code means.">Action</th>
                 <th className="px-3 py-2">Shares</th>
                 <th className="px-3 py-2">Price</th>
+                <th className="px-3 py-2" title="Shares × price — the total dollar value of the transaction">Total value</th>
                 <th className="px-3 py-2" title="Date the insider actually traded">Traded</th>
                 <th className="px-3 py-2" title="Date it was reported to the SEC (Form 4 filing)">Reported</th>
                 <th className="px-3 py-2"></th>
@@ -173,6 +174,11 @@ export function InsiderFeed({ symbol }: { symbol: string }) {
                   </td>
                   <td className="px-3 py-2 text-slate-300">
                     {t.price != null ? `$${t.price.toFixed(2)}` : "—"}
+                  </td>
+                  <td className="px-3 py-2 text-slate-300">
+                    {t.securitiesTransacted != null && t.price != null && t.price > 0
+                      ? `$${(t.securitiesTransacted * t.price).toLocaleString(undefined, { maximumFractionDigits: 0 })}`
+                      : "—"}
                   </td>
                   <td className="px-3 py-2 text-slate-400" title="Transaction date">{fmtDate(t.date)}</td>
                   <td className="px-3 py-2 text-slate-500" title="SEC filing date">{fmtDate(t.filingDate)}</td>

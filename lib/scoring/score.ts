@@ -166,18 +166,49 @@ function earningsRiskFactor(days: number | null): FactorScore {
   return { id: "earningsRisk", label: "Earnings proximity", score, available: true, detail: days <= 7 ? `Earnings in ${days}d — elevated short-term risk.` : `~${days}d to next earnings.` };
 }
 
-// factors the current data adapter can't fill yet — shown as "needs data"
-function unavailableFactor(id: string, label: string): FactorScore {
-  return { id, label, score: null, available: false, detail: "Add a data source that provides this (e.g. paid FMP / Alpaca)." };
+function debtFactor(t: Technicals | null): FactorScore {
+  const de = t?.debtToEquity ?? null;
+  if (de == null) return { id: "debt", label: "Debt / equity", score: null, available: false, detail: "Debt/equity unavailable." };
+  // Lower leverage = safer. D/E here is a ratio (e.g. 0.5 = 50%).
+  const score = de < 0.3 ? 85 : de < 0.6 ? 72 : de < 1 ? 58 : de < 2 ? 40 : 25;
+  return { id: "debt", label: "Debt / equity", score, available: true, detail: `Debt/equity ≈ ${de.toFixed(2)}. ${de < 0.6 ? "Conservatively financed." : de > 2 ? "Highly leveraged." : "Moderate leverage."}` };
+}
+
+function analystFactor(t: Technicals | null): FactorScore {
+  const a = t?.analystAction ?? null;
+  if (!a || !a.action) return { id: "analyst", label: "Analyst changes", score: null, available: false, detail: "No recent analyst action." };
+  const act = a.action.toLowerCase();
+  const score = act.includes("upgrade") ? 80 : act.includes("downgrade") ? 30 : 55;
+  return { id: "analyst", label: "Analyst changes", score, available: true, detail: `${a.firm}: ${a.action}${a.date ? ` (${a.date})` : ""}.` };
+}
+
+function unusualVolumeFactor(q: Quote | null, t: Technicals | null): FactorScore {
+  const vol = t?.volume ?? q?.volume ?? null;
+  const avg = t?.avgVolume ?? null;
+  if (vol == null || avg == null || avg <= 0) return { id: "unusualVolume", label: "Unusual volume", score: null, available: false, detail: "Volume vs average unavailable." };
+  const ratio = vol / avg;
+  // High relative volume = conviction behind the move; very low = apathy.
+  const score = ratio > 2 ? 80 : ratio > 1.3 ? 68 : ratio > 0.7 ? 55 : 42;
+  return { id: "unusualVolume", label: "Unusual volume", score, available: true, detail: `${ratio.toFixed(1)}× average volume today.` };
+}
+
+function macdFactor(t: Technicals | null): FactorScore {
+  const m = t?.macd ?? null;
+  if (m == null) return { id: "macd", label: "MACD", score: null, available: false, detail: "MACD unavailable." };
+  // Positive histogram = bullish momentum; magnitude is informative but we keep it simple.
+  const score = m > 0 ? 70 : 40;
+  return { id: "macd", label: "MACD", score, available: true, detail: m > 0 ? `Bullish (histogram +${m.toFixed(2)}).` : `Bearish (histogram ${m.toFixed(2)}).` };
 }
 
 // ---- horizon weighting ----------------------------------------------------
 
 const WEIGHTS: Record<Horizon, Record<string, number>> = {
-  "1W": { momentum: 0.4, trend: 0.3, earningsRisk: 0.2, unusualVolume: 0.1 },
-  "1M": { trend: 0.3, momentum: 0.2, revGrowth: 0.2, earningsRisk: 0.15, valuation: 0.15 },
-  "1Y": { valuation: 0.3, revGrowth: 0.25, margin: 0.2, epsGrowth: 0.15, fcf: 0.1 },
-  "5Y": { revGrowth: 0.25, margin: 0.2, fcf: 0.2, epsGrowth: 0.15, valuation: 0.2 },
+  // Short term leans on momentum/technicals (now incl. MACD + unusual volume + analyst).
+  "1W": { momentum: 0.3, trend: 0.22, macd: 0.15, unusualVolume: 0.1, earningsRisk: 0.13, analyst: 0.1 },
+  "1M": { trend: 0.25, momentum: 0.18, macd: 0.1, revGrowth: 0.17, earningsRisk: 0.12, valuation: 0.12, analyst: 0.06 },
+  // Long term leans on fundamentals (now incl. balance-sheet health via debt/equity).
+  "1Y": { valuation: 0.28, revGrowth: 0.22, margin: 0.18, epsGrowth: 0.12, fcf: 0.1, debt: 0.1 },
+  "5Y": { revGrowth: 0.24, margin: 0.18, fcf: 0.18, epsGrowth: 0.14, valuation: 0.16, debt: 0.1 },
 };
 
 function horizonScore(factors: Record<string, FactorScore>, weights: Record<string, number>): number | null {
@@ -219,10 +250,10 @@ export function computeScore(input: {
     marginFactor(financials),
     fcfFactor(financials),
     earningsRiskFactor(days),
-    unavailableFactor("debt", "Debt / equity"),
-    unavailableFactor("analyst", "Analyst changes"),
-    unavailableFactor("unusualVolume", "Unusual volume"),
-    unavailableFactor("macd", "MACD"),
+    debtFactor(technicals),
+    analystFactor(technicals),
+    unusualVolumeFactor(quote, technicals),
+    macdFactor(technicals),
   ];
   const byId = Object.fromEntries(factorList.map((f) => [f.id, f]));
 

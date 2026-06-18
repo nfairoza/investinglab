@@ -1,12 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { marketData } from "@/lib/providers";
-import { resolveApiKey, resolveModel } from "@/lib/ai/anthropic";
-import { callGemini, geminiKey, geminiModel } from "@/lib/ai/gemini";
-
-function isNetErr(e: unknown): boolean {
-  const m = e instanceof Error ? e.message : String(e);
-  return /timeout|ETIMEDOUT|ENOTFOUND|ECONNREFUSED|fetch failed|UNABLE_TO_GET|network/i.test(m);
-}
+import { resolveApiKey } from "@/lib/ai/anthropic";
+import { geminiKey } from "@/lib/ai/gemini";
+import { routeText } from "@/lib/ai/router";
 
 export const dynamic = "force-dynamic";
 
@@ -96,48 +92,22 @@ export async function POST(req: NextRequest) {
 
   const prompt = buildPrompt(symbol, dataBlock);
 
-  // Get the raw model text — try Claude (with web_search), fall back to Gemini
-  // (with google_search grounding) on a network failure or if no Claude key.
-  async function getText(): Promise<{ text: string; ai: "claude" | "gemini" }> {
-    if (key) {
-      try {
-        const res = await fetch("https://api.anthropic.com/v1/messages", {
-          method: "POST",
-          headers: { "content-type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01" },
-          body: JSON.stringify({
-            model: resolveModel(),
-            max_tokens: 2048,
-            system: SYSTEM,
-            tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 4 }],
-            messages: [{ role: "user", content: prompt }],
-          }),
-          cache: "no-store",
-        });
-        if (res.ok) {
-          const json = (await res.json()) as { content?: Array<{ type: string; text?: string }> };
-          const text = (json.content ?? []).filter((b) => b.type === "text" && b.text).map((b) => b.text as string).join("\n");
-          return { text, ai: "claude" };
-        }
-        if (!geminiKey()) throw new Error(`AI error ${res.status}`);
-      } catch (e) {
-        if (!geminiKey() || !isNetErr(e)) throw e;
-      }
-    }
-    // Gemini with web grounding
-    const text = await callGemini({ system: SYSTEM, user: prompt, webSearch: true });
-    return { text, ai: "gemini" };
-  }
-
   try {
-    const { text, ai } = await getText();
+    // Smart router: deep-analysis -> Opus 4.8 leads, Gemini Pro fallback.
+    const { text, provider, model: usedModel } = await routeText({
+      task: "deep-analysis",
+      system: SYSTEM,
+      user: prompt,
+      maxTokens: 2048,
+      webSearch: true,
+    });
     const cleaned = text.replace(/```json|```/g, "").trim();
     const start = cleaned.indexOf("{");
     const end = cleaned.lastIndexOf("}");
     const jsonStr = start !== -1 && end !== -1 ? cleaned.slice(start, end + 1) : cleaned;
     const prediction = JSON.parse(jsonStr);
 
-    const aiName = ai === "claude" ? "Claude" : "Gemini";
-    const usedModel = ai === "claude" ? resolveModel() : geminiModel();
+    const aiName = provider === "claude" ? "Claude" : "Gemini";
     return NextResponse.json({
       symbol,
       prediction,

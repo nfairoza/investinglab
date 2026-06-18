@@ -10,6 +10,7 @@ import { AnalystPanel } from "./analyst-panel";
 import { DcfCard } from "./dcf-card";
 import { InsiderFeed } from "./insider-feed";
 import { TickerInput } from "./ticker-input";
+import { MiniPrediction } from "./mini-prediction";
 
 export function ResearchWorkspace({ initial = "AMD" }: { initial?: string }) {
   const [draft, setDraft] = useState(initial);
@@ -33,6 +34,8 @@ export function ResearchWorkspace({ initial = "AMD" }: { initial?: string }) {
           Research
         </button>
       </div>
+      {/* AI prediction up top, auto-runs for the searched ticker. */}
+      <MiniPrediction symbol={symbol} autoRun />
       <CompanyProfileCard symbol={symbol} />
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <AnalystPanel symbol={symbol} />

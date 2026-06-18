@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { TrendingUp, TrendingDown, Minus, ArrowRight } from "lucide-react";
 import { AiThinking } from "./ai-thinking";
 
@@ -39,7 +39,7 @@ function fmtPct(n: number | undefined): string | null {
   return `${n >= 0 ? "+" : ""}${n.toFixed(1)}%`;
 }
 
-export function MiniPrediction({ symbol }: { symbol: string }) {
+export function MiniPrediction({ symbol, autoRun = false }: { symbol: string; autoRun?: boolean }) {
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<Result | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -72,6 +72,16 @@ export function MiniPrediction({ symbol }: { symbol: string }) {
       setBusy(false);
     }
   }
+
+  // Auto-run on mount / when the symbol changes (no manual click needed).
+  const autoFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (!autoRun || !symbol) return;
+    if (autoFor.current === symbol) return;
+    autoFor.current = symbol;
+    run();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [symbol, autoRun]);
 
   // Pick the headline horizon (1 month) as the quick read, fall back to first.
   const headline =

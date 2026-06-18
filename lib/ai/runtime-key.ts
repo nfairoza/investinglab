@@ -8,10 +8,20 @@
 
 let runtimeKey: string | null = null;
 let runtimeModel: string | null = null;
+let runtimeStrategy: string | null = null;
 
 export function setRuntimeAi(key: string | null, model: string | null): void {
   runtimeKey = key && key.trim() ? key.trim() : null;
   runtimeModel = model && model.trim() ? model.trim() : null;
+}
+
+// Routing strategy: "smart" (auto-pick per task), "quality" (always best),
+// "economy" (prefer cheap). Persisted in-process for the session.
+export function setRuntimeStrategy(strategy: string | null): void {
+  runtimeStrategy = strategy && strategy.trim() ? strategy.trim() : null;
+}
+export function getRuntimeStrategy(): string | null {
+  return runtimeStrategy;
 }
 
 // Set ONLY the model, leaving the key (from UI or .env) untouched. Lets the

@@ -7,7 +7,6 @@ import type { DataResult } from "@/lib/providers/types";
 import type { ResearchReport } from "@/lib/research/types";
 import { freshness } from "@/lib/research/staleness";
 import { RecommendationGauge } from "./charts/RecommendationGauge";
-import { MiniPrediction } from "./mini-prediction";
 import { ScenarioRangeChart } from "./charts/ScenarioRangeChart";
 import { RevenueEarningsChart } from "./charts/RevenueEarningsChart";
 import { MarginChart } from "./charts/MarginChart";
@@ -68,7 +67,10 @@ export function ResearchPanel({ symbol }: { symbol: string }) {
     <div className="rounded-xl glass p-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <h2 className="text-lg font-semibold text-slate-100">{symbol} — Research memo</h2>
+          <div>
+            <h2 className="text-lg font-semibold text-slate-100">{symbol} — AI deep-dive memo</h2>
+            <p className="text-[11px] text-slate-500">Full written analysis (A–P sections, scenarios, action table). The quick call is the AI prediction at the top of the page.</p>
+          </div>
           {data && <DataBadge source={data.source} />}
         </div>
         <div className="flex items-center gap-2">
@@ -89,12 +91,6 @@ export function ResearchPanel({ symbol }: { symbol: string }) {
             {busy ? "Generating…" : report ? "Refresh analysis" : "Generate analysis"}
           </button>
         </div>
-      </div>
-
-      {/* Quick AI prediction (direction + magnitude per horizon) — combined into
-          the memo card so there's one unified AI verdict, not two separate ones. */}
-      <div className="mt-4">
-        <MiniPrediction symbol={symbol} />
       </div>
 
       {isLoading && <div className="mt-4 h-20 animate-pulse rounded bg-slate-800" />}

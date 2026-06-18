@@ -131,13 +131,18 @@ export function DashboardClient() {
         </div>
       )}
 
-      {/* Market overview */}
+      {/* Market overview — the three gauges traders glance at first:
+          SPY = the whole US large-cap market (S&P 500), QQQ = big tech (Nasdaq-100),
+          VIX = the market's "fear gauge" (expected volatility; high = nervous). */}
       <div>
-        <h2 className="mb-3 text-sm font-medium text-slate-300">Market overview</h2>
+        <h2 className="mb-1 text-sm font-medium text-slate-300">Market overview</h2>
+        <p className="mb-3 text-[11px] text-slate-500">
+          A quick read on the overall market: the S&amp;P 500, big tech, and the fear gauge.
+        </p>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <QuoteProbe symbol="SPY" />
-          <QuoteProbe symbol="QQQ" />
-          <QuoteProbe symbol="VIX" />
+          <QuoteProbe symbol="SPY" label="S&P 500 (SPY)" hint="The 500 largest US companies — the broad market." />
+          <QuoteProbe symbol="QQQ" label="Nasdaq-100 (QQQ)" hint="The 100 biggest non-financial tech-heavy names." />
+          <QuoteProbe symbol="^VIX" label="VIX — fear gauge" hint="Expected 30-day volatility. Higher = more fear; spikes on selloffs." />
         </div>
       </div>
 

@@ -2,14 +2,91 @@ import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { marketData } from "@/lib/providers";
 import { computeScore } from "@/lib/scoring/score";
-import { resolveApiKey, resolveModel } from "@/lib/ai/anthropic";
-import { callGemini, geminiKey, geminiModel } from "@/lib/ai/gemini";
+import { resolveApiKey } from "@/lib/ai/anthropic";
+import { callGemini, geminiKey } from "@/lib/ai/gemini";
+import { routeText } from "@/lib/ai/router";
 
 export const dynamic = "force-dynamic";
 
 function isNetErr(e: unknown): boolean {
   const m = e instanceof Error ? e.message : String(e);
   return /timeout|ETIMEDOUT|ENOTFOUND|ECONNREFUSED|fetch failed|UNABLE_TO_GET|network/i.test(m);
+}
+
+// Robustly parse the model's JSON. LLMs occasionally emit raw control characters
+// inside strings (breaks JSON.parse) or get cut off before the closing braces
+// (truncation). We sanitize control chars, then if a straight parse fails we try
+// to auto-close any unterminated string/arrays/objects so a truncated-but-mostly
+// -complete answer still renders instead of erroring out.
+function parseLooseJson(raw: string): any {
+  const cleaned = raw.replace(/```json|```/g, "").trim();
+  const start = cleaned.indexOf("{");
+  if (start === -1) throw new Error("No JSON object found in AI response.");
+  // Walk the string tracking string/escape/depth so we can (a) escape stray
+  // control chars inside strings and (b) know where to truncate + auto-close.
+  let out = "";
+  let inStr = false;
+  let esc = false;
+  let depth = 0;
+  let lastBalancedEnd = -1; // index in `out` just after the top-level object closed
+  for (let i = start; i < cleaned.length; i++) {
+    const ch = cleaned[i];
+    const code = ch.charCodeAt(0);
+    if (inStr) {
+      if (esc) { out += ch; esc = false; continue; }
+      if (ch === "\\") { out += ch; esc = true; continue; }
+      if (ch === '"') { out += ch; inStr = false; continue; }
+      // Escape raw control characters (newlines, tabs, etc.) that are illegal in JSON strings.
+      if (code < 0x20) {
+        out += ch === "\n" ? "\\n" : ch === "\t" ? "\\t" : ch === "\r" ? "\\r" : " ";
+        continue;
+      }
+      out += ch;
+      continue;
+    }
+    if (ch === '"') { inStr = true; out += ch; continue; }
+    if (ch === "{" || ch === "[") { depth++; out += ch; continue; }
+    if (ch === "}" || ch === "]") {
+      depth--; out += ch;
+      if (depth === 0) lastBalancedEnd = out.length;
+      continue;
+    }
+    out += ch;
+  }
+
+  // Try the cleaned-but-complete string first (trim to the last balanced close).
+  const candidates: string[] = [];
+  if (lastBalancedEnd !== -1) candidates.push(out.slice(0, lastBalancedEnd));
+  candidates.push(out);
+
+  // Truncated: close any open string, then close open arrays/objects in order.
+  let repaired = out;
+  if (inStr) repaired += '"';
+  // Re-scan repaired to compute the open-bracket stack.
+  const stack: string[] = [];
+  let s2 = false, e2 = false;
+  for (const ch of repaired) {
+    if (s2) { if (e2) { e2 = false; } else if (ch === "\\") { e2 = true; } else if (ch === '"') s2 = false; continue; }
+    if (ch === '"') { s2 = true; continue; }
+    if (ch === "{") stack.push("}");
+    else if (ch === "[") stack.push("]");
+    else if (ch === "}" || ch === "]") stack.pop();
+  }
+  // Drop a dangling trailing comma before auto-closing.
+  repaired = repaired.replace(/,\s*$/, "");
+  while (stack.length) repaired += stack.pop();
+  candidates.push(repaired);
+
+  // Strip trailing commas before } or ] (illegal in JSON, common in LLM output).
+  const stripTrailingCommas = (s: string) => s.replace(/,(\s*[}\]])/g, "$1");
+
+  let lastErr: unknown;
+  for (const c of candidates) {
+    for (const variant of [c, stripTrailingCommas(c)]) {
+      try { return JSON.parse(variant); } catch (e) { lastErr = e; }
+    }
+  }
+  throw lastErr instanceof Error ? lastErr : new Error("Could not parse AI JSON.");
 }
 
 // Horizons the doctor must give buy/sell guidance for.
@@ -28,6 +105,9 @@ Rules:
 - Always state the single biggest portfolio-level risk.
 - Separate "good company" from "good price today." No fake precision — ranges are fine, label estimates.
 - You are giving an opinion, not a guarantee.
+- Keep every "reason"/"detail"/"summary" to ONE concise sentence. Cap each horizon's sells and buys at 3 items. This keeps the response complete and parseable.
+- Output STRICT JSON only: no markdown fences, no literal newlines inside string values, no trailing commas, no commentary before or after the JSON.
+- NEVER use placeholders, ellipses ("..."), "TODO", or "same as above". Every field must contain real, fully-written values. Write out all five horizons in full.
 Return ONLY valid JSON (no markdown fences) matching the schema given.`;
 
 function buildPrompt(portfolioBlock: string, totalValue: number): string {
@@ -141,45 +221,38 @@ export async function POST() {
 
   const prompt = buildPrompt(portfolioBlock, totalValue);
 
-  async function getText(): Promise<{ text: string; ai: "claude" | "gemini" }> {
-    if (key) {
-      try {
-        const res = await fetch("https://api.anthropic.com/v1/messages", {
-          method: "POST",
-          headers: { "content-type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01" },
-          body: JSON.stringify({
-            model: resolveModel(),
-            max_tokens: 4096,
-            system: SYSTEM,
-            tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 5 }],
-            messages: [{ role: "user", content: prompt }],
-          }),
-          cache: "no-store",
-        });
-        if (res.ok) {
-          const json = (await res.json()) as { content?: Array<{ type: string; text?: string }> };
-          const text = (json.content ?? []).filter((b) => b.type === "text" && b.text).map((b) => b.text as string).join("\n");
-          return { text, ai: "claude" };
-        }
-        if (!geminiKey()) throw new Error(`AI error ${res.status}`);
-      } catch (e) {
-        if (!geminiKey() || !isNetErr(e)) throw e;
-      }
-    }
-    const text = await callGemini({ system: SYSTEM, user: prompt, webSearch: true });
-    return { text, ai: "gemini" };
+  async function getText(): Promise<{ text: string; ai: "claude" | "gemini"; usedModel: string }> {
+    // Smart router: deep-analysis -> Opus 4.8 leads, Gemini Pro fallback.
+    const r = await routeText({ task: "deep-analysis", system: SYSTEM, user: prompt, maxTokens: 8000, webSearch: true });
+    return { text: r.text, ai: r.provider, usedModel: r.model };
+  }
+
+  // Last-resort repair: hand the broken text back to the AI (no tools) and ask
+  // for STRICT valid JSON only. Catches semantic breakage our parser can't fix,
+  // e.g. the model writing a literal "..." placeholder instead of data.
+  async function repairJson(broken: string): Promise<any> {
+    const repairPrompt = `The following was supposed to be a single valid JSON object but is malformed (bad control chars, truncation, or placeholders like "..."). Return ONLY the corrected, complete, strict JSON object — no markdown, no commentary, no ellipses or placeholders. If a field was a placeholder, fill it with a reasonable value consistent with the rest.\n\n${broken.slice(0, 20000)}`;
+    // Route as "structured" (Gemini Pro leads — best at clean JSON), no web search.
+    const r = await routeText({
+      task: "structured",
+      system: "You repair malformed JSON. Output strict, valid, complete JSON only.",
+      user: repairPrompt,
+      maxTokens: 8000,
+    });
+    return parseLooseJson(r.text);
   }
 
   try {
-    const { text, ai } = await getText();
-    const cleaned = text.replace(/```json|```/g, "").trim();
-    const start = cleaned.indexOf("{");
-    const end = cleaned.lastIndexOf("}");
-    const jsonStr = start !== -1 && end !== -1 ? cleaned.slice(start, end + 1) : cleaned;
-    const analysis = JSON.parse(jsonStr);
+    const { text, ai, usedModel } = await getText();
+    let analysis: any;
+    try {
+      analysis = parseLooseJson(text);
+    } catch {
+      // Parser couldn't salvage it (e.g. placeholder ellipses) — ask the AI to fix it.
+      analysis = await repairJson(text);
+    }
 
     const aiName = ai === "claude" ? "Claude" : "Gemini";
-    const usedModel = ai === "claude" ? resolveModel() : geminiModel();
     return NextResponse.json({
       analysis,
       // Ground-truth portfolio facts (deterministic) so the UI can show real numbers.

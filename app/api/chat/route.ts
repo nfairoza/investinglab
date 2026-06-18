@@ -1,9 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
-import { resolveApiKey, resolveModel } from "@/lib/ai/anthropic";
+import { resolveApiKey } from "@/lib/ai/anthropic";
 import { streamGemini, geminiKey } from "@/lib/ai/gemini";
 import { marketData } from "@/lib/providers";
+import { planRoute, type AiTask } from "@/lib/ai/router";
 
 export const dynamic = "force-dynamic";
+
+// Classify a chat turn so the router can pick the right model. Analysis-type
+// questions (should I buy, valuation, why is X moving, compare, risk…) lean to
+// stronger reasoning; navigation/teaching/small-talk go to the cheap fast model.
+function classifyChat(text: string, hasImage: boolean): AiTask {
+  if (hasImage) return "chat-analysis"; // vision needs a capable model
+  const t = text.toLowerCase();
+  const analysis = /\b(buy|sell|hold|valuation|undervalued|overvalued|fair value|target|why (is|did|are)|outlook|forecast|predict|risk|bull|bear|thesis|compare|vs\.?|earnings|dcf|p\/e|moat|allocat|diversif|portfolio|should i)\b/;
+  const casual = /\b(how do i|where (is|do)|what does|what is the|explain|navigate|tab|page|use this|help me find|glossary|mean\b|define)\b/;
+  if (analysis.test(t)) return "chat-analysis";
+  if (casual.test(t)) return "chat-casual";
+  // Default: short → casual, longer/substantive → analysis.
+  return text.length > 160 ? "chat-analysis" : "chat-casual";
+}
 
 interface ChatImage {
   mediaType: string; // e.g. "image/png"
@@ -179,11 +194,18 @@ export async function POST(req: NextRequest) {
   // Fetch live quotes + news for tickers in the question, append to the system.
   const liveData = await gatherLiveData(messages, ctx);
   const system = buildSystem(ctx) + liveData;
-  const model = resolveModel();
   const recent = messages.slice(-12); // keep last 12 messages for context
 
-  // Try Anthropic streaming first (only if a Claude key exists).
-  if (key) {
+  // Smart routing: classify the latest user turn and let the router decide which
+  // provider leads + which model each uses. casual chat -> cheap/fast model;
+  // analysis chat -> stronger reasoning. Falls back to the other provider.
+  const lastUser = [...recent].reverse().find((m) => m.role === "user");
+  const task = classifyChat(lastUser?.content ?? "", Boolean(lastUser?.images?.length));
+  const plan = planRoute(task);
+  const claudeLeads = plan.primary === "claude";
+
+  // Try Anthropic streaming first when the plan says Claude leads (and we have a key).
+  if (key && claudeLeads) {
     try {
       const upstream = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
@@ -193,7 +215,7 @@ export async function POST(req: NextRequest) {
           "anthropic-version": "2023-06-01",
         },
         body: JSON.stringify({
-          model,
+          model: plan.claudeModel,
           max_tokens: 1500,
           stream: true,
           system,
@@ -205,7 +227,7 @@ export async function POST(req: NextRequest) {
 
       if (upstream.ok) {
         return new Response(upstream.body, {
-          headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", Connection: "keep-alive" },
+          headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", Connection: "keep-alive", "x-ai-model": plan.claudeModel },
         });
       }
       // Non-OK (auth/4xx) — fall through to Gemini if available, else report.
@@ -224,9 +246,30 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // ── Gemini fallback: stream, but RE-EMIT in Anthropic SSE shape so the
-  // client parser (content_block_delta) needs no changes. ──────────────────
-  const gem = await streamGemini({ system, messages: recent, webSearch: true });
+  // ── Gemini path: leads for casual/structured chat, or fallback for Claude. ──
+  // Re-emit in Anthropic SSE shape so the client parser needs no changes.
+  // If Gemini has no key but Claude does (e.g. plan said Gemini-lead but only
+  // Claude is configured), stream Claude instead.
+  if (!geminiKey() && key) {
+    const upstream = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01" },
+      body: JSON.stringify({
+        model: plan.claudeModel, max_tokens: 1500, stream: true, system,
+        messages: toAnthropicMessages(recent),
+        tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 3 }],
+      }),
+    });
+    if (upstream.ok) {
+      return new Response(upstream.body, {
+        headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", Connection: "keep-alive", "x-ai-model": plan.claudeModel },
+      });
+    }
+    const detail = await upstream.text().catch(() => "");
+    return NextResponse.json({ error: "anthropic_error", message: `API error ${upstream.status}: ${detail.slice(0, 200)}` }, { status: 502 });
+  }
+
+  const gem = await streamGemini({ system, messages: recent, webSearch: true, model: plan.geminiModel });
   if (!gem.ok || !gem.body) {
     const detail = await gem.text().catch(() => "");
     return NextResponse.json({ error: "gemini_error", message: `Gemini error ${gem.status}: ${detail.slice(0, 200)}` }, { status: 502 });
@@ -270,6 +313,6 @@ export async function POST(req: NextRequest) {
   });
 
   return new Response(out, {
-    headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", Connection: "keep-alive" },
+    headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", Connection: "keep-alive", "x-ai-model": plan.geminiModel },
   });
 }

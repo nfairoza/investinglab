@@ -570,7 +570,85 @@ Falls back to the demo provider only when no FMP key is present.
   day move. The color scale widens with the horizon (±3% for 1D up to ±200% for 5Y) so the
   heatmap stays meaningful, and the legend + caption reflect the selected window.
 
-## 36. Still remaining
+## 36. Congressional "Alpha Feed" — conviction-scored STOCK Act intelligence
+**Status: DONE.** The Congress tab is now an intelligence engine, not a flat table.
+- **Conviction score (0–100, deterministic in code)** — `lib/congress/score.ts`:
+  capital scale (25) from the disclosed bracket + legislative edge (40) from committee
+  jurisdiction over the stock's sector + cross-party clustering (20) within a 14-day window
+  + an AI-estimated options proxy (15). Ceiling is 85 until an options read is added; tiers
+  HIGH ≥70 / MEDIUM 40–69 / LOW <40.
+- **Live committee rosters** — `lib/congress/committees.ts` pulls the @unitedstates project
+  YAML (committees / membership / legislators) from the **jsDelivr CDN** (the canonical
+  theunitedstates.io is blocked on AMD's network; raw GitHub is the fallback), cached 24h.
+  Joins trades→committees by bioguide (Senate `senateID`) or normalized name. Verified
+  12/12 live Senate trades joined to real committees.
+- **Committee→sector map** — `lib/congress/sectors.ts` maps committee jurisdiction to sectors
+  and buckets FMP's free-text sector; primary overlap = +40, secondary/macro = +15.
+- **API** — `app/api/congress/alpha/route.ts`: enriches the existing
+  `congressData.getRecent()` stream with sector (FMP profile, cached), committee overlap,
+  clustering; scores everything; then calls AI (Claude→Gemini fallback, web search) for the
+  top ~12 to fill a 2-sentence thesis + an ESTIMATED options read. Returns the sorted matrix,
+  a 30-day macro module (net buy/sell by sector, most-active members), and source links.
+- **UI** — `components/congress-alpha-feed.tsx`: 3 modules — Alpha Feed (scored rows with
+  ticker, member+party, action, capital tranche, committee tag, cluster badge, score bar with
+  per-vector breakdown, and a **Source link to the official filing**), Conflict Inspector
+  (selected row's committee↔sector rationale + score breakdown + thesis), and Macro/Roster.
+  `components/congress-tabs.tsx` toggles Alpha Feed ↔ Raw disclosures (old `CongressFeed`
+  kept). 
+- **Honesty:** options read is labeled "AI-estimated, not live institutional flow" everywhere;
+  45-day-lag + ranges banner kept; score breakdown is inspectable (the "why"); roster-down
+  state degrades to capital+cluster scoring with a notice. A `CONGRESS_OPTIONS_API_KEY`
+  connector field can later upgrade the proxy to a real Finnhub/Unusual Whales feed.
+
+## 37. Task-aware AI router (use the right model for each job)
+**Status: DONE.** A smart router sends each task to the best model and falls back
+to the other provider on failure.
+- **Policy (Smart, default):** deep analysis (Predictions, Portfolio Doctor, Research memo,
+  Congress thesis) → **Opus 4.8 leads** (best step-by-step financial reasoning), **Gemini Pro
+  fallback**; big-context / strict-JSON / casual chat → **Gemini leads** (huge context, reliable
+  JSON, cheaper), Claude fallback; navigation/teaching chat → cheapest capable model. This
+  maximizes accuracy where it matters and cuts cost on lightweight conversation.
+- **Core:** `lib/ai/router.ts` — `planRoute(task, strategy)` decides primary provider + which
+  model each provider uses; `routeText()` runs a non-streaming job with cross-provider fallback
+  (network errors fail over; auth/4xx also tries the other once). Tasks: `deep-analysis`,
+  `structured`, `chat-analysis`, `chat-casual`.
+- **Strategies:** `smart` (default), `quality` (always most capable), `economy` (cheap; only the
+  heaviest analysis escalates to Opus). Settable at `/api/ai/strategy`, persisted per session in
+  `runtime-key.ts`, surfaced in `aiStatus()` (now also reports `hasClaude`/`hasGemini`).
+- **Wired through the router:** `/api/predict`, `/api/portfolio-doctor` (analysis + JSON-repair),
+  `/api/research` (both live + web-search paths), `/api/congress/alpha` (thesis + options proxy).
+  Chat (`/api/chat`) classifies each turn (analysis vs casual, images → analysis) and streams from
+  the planned provider/model with fallback; emits an `x-ai-model` header.
+- **Gemini tiers:** `geminiProModel()` (`gemini-2.5-pro`) for heavy/structured, `geminiFlashModel()`
+  for casual; `callGemini`/`streamGemini` now accept a `model` override.
+- **UI:** Settings → AI card gains a **Routing strategy** selector (Smart/Quality/Economy) with a
+  plain-English description and Claude/Gemini availability chips (prompts to add both keys for full
+  smart routing + fallback).
+
+## 38. Market overview, Congress depth, insider proceeds, 1D price, research UX, full scoring
+**Status: DONE.**
+- **Market overview fixed + explained:** VIX now uses the correct `^VIX` symbol (was failing as
+  "VIX"); SPY/QQQ/VIX cards carry plain-English labels + hover hints (S&P 500 / Nasdaq-100 / fear
+  gauge). `QuoteProbe` gained `label`/`hint` props.
+- **Congress Alpha Feed depth + clarity:** small (<$15k) lone trades no longer ride committee-edge
+  into MEDIUM — edge is halved unless the position is large OR corroborated by clustering, so the
+  feed surfaces genuine high-conviction trades. Pulls more volume (up to 400) and merges trades
+  from the most-watched members (Pelosi, Khanna, McCaul, Gottheimer, etc.) so they appear even when
+  outside the latest pages. Added a **time-window selector (30d/90d/6mo/1yr)** and a **score-bar
+  color legend** (capital / committee / cluster / options). High-conviction is the default tab.
+- **Insider table: Total value column** = shares × price (with tooltip).
+- **Price history: 1D timeframe** added — intraday 5-min series from FMP `historical-chart/5min`
+  (separate endpoint, polled 60s), alongside the existing 1M–5Y.
+- **Research page UX:** the AI prediction now sits at the TOP and **auto-runs** for the searched
+  ticker (no manual click); the lower card is retitled **"AI deep-dive memo"** with a one-line
+  explainer distinguishing the quick prediction (top) from the full written analysis (A–P).
+- **Scoring factors restored via paid FMP:** the four "— add a data source" factors are now live —
+  Debt/Equity (ratios-ttm), Analyst changes (grades upgrades/downgrades), Unusual volume
+  (volume vs avg), and MACD (histogram computed from daily closes since FMP's MACD endpoint is
+  unavailable on the plan). They feed the per-horizon weights (technicals weight the short horizons,
+  balance-sheet health the long ones), so scores are no longer mostly blank.
+
+## 39. Still remaining
 - Alerts + Portfolio Doctor pages (still placeholders).
 - Term tooltips defined + glossary exists but not yet wired inline across pages.
 - Crypto live pricing source (FMP equity quotes do not cover crypto).

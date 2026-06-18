@@ -3,8 +3,8 @@ import { marketData } from "@/lib/providers";
 import type { DataResult } from "@/lib/providers/types";
 import type { ResearchReport } from "@/lib/research/types";
 import { SECTION_PLAN } from "@/lib/research/types";
-import { aiStatus, callAI, callClaude, resolveApiKey, resolveModel } from "@/lib/ai/anthropic";
-import { callGemini, geminiKey } from "@/lib/ai/gemini";
+import { aiStatus } from "@/lib/ai/anthropic";
+import { routeText } from "@/lib/ai/router";
 
 export const dynamic = "force-dynamic";
 
@@ -88,7 +88,6 @@ function toReport(symbol: string, parsed: Partial<ResearchReport>, dataAsOf: str
 // Fallback: when FMP data is unavailable (rate-limited / no key), have Claude
 // research the ticker via web search instead. Returns the parsed JSON memo.
 async function generateFromWeb(symbol: string): Promise<Partial<ResearchReport>> {
-  const key = resolveApiKey();
   const ids = SECTION_PLAN.map((s) => `${s.id}: ${s.title}`).join("; ");
   const user = `Write a research memo for ticker ${symbol}.
 Live market-data feed is unavailable, so SEARCH THE WEB for current price, financials, valuation, and recent news for ${symbol}. State the data is from web search and may be delayed.
@@ -105,36 +104,8 @@ Produce JSON with this exact shape:
 }
 Return ONLY the JSON.`;
 
-  // Try Claude web_search; fall back to Gemini grounding if Claude is blocked.
-  let text = "";
-  if (key) {
-    try {
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: { "content-type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01" },
-        body: JSON.stringify({
-          model: resolveModel(),
-          max_tokens: 4096,
-          system: SYSTEM,
-          tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 4 }],
-          messages: [{ role: "user", content: user }],
-        }),
-        cache: "no-store",
-      });
-      if (res.ok) {
-        const json = (await res.json()) as { content?: Array<{ type: string; text?: string }> };
-        text = (json.content ?? []).filter((b) => b.type === "text" && b.text).map((b) => b.text as string).join("\n");
-      } else if (!geminiKey()) {
-        throw new Error(`Anthropic HTTP ${res.status}`);
-      }
-    } catch (e) {
-      if (!geminiKey()) throw e;
-    }
-  }
-  if (!text) {
-    if (!geminiKey()) throw new Error("No AI provider reachable.");
-    text = await callGemini({ system: SYSTEM, user, webSearch: true });
-  }
+  // Smart router with web search: deep-analysis -> Opus leads, Gemini fallback.
+  const { text } = await routeText({ task: "deep-analysis", system: SYSTEM, user, maxTokens: 4096, webSearch: true });
   const s = text.indexOf("{");
   const e = text.lastIndexOf("}");
   return JSON.parse(text.slice(s, e + 1)) as Partial<ResearchReport>;
@@ -175,20 +146,26 @@ export async function POST(req: NextRequest) {
       const extra = `TECHNICALS: ${JSON.stringify(tech.data ?? "unavailable")}
 ANALYST: ${JSON.stringify(analyst.data ?? "unavailable")}
 DCF: ${JSON.stringify(dcf.data ?? "unavailable")}`;
-      const { text: raw } = await callAI({
+      // Smart router: research memo is deep analysis -> Opus 4.8 leads, with
+      // web search, Gemini Pro fallback.
+      const { text: raw, provider: prov, model: usedModel } = await routeText({
+        task: "deep-analysis",
         system: SYSTEM,
         user: buildUserPrompt(symbol, JSON.stringify(quote.data), JSON.stringify(fin.data ?? null)) + "\n\n" + extra,
         maxTokens: 4096,
+        webSearch: true,
       });
       const cleaned = raw.replace(/```json|```/g, "").trim();
-      const parsed = JSON.parse(cleaned) as Partial<ResearchReport>;
+      const sIdx = cleaned.indexOf("{");
+      const eIdx = cleaned.lastIndexOf("}");
+      const parsed = JSON.parse(sIdx !== -1 && eIdx !== -1 ? cleaned.slice(sIdx, eIdx + 1) : cleaned) as Partial<ResearchReport>;
       const report = toReport(symbol, parsed, quote.asOf ?? new Date().toISOString());
 
       const result: DataResult<ResearchReport> = {
         data: report,
         source: quote.source === "live" ? "live" : "demo",
         asOf: report.generatedAt,
-        provider: `anthropic:${resolveModel()}`,
+        provider: `${prov}:${usedModel}`,
         note:
           quote.source === "live"
             ? undefined
@@ -208,8 +185,8 @@ DCF: ${JSON.stringify(dcf.data ?? "unavailable")}`;
       data: report,
       source: "demo", // not from the live market-data feed
       asOf: report.generatedAt,
-      provider: `anthropic-websearch:${resolveModel()}`,
-      note: `Market-data feed unavailable (${quote.note ?? "no data"}). This memo was built from Claude's web search — figures may be delayed; verify before acting.`,
+      provider: "ai-websearch",
+      note: `Market-data feed unavailable (${quote.note ?? "no data"}). This memo was built from AI web search — figures may be delayed; verify before acting.`,
     };
     return NextResponse.json(result);
   } catch (e) {
