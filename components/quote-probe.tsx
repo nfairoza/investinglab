@@ -58,9 +58,9 @@ export function QuoteProbe({
 
   return (
     <div className="max-w-sm rounded-xl glass p-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-start justify-between gap-2">
         <span className="font-semibold text-ink" title={hint}>{label ?? symbol}</span>
-        <div className="flex items-center gap-2">
+        <div className="flex shrink-0 items-center gap-2">
           {data && <DataBadge source={data.source} />}
           <button
             onClick={() => mutate()}

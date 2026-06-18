@@ -10,9 +10,16 @@ export function DataBadge({ source }: { source: DataSource }) {
     unavailable: { borderColor: "var(--negative)", background: "var(--negative-soft)", color: "var(--negative)" },
   };
   const label =
-    source === "live" ? "● LIVE" : source === "demo" ? "DEMO" : "Live data unavailable";
+    source === "live" ? "LIVE" : source === "demo" ? "DEMO" : "Unavailable";
   return (
-    <span className="rounded-full border px-2 py-0.5 text-[11px] font-medium" style={styles[source]}>
+    <span
+      className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border px-2 py-0.5 text-[11px] font-medium"
+      style={styles[source]}
+      title={source === "unavailable" ? "Live data unavailable" : undefined}
+    >
+      {source === "live" && (
+        <span className="h-1.5 w-1.5 rounded-full" style={{ background: "var(--positive)" }} aria-hidden />
+      )}
       {label}
     </span>
   );

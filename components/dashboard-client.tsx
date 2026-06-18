@@ -238,9 +238,11 @@ export function DashboardClient() {
             {/* Market overview */}
             <div>
               <h2 className="text-sm font-medium text-ink-dim">Market overview</h2>
-              <p className="mb-3 mt-0.5 text-[11px] text-ink-faint">The broad market (S&amp;P 500), big tech (Nasdaq-100), and the fear gauge (VIX).</p>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                <QuoteProbe symbol="SPY" label="S&P 500 (SPY)" hint="The 500 largest US companies — the broad market." />
+              <p className="mb-3 mt-0.5 text-[11px] text-ink-faint">Broad-market benchmarks, big tech, and the fear gauge. Indices are shown via their tradeable ETF proxies.</p>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                <QuoteProbe symbol="VTI" label="Total US market (VTI)" hint="CRSP US Total Market — the entire US stock market (large, mid & small cap)." />
+                <QuoteProbe symbol="SPY" label="S&P 500 (SPY)" hint="The 500 largest US companies — the classic broad-market gauge." />
+                <QuoteProbe symbol="IWB" label="Russell 1000 (IWB)" hint="The 1,000 largest US companies — broader than the S&P 500." />
                 <QuoteProbe symbol="QQQ" label="Nasdaq-100 (QQQ)" hint="The 100 biggest non-financial tech-heavy names." />
                 <QuoteProbe symbol="^VIX" label="VIX — fear gauge" hint="Expected 30-day volatility. Higher = more fear." />
               </div>
