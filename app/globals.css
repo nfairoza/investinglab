@@ -16,18 +16,18 @@
   --font-sans: "Inter Tight", "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --font-mono: "JetBrains Mono", "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 
-  /* Brand scale (jasmine gold) — shared; semantic --accent picks the right tier per theme. */
-  --brand-50:  #fefdf7;
-  --brand-100: #fdf9e7;
-  --brand-200: #f9f0c4;
-  --brand-300: #f2e090;
-  --brand-400: #e4c264;
-  --brand-500: #d4a82a;
-  --brand-600: #b8932e;
-  --brand-700: #8f6a10;
-  --brand-800: #664c0b;
-  --brand-900: #3d2d06;
-  --brand-950: #221904;
+  /* Brand scale (emerald-mint) — shared; semantic --accent picks the tier per theme. */
+  --brand-50:  #eafff6;
+  --brand-100: #c8ffe7;
+  --brand-200: #93f7cf;
+  --brand-300: #5cecb6;
+  --brand-400: #34e0a1;
+  --brand-500: #18c98a;
+  --brand-600: #0fa872;
+  --brand-700: #0c855b;
+  --brand-800: #0c6849;
+  --brand-900: #0a4f3a;
+  --brand-950: #042b20;
 
   /* radii + motion easing (shared) */
   --radius: 16px;
@@ -40,40 +40,40 @@
 html.dark, :root {
   color-scheme: dark;
 
-  --bg: #0B0F0D;                         /* near-black, warm green undertone */
-  --surface: rgba(255,255,255,0.030);    /* raised tier 1 */
-  --surface-raised: rgba(255,255,255,0.055); /* tier 2 (overlay) */
-  --surface-solid: #11160F;              /* opaque popovers/menus */
+  --bg: #0A0C0F;                         /* graphite near-black */
+  --surface: rgba(255,255,255,0.026);    /* raised tier 1 */
+  --surface-raised: rgba(255,255,255,0.05); /* tier 2 (overlay) */
+  --surface-solid: #12151A;              /* opaque popovers/menus */
 
-  --text: #ECEAE2;                       /* warm ivory */
-  --text-dim: #9AA89B;                   /* muted sage */
-  --text-faint: #6b7568;
+  --text: #EAEEF2;                       /* cool off-white */
+  --text-dim: #94A0AE;                   /* slate-grey */
+  --text-faint: #5d6772;
 
   --hairline: rgba(255,255,255,0.08);
   --hairline-strong: rgba(255,255,255,0.14);
-  --hairline-gold: rgba(228,194,100,0.30);
+  --hairline-gold: rgba(52,224,161,0.32); /* accent hairline (name kept for reuse) */
 
-  --accent: #E4C264;                     /* jasmine gold (legible on dark) */
-  --accent-strong: #d4a82a;
-  --accent-soft: rgba(228,194,100,0.12);
+  --accent: #34E0A1;                     /* emerald-mint */
+  --accent-strong: #18c98a;
+  --accent-soft: rgba(52,224,161,0.13);
 
-  --positive: #5FA873;                   /* botanical green */
-  --positive-soft: rgba(95,168,115,0.14);
-  --negative: #C97A6D;                   /* warm terracotta/rose */
-  --negative-soft: rgba(201,122,109,0.14);
-  --neutral: #9AA89B;
+  --positive: #34E0A1;                   /* gains = emerald-mint */
+  --positive-soft: rgba(52,224,161,0.13);
+  --negative: #FF6B6B;                   /* loss = warm rose */
+  --negative-soft: rgba(255,107,107,0.13);
+  --neutral: #94A0AE;
 
-  --glass-bg: rgba(255,255,255,0.035);
-  --glass-border: rgba(255,255,255,0.09);
-  --glass-shadow: 0 24px 50px -28px rgba(0,0,0,0.75);
+  --glass-bg: rgba(255,255,255,0.032);
+  --glass-border: rgba(255,255,255,0.08);
+  --glass-shadow: 0 24px 50px -28px rgba(0,0,0,0.8);
   --glass-inner: inset 0 1px 0 0 rgba(255,255,255,0.05);
 
   --chart-grid: rgba(255,255,255,0.06);
-  --chart-axis: #6b7568;
-  --tooltip-bg: rgba(12,16,13,0.96);
+  --chart-axis: #5d6772;
+  --tooltip-bg: rgba(16,20,26,0.97);
 
-  /* Calm finance look: no busy texture. Keep only a whisper of grain. */
-  --grain-opacity: 0.015;
+  /* Calm finance look: no texture. */
+  --grain-opacity: 0.012;
   --vine-opacity: 0;
   --vine-blend: screen;
 }
@@ -82,40 +82,40 @@ html.dark, :root {
 html.light {
   color-scheme: light;
 
-  --bg: #F4F1EA;                         /* warm cream, slightly deeper for card contrast */
+  --bg: #F7F8FA;                         /* crisp cool off-white */
   --surface: #FFFFFF;
   --surface-raised: #FFFFFF;
   --surface-solid: #FFFFFF;
 
-  --text: #1B1813;                       /* near-black, high contrast */
-  --text-dim: #565E54;                   /* darker sage-grey — AA on cream */
-  --text-faint: #7c857a;
+  --text: #0F172A;                       /* slate-ink, high contrast */
+  --text-dim: #475569;                   /* slate-600 */
+  --text-faint: #94A3B8;
 
-  --hairline: rgba(0,0,0,0.10);
-  --hairline-strong: rgba(0,0,0,0.16);
-  --hairline-gold: rgba(155,122,34,0.45);
+  --hairline: rgba(15,23,42,0.10);
+  --hairline-strong: rgba(15,23,42,0.16);
+  --hairline-gold: rgba(15,168,114,0.40); /* emerald hairline */
 
-  --accent: #9A7A22;                     /* deep gold, legible on light */
-  --accent-strong: #7d6219;
-  --accent-soft: rgba(155,122,34,0.10);
+  --accent: #0FA872;                     /* deep emerald, legible on white */
+  --accent-strong: #0c855b;
+  --accent-soft: rgba(15,168,114,0.10);
 
-  --positive: #2F7A4A;                   /* darker green to read on white */
-  --positive-soft: rgba(47,122,74,0.10);
-  --negative: #AA4C3C;
-  --negative-soft: rgba(170,76,60,0.10);
-  --neutral: #565E54;
+  --positive: #0E9E6E;                   /* gain green on white */
+  --positive-soft: rgba(14,158,110,0.10);
+  --negative: #E1483B;                   /* loss red on white */
+  --negative-soft: rgba(225,72,59,0.10);
+  --neutral: #475569;
 
-  --glass-bg: rgba(255,255,255,0.72);
-  --glass-border: rgba(0,0,0,0.08);
-  --glass-shadow: 0 18px 40px -24px rgba(40,36,28,0.28);
-  --glass-inner: inset 0 1px 0 0 rgba(255,255,255,0.8);
+  --glass-bg: rgba(255,255,255,0.78);
+  --glass-border: rgba(15,23,42,0.08);
+  --glass-shadow: 0 18px 40px -24px rgba(15,23,42,0.16);
+  --glass-inner: inset 0 1px 0 0 rgba(255,255,255,0.9);
 
-  --chart-grid: rgba(0,0,0,0.07);
-  --chart-axis: #97a094;
+  --chart-grid: rgba(15,23,42,0.08);
+  --chart-axis: #94A3B8;
   --tooltip-bg: rgba(255,255,255,0.98);
 
-  --grain-opacity: 0.025;
-  --vine-opacity: 0.06;
+  --grain-opacity: 0;
+  --vine-opacity: 0;
   --vine-blend: multiply;
 }
 

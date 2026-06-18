@@ -1,13 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
-  <rect width="64" height="64" rx="14" fill="#0B0F0D"/>
-  <g transform="translate(32 32)" fill="#E4C264">
-    <g>
-      <ellipse cx="0" cy="0" rx="6.5" ry="17" opacity="0.95"/>
-      <ellipse cx="0" cy="0" rx="6.5" ry="17" opacity="0.95" transform="rotate(72)"/>
-      <ellipse cx="0" cy="0" rx="6.5" ry="17" opacity="0.95" transform="rotate(144)"/>
-      <ellipse cx="0" cy="0" rx="6.5" ry="17" opacity="0.95" transform="rotate(216)"/>
-      <ellipse cx="0" cy="0" rx="6.5" ry="17" opacity="0.95" transform="rotate(288)"/>
-    </g>
-    <circle cx="0" cy="0" r="5.5" fill="#FFF7DA"/>
+  <rect width="64" height="64" rx="14" fill="#0A0C0F"/>
+  <g transform="translate(32 32)" fill="none" stroke="#34E0A1" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M-15 8 L-6 -2 L0 4 L14 -12"/>
+    <path d="M14 -12 L14 -3 M14 -12 L5 -12"/>
   </g>
 </svg>
