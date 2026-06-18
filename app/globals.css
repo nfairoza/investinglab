@@ -72,8 +72,9 @@ html.dark, :root {
   --chart-axis: #6b7568;
   --tooltip-bg: rgba(12,16,13,0.96);
 
-  --grain-opacity: 0.04;
-  --vine-opacity: 0.05;
+  /* Calm finance look: no busy texture. Keep only a whisper of grain. */
+  --grain-opacity: 0.015;
+  --vine-opacity: 0;
   --vine-blend: screen;
 }
 
@@ -81,28 +82,28 @@ html.dark, :root {
 html.light {
   color-scheme: light;
 
-  --bg: #FAF7F0;                         /* warm cream */
+  --bg: #F4F1EA;                         /* warm cream, slightly deeper for card contrast */
   --surface: #FFFFFF;
   --surface-raised: #FFFFFF;
   --surface-solid: #FFFFFF;
 
-  --text: #23201A;                       /* warm near-black */
-  --text-dim: #6a7568;                   /* sage-grey */
-  --text-faint: #97a094;
+  --text: #1B1813;                       /* near-black, high contrast */
+  --text-dim: #565E54;                   /* darker sage-grey — AA on cream */
+  --text-faint: #7c857a;
 
-  --hairline: rgba(0,0,0,0.08);
-  --hairline-strong: rgba(0,0,0,0.14);
-  --hairline-gold: rgba(184,147,46,0.40);
+  --hairline: rgba(0,0,0,0.10);
+  --hairline-strong: rgba(0,0,0,0.16);
+  --hairline-gold: rgba(155,122,34,0.45);
 
-  --accent: #B8932E;                     /* deepened gold for light */
-  --accent-strong: #9a7a22;
-  --accent-soft: rgba(184,147,46,0.12);
+  --accent: #9A7A22;                     /* deep gold, legible on light */
+  --accent-strong: #7d6219;
+  --accent-soft: rgba(155,122,34,0.10);
 
-  --positive: #3F8A57;                   /* darker/saturated to read on white */
-  --positive-soft: rgba(63,138,87,0.12);
-  --negative: #B85C4C;
-  --negative-soft: rgba(184,92,76,0.12);
-  --neutral: #6a7568;
+  --positive: #2F7A4A;                   /* darker green to read on white */
+  --positive-soft: rgba(47,122,74,0.10);
+  --negative: #AA4C3C;
+  --negative-soft: rgba(170,76,60,0.10);
+  --neutral: #565E54;
 
   --glass-bg: rgba(255,255,255,0.72);
   --glass-border: rgba(0,0,0,0.08);
@@ -250,13 +251,8 @@ a, button, input, select, textarea {
 .animate-scale-in   { animation: scaleIn 0.25s var(--ease-out) both; }
 .animate-hero-zoom  { animation: heroZoom 1.6s var(--ease-out) both; }
 
-/* Gold shimmer text (wordmark / hero accents) */
-.text-shimmer {
-  background: linear-gradient(110deg, var(--brand-300) 20%, #fff7da 40%, var(--accent) 60%, var(--brand-300) 80%);
-  background-size: 200% auto;
-  -webkit-background-clip: text; background-clip: text; color: transparent;
-  animation: shimmer 6s linear infinite;
-}
+/* Static gold wordmark — no animation (distracting on a finance app). */
+.text-shimmer { color: var(--accent); }
 
 /* Scroll-reveal: hidden until .is-visible (added by ScrollReveal/IO) */
 .reveal { opacity: 0; transform: translateY(16px); transition: opacity 0.6s var(--ease-out), transform 0.6s var(--ease-out); }
