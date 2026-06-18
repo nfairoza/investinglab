@@ -64,6 +64,11 @@ html.dark, :root {
   --neutral: #94A0AE;
   --hold-bar: #6B7686;                   /* analyst "Hold" segment — clearly grey on dark */
 
+  /* Active sidebar item: glowing violet gradient pill on dark. */
+  --nav-active: linear-gradient(100deg, #7459e8 0%, #8B7CF6 55%, #9a85fb 100%);
+  --nav-active-fg: #ffffff;
+  --nav-active-glow: 0 8px 22px -8px rgba(139,124,246,0.65);
+
   --glass-bg: rgba(255,255,255,0.032);
   --glass-border: rgba(255,255,255,0.08);
   --glass-shadow: 0 24px 50px -28px rgba(0,0,0,0.8);
@@ -106,6 +111,11 @@ html.light {
   --negative-soft: rgba(225,72,59,0.10);
   --neutral: #475569;
   --hold-bar: #94A3B8;                   /* analyst "Hold" segment — clearly grey on white */
+
+  /* Active sidebar item: deeper violet→indigo gradient, white text, on light. */
+  --nav-active: linear-gradient(100deg, #6244CF 0%, #7459e8 60%, #8B7CF6 100%);
+  --nav-active-fg: #ffffff;
+  --nav-active-glow: 0 8px 20px -8px rgba(98,68,207,0.45);
 
   --glass-bg: rgba(255,255,255,0.78);
   --glass-border: rgba(15,23,42,0.08);

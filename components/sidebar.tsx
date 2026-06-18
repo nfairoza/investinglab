@@ -63,13 +63,12 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
                   href={href}
                   onClick={onNavigate}
                   className={clsx(
-                    "group relative flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-all duration-200",
-                    active ? "font-medium text-ink" : "text-ink-dim hover:text-ink hover:translate-x-0.5",
+                    "group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-all duration-200",
+                    active ? "font-semibold" : "text-ink-dim hover:text-ink hover:translate-x-0.5",
                   )}
-                  style={active ? { background: "var(--accent-soft)" } : undefined}
+                  style={active ? { background: "var(--nav-active)", color: "var(--nav-active-fg)", boxShadow: "var(--nav-active-glow)" } : undefined}
                 >
-                  {active && <span className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full" style={{ background: "var(--accent)", boxShadow: "0 0 10px 0 var(--accent-soft)" }} />}
-                  <Icon size={16} className={clsx("transition-transform duration-200 group-hover:scale-110", active && "text-accent")} />
+                  <Icon size={16} className={clsx("transition-transform duration-200 group-hover:scale-110", !active && "text-ink-faint")} style={active ? { color: "var(--nav-active-fg)" } : undefined} />
                   {label}
                 </Link>
               );
