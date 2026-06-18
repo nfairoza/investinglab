@@ -2,152 +2,229 @@
 @tailwind components;
 @tailwind utilities;
 
+/* =============================================================================
+   NOOR INVESTING LAB — "Floral Tech Finance" design system
+   Semantic tokens defined for BOTH light and dark. Components reference the
+   semantic vars (never hard-coded hex), so the whole UI re-themes by swapping
+   one class on <html>. Botanical garden + Bloomberg terminal discipline.
+   ============================================================================= */
+
 :root {
-  color-scheme: dark;
+  /* Fonts (loaded browser-side via <link> in layout.tsx — corp SSL blocks build-time fetch).
+     Display = characterful serif (headlines ONLY). Sans = crisp grotesk. Mono = tabular numbers. */
+  --font-display: "Fraunces", "Cormorant Garamond", Georgia, serif;
+  --font-sans: "Inter Tight", "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "JetBrains Mono", "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 
-  /* Font stacks (fonts loaded browser-side via <link> in layout.tsx <head>).
-     Tailwind's font-sans / font-display read these vars (see tailwind.config). */
-  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  --font-display: "Cormorant Garamond", Georgia, "Times New Roman", serif;
-
-  /* Jasmine-inspired brand palette — accessible via Tailwind brand-* utilities */
+  /* Brand scale (jasmine gold) — shared; semantic --accent picks the right tier per theme. */
   --brand-50:  #fefdf7;
   --brand-100: #fdf9e7;
   --brand-200: #f9f0c4;
   --brand-300: #f2e090;
-  --brand-400: #e8cc5a;
-  --brand-500: #d4a82a;  /* jasmine gold — primary accent */
-  --brand-600: #b88a18;
+  --brand-400: #e4c264;
+  --brand-500: #d4a82a;
+  --brand-600: #b8932e;
   --brand-700: #8f6a10;
   --brand-800: #664c0b;
   --brand-900: #3d2d06;
   --brand-950: #221904;
 
-  /* Surfaces */
-  --bg-base: #0a0e0c;       /* deep charcoal-green */
-  --ink: #ece9e0;           /* warm ivory text */
-  --ink-dim: #a8b0a4;       /* muted sage-grey */
-  --glass: rgba(255, 255, 255, 0.035);
-  --glass-strong: rgba(255, 255, 255, 0.06);
-  --hairline: rgba(255, 255, 255, 0.08);
-  --hairline-gold: rgba(212, 168, 42, 0.30);
+  /* radii + motion easing (shared) */
+  --radius: 16px;
+  --radius-sm: 10px;
+  --radius-lg: 22px;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-html,
-body {
-  height: 100%;
+/* ── DARK THEME (default) ──────────────────────────────────────────────────── */
+html.dark, :root {
+  color-scheme: dark;
+
+  --bg: #0B0F0D;                         /* near-black, warm green undertone */
+  --surface: rgba(255,255,255,0.030);    /* raised tier 1 */
+  --surface-raised: rgba(255,255,255,0.055); /* tier 2 (overlay) */
+  --surface-solid: #11160F;              /* opaque popovers/menus */
+
+  --text: #ECEAE2;                       /* warm ivory */
+  --text-dim: #9AA89B;                   /* muted sage */
+  --text-faint: #6b7568;
+
+  --hairline: rgba(255,255,255,0.08);
+  --hairline-strong: rgba(255,255,255,0.14);
+  --hairline-gold: rgba(228,194,100,0.30);
+
+  --accent: #E4C264;                     /* jasmine gold (legible on dark) */
+  --accent-strong: #d4a82a;
+  --accent-soft: rgba(228,194,100,0.12);
+
+  --positive: #5FA873;                   /* botanical green */
+  --positive-soft: rgba(95,168,115,0.14);
+  --negative: #C97A6D;                   /* warm terracotta/rose */
+  --negative-soft: rgba(201,122,109,0.14);
+  --neutral: #9AA89B;
+
+  --glass-bg: rgba(255,255,255,0.035);
+  --glass-border: rgba(255,255,255,0.09);
+  --glass-shadow: 0 24px 50px -28px rgba(0,0,0,0.75);
+  --glass-inner: inset 0 1px 0 0 rgba(255,255,255,0.05);
+
+  --chart-grid: rgba(255,255,255,0.06);
+  --chart-axis: #6b7568;
+  --tooltip-bg: rgba(12,16,13,0.96);
+
+  --grain-opacity: 0.04;
+  --vine-opacity: 0.05;
+  --vine-blend: screen;
 }
 
+/* ── LIGHT THEME (warm cream, not inverted) ────────────────────────────────── */
+html.light {
+  color-scheme: light;
+
+  --bg: #FAF7F0;                         /* warm cream */
+  --surface: #FFFFFF;
+  --surface-raised: #FFFFFF;
+  --surface-solid: #FFFFFF;
+
+  --text: #23201A;                       /* warm near-black */
+  --text-dim: #6a7568;                   /* sage-grey */
+  --text-faint: #97a094;
+
+  --hairline: rgba(0,0,0,0.08);
+  --hairline-strong: rgba(0,0,0,0.14);
+  --hairline-gold: rgba(184,147,46,0.40);
+
+  --accent: #B8932E;                     /* deepened gold for light */
+  --accent-strong: #9a7a22;
+  --accent-soft: rgba(184,147,46,0.12);
+
+  --positive: #3F8A57;                   /* darker/saturated to read on white */
+  --positive-soft: rgba(63,138,87,0.12);
+  --negative: #B85C4C;
+  --negative-soft: rgba(184,92,76,0.12);
+  --neutral: #6a7568;
+
+  --glass-bg: rgba(255,255,255,0.72);
+  --glass-border: rgba(0,0,0,0.08);
+  --glass-shadow: 0 18px 40px -24px rgba(40,36,28,0.28);
+  --glass-inner: inset 0 1px 0 0 rgba(255,255,255,0.8);
+
+  --chart-grid: rgba(0,0,0,0.07);
+  --chart-axis: #97a094;
+  --tooltip-bg: rgba(255,255,255,0.98);
+
+  --grain-opacity: 0.025;
+  --vine-opacity: 0.06;
+  --vine-blend: multiply;
+}
+
+html, body { height: 100%; }
+
 body {
-  background-color: var(--bg-base);
-  color: var(--ink);
+  background-color: var(--bg);
+  color: var(--text);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+  font-feature-settings: "tnum" 1, "ss01" 1;
+  transition: background-color 300ms ease, color 300ms ease;
 }
 
-/* Tabular figures for prices/numbers everywhere */
-body { font-feature-settings: "tnum" 1, "cv01" 1; }
+/* Mono tabular numerals everywhere numbers live */
+.tnum, .font-mono { font-feature-settings: "tnum" 1; font-variant-numeric: tabular-nums; }
 
-/* ── Layered parallax background (fixed behind everything) ──────────────────
-   Two fixed layers: a soft gold/sage aurora glow, and an optional jasmine
-   vine texture image (public/images/bg-vines.png) at low opacity. Both stay
-   put while content scrolls = parallax depth. */
-.bg-aurora,
-.bg-vines {
-  position: fixed;
-  inset: 0;
-  z-index: -2;
-  pointer-events: none;
+/* ── Layered background: aurora mesh + vine texture + film grain (all fixed) ── */
+.bg-aurora, .bg-vines, .bg-grain {
+  position: fixed; inset: 0; pointer-events: none;
 }
 .bg-aurora {
+  z-index: -3;
   background:
-    radial-gradient(1100px 600px at 82% -10%, rgba(212, 168, 42, 0.10), transparent 60%),
-    radial-gradient(900px 700px at -8% 108%, rgba(74, 110, 80, 0.12), transparent 55%),
-    radial-gradient(700px 700px at 50% 50%, rgba(255, 255, 255, 0.015), transparent 70%);
+    radial-gradient(1100px 600px at 82% -10%, var(--accent-soft), transparent 60%),
+    radial-gradient(900px 700px at -8% 108%, var(--positive-soft), transparent 55%),
+    radial-gradient(700px 700px at 50% 50%, rgba(127,127,127,0.02), transparent 70%);
 }
 .bg-vines {
-  z-index: -1;
+  z-index: -2;
   background-image: url("/images/bg-vines.png");
-  background-size: cover;
-  background-position: center;
-  opacity: 0.05;
-  mix-blend-mode: screen;
+  background-size: cover; background-position: center;
+  opacity: var(--vine-opacity);
+  mix-blend-mode: var(--vine-blend);
+}
+/* Fine film grain via SVG fractal noise (no asset needed) */
+.bg-grain {
+  z-index: -1;
+  opacity: var(--grain-opacity);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
-/* ── Display headings ──────────────────────────────────────────────────── */
-.font-display { letter-spacing: -0.01em; }
+/* ── Typography ────────────────────────────────────────────────────────────── */
+.font-display { font-family: var(--font-display); letter-spacing: -0.015em; font-optical-sizing: auto; }
 
-/* ── Glass card system ─────────────────────────────────────────────────── */
+/* ── Glass surfaces ──────────────────────────────────────────────────────────
+   Gradient hairline border via mask trick + layered depth. */
 .glass {
-  background: var(--glass);
-  backdrop-filter: blur(12px) saturate(120%);
-  -webkit-backdrop-filter: blur(12px) saturate(120%);
-  border: 1px solid var(--hairline);
-  box-shadow:
-    inset 0 1px 0 0 rgba(255, 255, 255, 0.04),
-    0 24px 50px -28px rgba(0, 0, 0, 0.75);
+  position: relative;
+  background: var(--glass-bg);
+  backdrop-filter: blur(14px) saturate(125%);
+  -webkit-backdrop-filter: blur(14px) saturate(125%);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-inner), var(--glass-shadow);
+  border-radius: var(--radius);
 }
 .glass-strong {
-  background: var(--glass-strong);
-  backdrop-filter: blur(16px) saturate(130%);
-  -webkit-backdrop-filter: blur(16px) saturate(130%);
-  border: 1px solid var(--hairline);
+  background: var(--surface-raised);
+  backdrop-filter: blur(18px) saturate(135%);
+  -webkit-backdrop-filter: blur(18px) saturate(135%);
+  border: 1px solid var(--hairline-strong);
+  border-radius: var(--radius);
 }
 
-/* Card hover — gentle lift + jasmine-gold edge glow */
-.card-hover {
-  transition: transform 240ms cubic-bezier(0.16, 1, 0.3, 1),
-              border-color 240ms ease, box-shadow 240ms ease;
-}
+/* Card hover — gentle lift + gold edge */
+.card-hover { transition: transform 260ms var(--ease-out), border-color 260ms ease, box-shadow 260ms ease; }
 .card-hover:hover {
   transform: translateY(-3px);
   border-color: var(--hairline-gold);
-  box-shadow:
-    inset 0 1px 0 0 rgba(255, 255, 255, 0.05),
-    0 18px 40px -20px rgba(212, 168, 42, 0.22),
-    0 0 0 1px rgba(212, 168, 42, 0.10);
+  box-shadow: var(--glass-inner), 0 22px 46px -22px rgba(0,0,0,0.5), 0 0 0 1px var(--accent-soft);
 }
 
-/* Primary gold button (gradient + sheen) */
+/* Primary gold button */
 .btn-gold {
-  background: linear-gradient(135deg, #e8cc5a 0%, #d4a82a 55%, #b88a18 100%);
-  color: #1a1408;
-  font-weight: 600;
-  border: 1px solid rgba(212, 168, 42, 0.5);
-  box-shadow: 0 6px 18px -8px rgba(212, 168, 42, 0.5);
+  background: linear-gradient(135deg, var(--brand-300) 0%, var(--accent) 55%, var(--accent-strong) 100%);
+  color: #1a1408; font-weight: 600;
+  border: 1px solid var(--hairline-gold);
+  box-shadow: 0 6px 18px -8px rgba(184,147,46,0.5);
 }
-.btn-gold:hover { filter: brightness(1.06); box-shadow: 0 8px 22px -8px rgba(212, 168, 42, 0.6); }
+.btn-gold:hover { filter: brightness(1.06); }
 .btn-gold:active { filter: brightness(0.97); }
 
 /* Luxe input */
 .input-luxe {
-  background: rgba(0, 0, 0, 0.25);
+  background: var(--surface);
   border: 1px solid var(--hairline);
-  color: var(--ink);
+  color: var(--text);
+  border-radius: var(--radius-sm);
 }
-.input-luxe::placeholder { color: rgba(168, 176, 164, 0.5); }
-.input-luxe:focus {
-  outline: none;
-  border-color: var(--hairline-gold);
-  box-shadow: 0 0 0 3px rgba(212, 168, 42, 0.12);
-}
+.input-luxe::placeholder { color: var(--text-faint); }
+.input-luxe:focus { outline: none; border-color: var(--hairline-gold); box-shadow: 0 0 0 3px var(--accent-soft); }
 
-/* Thin botanical scrollbar */
-::-webkit-scrollbar { width: 7px; height: 7px; }
+/* Focus ring for a11y (keyboard) */
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #2a352780; border-radius: 99px; }
-::-webkit-scrollbar-thumb:hover { background: #4a5e42; }
+::-webkit-scrollbar-thumb { background: var(--hairline-strong); border-radius: 99px; }
+::-webkit-scrollbar-thumb:hover { background: var(--accent-soft); }
 
-/* ── Global smooth transitions on interactive elements ─────────────────── */
-a, button, input, select, textarea,
-[class*="rounded"], [class*="border"] {
+/* Smooth transitions on interactive elements */
+a, button, input, select, textarea {
   transition-property: color, background-color, border-color, box-shadow, transform, opacity;
   transition-duration: 200ms;
   transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* ── Keyframes ──────────────────────────────────────────────────────────── */
-@keyframes fadeInUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+/* ── Keyframes ──────────────────────────────────────────────────────────────── */
+@keyframes fadeInUp { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes fadeIn   { from { opacity: 0; } to { opacity: 1; } }
 @keyframes scaleIn  { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: scale(1); } }
 @keyframes floatPetal { 0%,100% { transform: translateY(0) rotate(0deg); } 50% { transform: translateY(-3px) rotate(4deg); } }
@@ -157,24 +234,25 @@ a, button, input, select, textarea,
 @keyframes ai-pulse { 0%,100% { transform: scale(0.86); opacity: 0.75; } 50% { transform: scale(1.08); opacity: 1; } }
 @keyframes ai-bounce { 0%,100% { transform: translateY(0); opacity: 0.5; } 50% { transform: translateY(-4px); opacity: 1; } }
 
-/* ── Animation utilities ───────────────────────────────────────────────── */
-.animate-fade-in-up { animation: fadeInUp 0.55s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.animate-fade-in-up { animation: fadeInUp 0.55s var(--ease-out) both; }
 .animate-fade-in    { animation: fadeIn 0.4s ease-out both; }
-.animate-scale-in   { animation: scaleIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) both; }
-.animate-hero-zoom  { animation: heroZoom 1.6s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.animate-scale-in   { animation: scaleIn 0.25s var(--ease-out) both; }
+.animate-hero-zoom  { animation: heroZoom 1.6s var(--ease-out) both; }
 
-/* Gold shimmer text (wordmark / hero number accents) */
+/* Gold shimmer text (wordmark / hero accents) */
 .text-shimmer {
-  background: linear-gradient(110deg, #f2e090 20%, #fff7da 40%, #d4a82a 60%, #f2e090 80%);
+  background: linear-gradient(110deg, var(--brand-300) 20%, #fff7da 40%, var(--accent) 60%, var(--brand-300) 80%);
   background-size: 200% auto;
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+  -webkit-background-clip: text; background-clip: text; color: transparent;
   animation: shimmer 6s linear infinite;
 }
 
+/* Scroll-reveal: hidden until .is-visible (added by ScrollReveal/IO) */
+.reveal { opacity: 0; transform: translateY(16px); transition: opacity 0.6s var(--ease-out), transform 0.6s var(--ease-out); }
+.reveal.is-visible { opacity: 1; transform: none; }
+
 /* Stagger helpers */
-.stagger > * { animation: fadeInUp 0.55s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.stagger > * { animation: fadeInUp 0.55s var(--ease-out) both; }
 .stagger > *:nth-child(1) { animation-delay: 0.04s; }
 .stagger > *:nth-child(2) { animation-delay: 0.10s; }
 .stagger > *:nth-child(3) { animation-delay: 0.16s; }
@@ -188,12 +266,14 @@ a, button, input, select, textarea,
     animation-duration: 0.001ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
   }
+  .reveal { opacity: 1; transform: none; }
 }
 
-/* Chat markdown rendering */
-.chat-md a { word-break: break-word; }
-.chat-md ul, .chat-md ol { margin-top: 0.25rem; margin-bottom: 0.25rem; }
+/* Chat markdown */
+.chat-md a { word-break: break-word; color: var(--accent); }
+.chat-md ul, .chat-md ol { margin: 0.25rem 0; }
 .chat-md li { margin: 0.1rem 0; }
 .chat-md pre { white-space: pre-wrap; }
-.chat-md strong { color: #f1f0ea; }
+.chat-md strong { color: var(--text); }
