@@ -24,6 +24,11 @@ export function CongressTabs() {
           Raw disclosures
         </button>
       </div>
+      <p className="text-[11px] text-ink-faint">
+        {tab === "alpha"
+          ? "Alpha Feed = a SCORED, filtered subset: each trade ranked by conviction (capital size, committee overlap, clustering), plus the most-watched members pulled in. Small routine trades are hidden unless they cluster."
+          : "Raw disclosures = EVERY filing in plain chronological order, unscored and unfiltered — so it won't match the Alpha Feed's list, which is deliberately curated."}
+      </p>
       {tab === "alpha" ? <CongressAlphaFeed /> : <CongressFeed />}
     </div>
   );

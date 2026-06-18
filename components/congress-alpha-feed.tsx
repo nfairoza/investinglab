@@ -4,6 +4,7 @@ import { useState } from "react";
 import useSWR from "swr";
 import { Landmark, TrendingUp, TrendingDown, ExternalLink, Info } from "lucide-react";
 import { DataBadge, DataTimestamp } from "./data-state";
+import { MotionLoader } from "./motion-loader";
 import type { DataSource } from "@/lib/providers/types";
 
 interface ScoredTrade {
@@ -164,7 +165,7 @@ export function CongressAlphaFeed() {
         </div>
       )}
 
-      {isLoading && <div className="h-64 animate-pulse rounded-xl bg-surface-raised" />}
+      {isLoading && <MotionLoader page="congress" height={240} label="Scoring disclosures, joining committees, and reading the tape…" />}
 
       {!isLoading && data && (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">

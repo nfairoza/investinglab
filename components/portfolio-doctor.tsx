@@ -2,10 +2,11 @@
 
 import { useState } from "react";
 import useSWR from "swr";
+import { usePersistedState } from "@/lib/use-persisted-state";
 import { Stethoscope, TrendingUp, TrendingDown, ArrowRight } from "lucide-react";
 import { DataBadge } from "./data-state";
 import { AllocationDonut } from "./charts/AllocationDonut";
-import { AiVideoLoader } from "./ai-video-loader";
+import { MotionLoader } from "./motion-loader";
 import type { Holding } from "@/lib/db";
 import type { DataSource } from "@/lib/providers/types";
 
@@ -86,13 +87,14 @@ function MoveRow({ m, kind }: { m: Move; kind: "buy" | "sell" }) {
 export function PortfolioDoctor() {
   const { data: holdings = [] } = useSWR<Holding[]>("/api/holdings", (u: string) => fetch(u).then((r) => r.json()));
   const [busy, setBusy] = useState(false);
-  const [result, setResult] = useState<Result | null>(null);
+  // Persisted so the diagnosis survives navigation/reload until you re-run.
+  const [result, setResult] = usePersistedState<Result | null>("pf-doctor-result", null);
   const [error, setError] = useState<string | null>(null);
   const [activeHorizon, setActiveHorizon] = useState(0);
 
   async function run() {
     if (busy) return;
-    setBusy(true); setError(null); setResult(null);
+    setBusy(true); setError(null); // keep the previous result visible until the new one lands
     try {
       const r = await fetch("/api/portfolio-doctor", { method: "POST" });
       const j = await r.json();
@@ -139,7 +141,7 @@ export function PortfolioDoctor() {
 
       {busy && (
         <div className="rounded-xl glass p-3">
-          <AiVideoLoader height={180} label="Scoring each holding, pulling live data, and searching recent news…" />
+          <MotionLoader page="doctor" height={220} label="Scoring each holding, pulling live data, and searching recent news…" />
         </div>
       )}
 
@@ -166,9 +168,12 @@ export function PortfolioDoctor() {
                   <div className="text-xs text-ink-faint">Diversification & concentration · value ≈ {money(result.portfolio.totalValue)}</div>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                <DataBadge source={result.dataSource} />
-                <span className="text-[11px] text-ink-faint">{result.model}</span>
+              <div className="flex flex-col items-end gap-1">
+                <div className="flex items-center gap-2">
+                  <DataBadge source={result.dataSource} />
+                  <span className="text-[11px] text-ink-faint">{result.model}</span>
+                </div>
+                <span className="text-[11px] text-ink-faint">As of {new Date(result.generatedAt).toLocaleString()}</span>
               </div>
             </div>
             <p className="mt-3 text-sm text-ink-dim">{result.analysis.summary}</p>

@@ -249,6 +249,23 @@ a, button, input, select, textarea {
 @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
 @keyframes heroZoom { from { transform: scale(1.08); } to { transform: scale(1); } }
 @keyframes ai-spin { to { transform: rotate(360deg); } }
+
+/* ── Seamless motion-graphic loaders (loop perfectly by construction) ──────── */
+/* Scroll a tiled pattern by exactly one tile (40px) → no visible seam. */
+@keyframes mg-scroll-x { from { background-position: 0 0; } to { background-position: 40px 0; } }
+@keyframes mg-scroll-diag { from { background-position: 0 0; } to { background-position: 40px 40px; } }
+/* A dash travelling along a path, looping via stroke-dashoffset wrap. */
+@keyframes mg-dash { to { stroke-dashoffset: -1000; } }
+@keyframes mg-rotate { to { transform: rotate(360deg); } }
+@keyframes mg-rotate-rev { to { transform: rotate(-360deg); } }
+/* Pulse a ring outward, fading — staggered copies make a continuous radar. */
+@keyframes mg-radar { 0% { transform: scale(0.2); opacity: 0.55; } 100% { transform: scale(1); opacity: 0; } }
+/* Equalizer bars rising/falling — symmetric so the loop is seamless. */
+@keyframes mg-bar { 0%,100% { transform: scaleY(0.35); } 50% { transform: scaleY(1); } }
+/* Gentle drift for floating nodes. */
+@keyframes mg-float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+/* Sheen sweep across a gradient. */
+@keyframes mg-sheen { 0% { background-position: -150% 0; } 100% { background-position: 250% 0; } }
 @keyframes ai-pulse { 0%,100% { transform: scale(0.86); opacity: 0.75; } 50% { transform: scale(1.08); opacity: 1; } }
 @keyframes ai-bounce { 0%,100% { transform: translateY(0); opacity: 0.5; } 50% { transform: translateY(-4px); opacity: 1; } }
 

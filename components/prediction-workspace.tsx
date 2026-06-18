@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import { usePersistedState } from "@/lib/use-persisted-state";
 import { DataBadge } from "./data-state";
 import { TickerInput } from "./ticker-input";
-import { AiVideoLoader } from "./ai-video-loader";
+import { MotionLoader } from "./motion-loader";
 import type { DataSource } from "@/lib/providers/types";
 
 interface Horizon {
@@ -57,7 +58,8 @@ const DIR_STYLE: Record<string, { cls: string; arrow: string; word: string }> = 
 export function PredictionWorkspace({ initial = "AMD" }: { initial?: string }) {
   const [draft, setDraft] = useState(initial);
   const [busy, setBusy] = useState(false);
-  const [result, setResult] = useState<Result | null>(null);
+  // Persisted so the last prediction survives navigation/reload until you re-run.
+  const [result, setResult] = usePersistedState<Result | null>("predictions-result", null);
   const [error, setError] = useState<string | null>(null);
 
   async function run(sym?: string) {
@@ -65,8 +67,7 @@ export function PredictionWorkspace({ initial = "AMD" }: { initial?: string }) {
     if (!symbol || busy) return;
     setDraft(symbol);
     setBusy(true);
-    setError(null);
-    setResult(null);
+    setError(null); // keep the previous result visible until the new one lands
     try {
       const r = await fetch("/api/predict", {
         method: "POST",
@@ -99,7 +100,7 @@ export function PredictionWorkspace({ initial = "AMD" }: { initial?: string }) {
 
       {busy && (
         <div className="rounded-xl glass p-3">
-          <AiVideoLoader height={170} />
+          <MotionLoader page="predictions" height={210} />
         </div>
       )}
 
