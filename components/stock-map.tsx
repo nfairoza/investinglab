@@ -123,7 +123,8 @@ export function StockMap() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <select value={sector} onChange={(e) => setSector(e.target.value)}
-            className="rounded-md border border-hairline bg-[#11150f] px-3 py-2 text-sm text-ink focus:border-brand-500 focus:outline-none [&>option]:bg-[#11150f] [&>option]:text-ink">
+            className="rounded-md border border-hairline px-3 py-2 text-sm text-ink focus:border-brand-500 focus:outline-none"
+            style={{ background: "var(--surface-solid)", color: "var(--text)" }}>
             <option value="All">All sectors</option>
             <option value={MY_HOLDINGS}>★ My Holdings{holdings.length ? ` (${ownedSet.size})` : ""}</option>
             {sectors.map((s) => <option key={s} value={s}>{s}</option>)}

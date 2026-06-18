@@ -140,9 +140,7 @@ export function PortfolioDoctor() {
       </div>
 
       {busy && (
-        <div className="rounded-xl glass p-3">
-          <MotionLoader page="doctor" height={220} label="Scoring each holding, pulling live data, and searching recent news…" />
-        </div>
+        <MotionLoader page="doctor" height={220} label="Scoring each holding, pulling live data, and searching recent news…" />
       )}
 
       {error && (

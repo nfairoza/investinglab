@@ -98,11 +98,7 @@ export function PredictionWorkspace({ initial = "AMD" }: { initial?: string }) {
         </button>
       </div>
 
-      {busy && (
-        <div className="rounded-xl glass p-3">
-          <MotionLoader page="predictions" height={210} />
-        </div>
-      )}
+      {busy && <MotionLoader page="predictions" height={210} />}
 
       {error && (
         <div className="rounded-lg border border-rose-500/30 bg-rose-500/5 p-4 text-sm text-rose-300">

@@ -38,6 +38,37 @@ async function priceChange(symbol: string): Promise<any | null> {
   }
 }
 
+interface BatchQuote { name?: string; marketCap?: number; changePct?: number }
+
+// Run async jobs with a concurrency cap. FMP's batch-quote endpoint is premium
+// ("Restricted" on this plan), so we still fetch per-symbol — but firing all
+// ~110 at once trips the per-minute RATE limit (which showed the map as
+// "Unavailable"). Capping concurrency keeps us under the limit while staying
+// fast; the provider already caches each quote 90s + retries transient 429s.
+async function mapPool<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
+  const out: R[] = new Array(items.length);
+  let next = 0;
+  async function worker() {
+    while (next < items.length) {
+      const i = next++;
+      out[i] = await fn(items[i]);
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+  return out;
+}
+
+async function batchQuotes(symbols: string[]): Promise<Map<string, BatchQuote>> {
+  const out = new Map<string, BatchQuote>();
+  if (!fmpKey()) return out;
+  const results = await mapPool(symbols, 8, (s) => marketData.getQuote(s).catch(() => null));
+  symbols.forEach((s, i) => {
+    const q = results[i]?.data;
+    if (q) out.set(s, { name: q.name ?? s, marketCap: q.marketCap ?? 0, changePct: q.changePct ?? 0 });
+  });
+  return out;
+}
+
 // Curated S&P-style universe grouped by sector (sector is static metadata — FMP's
 // bulk/constituent endpoints are paid, so we hardcode a representative set of
 // large caps and fetch each quote live). Quotes are cached 90s in the FMP layer.
@@ -84,29 +115,43 @@ export async function GET(req: NextRequest) {
     ...extra.map((symbol) => ({ symbol, sector: "My Holdings" })),
   ];
 
-  const jobs = targets.map(({ symbol, sector }) =>
-    Promise.all([
-      marketData.getQuote(symbol),
-      period === "1D" ? Promise.resolve(null) : priceChange(symbol),
-    ]).then(([q, pc]) => {
-      if (!q.data) return null;
-      // For 1D use the live quote's day %, otherwise the period return from FMP.
-      const changePct =
-        period === "1D"
-          ? (q.data.changePct ?? 0)
-          : (pc && typeof pc[FMP_FIELD[period as Exclude<Period, "1D">]] === "number"
-              ? pc[FMP_FIELD[period as Exclude<Period, "1D">]]
-              : (q.data.changePct ?? 0));
-      return {
-        symbol,
-        name: q.data.name ?? symbol,
-        sector,
-        marketCap: q.data.marketCap ?? 0,
-        changePct,
-      } as MapNode;
-    }).catch(() => null),
-  );
-  const nodes = (await Promise.all(jobs)).filter((n): n is MapNode => n != null && n.marketCap > 0);
+  // ONE batched quote call for the whole universe instead of ~110 individual
+  // requests — far faster and avoids tripping FMP's per-minute rate limit (which
+  // was showing the map as "Unavailable"). FMP /stable/quote accepts a
+  // comma-separated symbol list.
+  const quotes = await batchQuotes(targets.map((t) => t.symbol));
+
+  // Period returns: only needed for non-1D windows. Still per-symbol (cached 5m),
+  // but capped in concurrency so a period flip doesn't fire 110 calls at once.
+  const pcBySym = new Map<string, any>();
+  if (period !== "1D") {
+    const syms = targets.map((t) => t.symbol);
+    const CONCURRENCY = 8;
+    for (let i = 0; i < syms.length; i += CONCURRENCY) {
+      const batch = syms.slice(i, i + CONCURRENCY);
+      const rows = await Promise.all(batch.map((s) => priceChange(s)));
+      batch.forEach((s, j) => pcBySym.set(s, rows[j]));
+    }
+  }
+
+  const nodes = targets.map(({ symbol, sector }) => {
+    const q = quotes.get(symbol);
+    if (!q) return null;
+    const pc = pcBySym.get(symbol);
+    const changePct =
+      period === "1D"
+        ? (q.changePct ?? 0)
+        : (pc && typeof pc[FMP_FIELD[period as Exclude<Period, "1D">]] === "number"
+            ? pc[FMP_FIELD[period as Exclude<Period, "1D">]]
+            : (q.changePct ?? 0));
+    return {
+      symbol,
+      name: q.name ?? symbol,
+      sector,
+      marketCap: q.marketCap ?? 0,
+      changePct,
+    } as MapNode;
+  }).filter((n): n is MapNode => n != null && n.marketCap > 0);
   // source is "live" if we got real data, else demo
   const anyLive = nodes.length > 0;
   return NextResponse.json({
