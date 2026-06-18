@@ -98,8 +98,8 @@ export function DashboardClient() {
   const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
 
   const firstLook = !hasHoldings ? null
-    : score?.earningsInDays != null && score.earningsInDays <= 7
-      ? `${topSym} reports in ${score.earningsInDays} days and sits at ${alloc.find((a) => a.symbol === topSym)?.pct.toFixed(0) ?? "—"}% of your book.`
+    : score?.earningsInDays != null && score.earningsInDays >= 0 && score.earningsInDays <= 7
+      ? `${topSym} reports ${score.earningsInDays === 0 ? "today" : `in ${score.earningsInDays} day${score.earningsInDays === 1 ? "" : "s"}`} and sits at ${alloc.find((a) => a.symbol === topSym)?.pct.toFixed(0) ?? "—"}% of your book.`
       : alloc[0] && alloc[0].pct > 40
         ? `${alloc[0].symbol} is ${alloc[0].pct.toFixed(0)}% of your portfolio — heavy concentration in one name.`
         : totalGain != null && totalGain < 0
