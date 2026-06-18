@@ -3,7 +3,7 @@
 import { useState } from "react";
 import useSWR from "swr";
 import {
-  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Dot,
 } from "recharts";
 import { DataBadge, DataTimestamp } from "@/components/data-state";
 import type { DataResult, PriceHistory } from "@/lib/providers/types";
@@ -103,12 +103,15 @@ export function PriceChart({ symbol }: { symbol: string }) {
       {chartable && (
         <div className="mt-3">
           <ResponsiveContainer width="100%" height={240}>
-            <AreaChart data={points} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+            <AreaChart data={points} margin={{ top: 6, right: 8, left: 0, bottom: 0 }}>
               <defs>
                 <linearGradient id={`grad-${symbol}`} x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={stroke} stopOpacity={0.25} />
+                  <stop offset="0%" stopColor={stroke} stopOpacity={0.34} />
                   <stop offset="100%" stopColor={stroke} stopOpacity={0} />
                 </linearGradient>
+                <filter id={`grad-${symbol}-blur`} x="-20%" y="-40%" width="140%" height="180%">
+                  <feGaussianBlur stdDeviation="3" />
+                </filter>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke={ct.grid} vertical={false} />
               <XAxis dataKey="date" tick={{ fill: ct.axis, fontSize: 10, fontFamily: "var(--font-mono)" }} tickLine={false}
@@ -120,7 +123,15 @@ export function PriceChart({ symbol }: { symbol: string }) {
                 labelStyle={{ color: ct.axis }}
                 formatter={(v: number) => [`$${v.toFixed(2)}`, "Close"]}
               />
-              <Area dataKey="close" stroke={stroke} strokeWidth={1.5} fill={`url(#grad-${symbol})`} />
+              {/* soft glow underlay (matches the dashboard Top-Assets sparkline) */}
+              <Area dataKey="close" stroke={stroke} strokeOpacity={0.35} strokeWidth={5} fill="none"
+                filter={`url(#grad-${symbol}-blur)`} isAnimationActive={false} dot={false} activeDot={false} />
+              {/* crisp line + gradient fill, glowing last point */}
+              <Area dataKey="close" stroke={stroke} strokeWidth={2} fill={`url(#grad-${symbol})`}
+                dot={(p: any) => (p.index === points.length - 1
+                  ? <Dot key="last" cx={p.cx} cy={p.cy} r={3.5} fill={stroke} stroke="var(--bg)" strokeWidth={2} />
+                  : (null as any))}
+                activeDot={{ r: 4, fill: stroke, stroke: "var(--bg)", strokeWidth: 2 }} />
             </AreaChart>
           </ResponsiveContainer>
         </div>
