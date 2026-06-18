@@ -220,8 +220,8 @@ export function WatchlistManager() {
 
                   {(w.bullCase || w.bearCase) && (
                     <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
-                      {w.bullCase && <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-2 text-xs text-emerald-100"><span className="font-medium">Bull:</span> {w.bullCase}</div>}
-                      {w.bearCase && <div className="rounded-lg border border-rose-500/20 bg-rose-500/5 p-2 text-xs text-rose-100"><span className="font-medium">Bear:</span> {w.bearCase}</div>}
+                      {w.bullCase && <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-2 text-xs text-emerald-800 dark:bg-emerald-500/5 dark:text-emerald-100"><span className="font-medium">Bull:</span> {w.bullCase}</div>}
+                      {w.bearCase && <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 p-2 text-xs text-rose-800 dark:bg-rose-500/5 dark:text-rose-100"><span className="font-medium">Bear:</span> {w.bearCase}</div>}
                     </div>
                   )}
 
