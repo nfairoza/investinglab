@@ -62,6 +62,7 @@ html.dark, :root {
   --negative: #FF6B6B;                   /* loss = warm rose */
   --negative-soft: rgba(255,107,107,0.13);
   --neutral: #94A0AE;
+  --hold-bar: #6B7686;                   /* analyst "Hold" segment — clearly grey on dark */
 
   --glass-bg: rgba(255,255,255,0.032);
   --glass-border: rgba(255,255,255,0.08);
@@ -104,6 +105,7 @@ html.light {
   --negative: #E1483B;                   /* loss red on white */
   --negative-soft: rgba(225,72,59,0.10);
   --neutral: #475569;
+  --hold-bar: #94A3B8;                   /* analyst "Hold" segment — clearly grey on white */
 
   --glass-bg: rgba(255,255,255,0.78);
   --glass-border: rgba(15,23,42,0.08);

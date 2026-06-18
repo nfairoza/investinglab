@@ -50,19 +50,19 @@ export function AnalystPanel({ symbol }: { symbol: string }) {
           {total > 0 && (
             <div>
               <div className="mb-1 text-xs text-ink-faint">Rating breakdown ({total} analysts)</div>
-              <div className="flex h-4 w-full overflow-hidden rounded-full">
-                <Bar count={a.strongBuy} total={total} color="bg-emerald-500" label="Strong buy" />
-                <Bar count={a.buy} total={total} color="bg-emerald-400/70" label="Buy" />
-                <Bar count={a.hold} total={total} color="bg-surface" label="Hold" />
-                <Bar count={a.sell} total={total} color="bg-amber-500/70" label="Sell" />
-                <Bar count={a.strongSell} total={total} color="bg-rose-500" label="Strong sell" />
+              <div className="flex h-4 w-full overflow-hidden rounded-full gap-px">
+                <Bar count={a.strongBuy} total={total} bg="var(--positive)" label="Strong buy" />
+                <Bar count={a.buy} total={total} bg="color-mix(in oklab, var(--positive) 55%, var(--surface-solid))" label="Buy" />
+                <Bar count={a.hold} total={total} bg="var(--hold-bar)" label="Hold" />
+                <Bar count={a.sell} total={total} bg="#f59e0b" label="Sell" />
+                <Bar count={a.strongSell} total={total} bg="var(--negative)" label="Strong sell" />
               </div>
               <div className="mt-1 flex flex-wrap gap-x-4 gap-y-0.5 text-[11px] text-ink-faint">
-                {a.strongBuy > 0 && <span><span className="text-emerald-400">■</span> Strong buy: {a.strongBuy}</span>}
-                {a.buy > 0 && <span><span className="text-emerald-300">■</span> Buy: {a.buy}</span>}
-                {a.hold > 0 && <span><span className="text-ink-dim">■</span> Hold: {a.hold}</span>}
-                {a.sell > 0 && <span><span className="text-amber-400">■</span> Sell: {a.sell}</span>}
-                {a.strongSell > 0 && <span><span className="text-rose-400">■</span> Strong sell: {a.strongSell}</span>}
+                {a.strongBuy > 0 && <span><span style={{ color: "var(--positive)" }}>■</span> Strong buy: {a.strongBuy}</span>}
+                {a.buy > 0 && <span><span style={{ color: "color-mix(in oklab, var(--positive) 55%, var(--surface-solid))" }}>■</span> Buy: {a.buy}</span>}
+                {a.hold > 0 && <span><span style={{ color: "var(--hold-bar)" }}>■</span> Hold: {a.hold}</span>}
+                {a.sell > 0 && <span><span style={{ color: "#f59e0b" }}>■</span> Sell: {a.sell}</span>}
+                {a.strongSell > 0 && <span><span style={{ color: "var(--negative)" }}>■</span> Strong sell: {a.strongSell}</span>}
               </div>
             </div>
           )}
@@ -98,12 +98,12 @@ function Fact({ label, value, highlight }: { label: string; value: string; highl
   );
 }
 
-function Bar({ count, total, color, label }: { count: number; total: number; color: string; label: string }) {
+function Bar({ count, total, bg, label }: { count: number; total: number; bg: string; label: string }) {
   if (!count) return null;
   return (
     <div
-      className={`${color} h-full`}
-      style={{ width: `${(count / total) * 100}%` }}
+      className="h-full"
+      style={{ width: `${(count / total) * 100}%`, background: bg }}
       title={`${label}: ${count}`}
     />
   );
