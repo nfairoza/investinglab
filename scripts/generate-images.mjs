@@ -51,21 +51,29 @@ async function gen(prompt, file) {
   console.log(`✓ ${file}`);
 }
 
+// Shared art direction appended to every prompt for cohesion.
+const STYLE = " abstract botanical-meets-technical, soft jasmine-gold and sage-green light, fine grain, elegant and minimal, cinematic, painterly but refined, no text, no logos, high detail.";
+
 const ASSETS = [
   {
     file: "hero-jasmine.jpg",
     prompt:
-      "A cinematic, ultra-detailed photograph of delicate white jasmine flowers and dark green vines arranged on the left side, against a deep charcoal-green to near-black background. Soft warm golden rim lighting on the petals, luxurious and moody, lots of empty dark negative space on the right side for text overlay. Elegant, high-end, magazine quality, shallow depth of field. Wide 16:9 banner composition.",
+      "A wide cinematic banner: abstract jasmine vines dissolving into fine flowing data-lines and drifting light particles, dark moody background (#0B0F0D near-black with warm green undertone), soft golden rim light, generous dark negative space on the right for text overlay, 16:9." + STYLE,
+  },
+  {
+    file: "hero-jasmine-light.jpg",
+    prompt:
+      "A wide cinematic banner, LIGHT airy version: abstract jasmine vines dissolving into fine flowing data-lines and soft light particles on a warm cream off-white background (#FAF7F0), gentle daylight, muted jasmine-gold and sage accents, lots of bright negative space on the right for text, 16:9." + STYLE,
   },
   {
     file: "bg-vines.png",
     prompt:
-      "A seamless subtle decorative pattern of thin elegant jasmine vines and small white blossoms, line-art style, very faint, on a pure solid black background. Minimal, sparse, delicate gold and white linework. Texture overlay for a website background.",
+      "A seamless tileable texture of very faint thin jasmine vine and leaf line-art on near-black (#0B0F0D), extremely low contrast, sparse delicate gold and sage linework, subtle background texture overlay." + STYLE,
   },
   {
     file: "empty-jasmine.png",
     prompt:
-      "A single elegant white jasmine blossom with a few green leaves, centered, on a solid dark charcoal-green background, soft golden glow, minimal, high-end botanical illustration.",
+      "A single elegant jasmine blossom with subtle fine circuit-board detail in the petals, centered with lots of negative space, on a dark charcoal-green background, soft golden glow, square." + STYLE,
   },
 ];
 

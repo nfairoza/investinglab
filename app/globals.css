@@ -160,6 +160,17 @@ body {
 /* ── Typography ────────────────────────────────────────────────────────────── */
 .font-display { font-family: var(--font-display); letter-spacing: -0.015em; font-optical-sizing: auto; }
 
+/* ── Hero image + scrim (theme-aware) ──────────────────────────────────────── */
+.hero-img { background-image: url("/images/hero-jasmine.jpg"); }
+html.light .hero-img { background-image: url("/images/hero-jasmine-light.jpg"); }
+.hero-scrim {
+  background: linear-gradient(90deg, var(--bg) 0%, color-mix(in oklab, var(--bg) 70%, transparent) 42%, color-mix(in oklab, var(--bg) 12%, transparent) 100%);
+}
+.hero-scrim::after {
+  content: ""; position: absolute; inset: 0;
+  background: linear-gradient(180deg, var(--bg) 0%, transparent 22%, transparent 78%, color-mix(in oklab, var(--bg) 55%, transparent) 100%);
+}
+
 /* ── Glass surfaces ──────────────────────────────────────────────────────────
    Gradient hairline border via mask trick + layered depth. */
 .glass {
