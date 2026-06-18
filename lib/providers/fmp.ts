@@ -52,6 +52,15 @@ function cacheKey(url: string): string {
   return url.replace(/([?&])apikey=[^&]*/i, "$1apikey=__");
 }
 
+// Drop all cached FMP responses so the next call hits the API fresh. Used by the
+// "Clear cache & refresh" action in Settings (e.g. when day-change drifts vs a
+// broker before the 90s TTL expires).
+export function clearFmpCache(): number {
+  const n = cache.size;
+  cache.clear();
+  return n;
+}
+
 // Thrown only when FMP's body explicitly says the quota is exhausted (true
 // daily cap). A bare 429 is a transient per-minute RATE limit — we retry those
 // instead, so a burst of parallel calls on a research page doesn't flash a scary
