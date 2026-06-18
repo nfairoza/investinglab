@@ -20,7 +20,8 @@ export async function POST(req: NextRequest) {
       existing.note = body.note ?? existing.note;
       existing.updatedAt = now();
     } else {
-      db.data.watchlist.push({
+      // Newest first — add to the top of the list.
+      db.data.watchlist.unshift({
         id: newId(),
         symbol,
         idealBuy: body.idealBuy != null ? Number(body.idealBuy) : undefined,
@@ -29,6 +30,22 @@ export async function POST(req: NextRequest) {
         updatedAt: now(),
       });
     }
+    return db.data.watchlist;
+  });
+  return NextResponse.json(result);
+}
+
+// PATCH { order: string[] } — reorder the watchlist to match the given id order.
+// Any ids not in the list keep their relative order at the end (safe for races).
+export async function PATCH(req: NextRequest) {
+  const body = await req.json().catch(() => ({}));
+  const order: string[] = Array.isArray(body?.order) ? body.order : [];
+  if (!order.length) return NextResponse.json({ error: "order array required" }, { status: 400 });
+  const result = await withDbWrite((db) => {
+    const byId = new Map(db.data.watchlist.map((w) => [w.id, w]));
+    const reordered = order.map((id) => byId.get(id)).filter((w): w is NonNullable<typeof w> => Boolean(w));
+    const rest = db.data.watchlist.filter((w) => !order.includes(w.id));
+    db.data.watchlist = [...reordered, ...rest];
     return db.data.watchlist;
   });
   return NextResponse.json(result);

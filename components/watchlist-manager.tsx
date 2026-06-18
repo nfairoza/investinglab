@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import useSWR from "swr";
+import { GripVertical, ChevronUp, ChevronDown } from "lucide-react";
 import { DataBadge, DataTimestamp } from "./data-state";
 import { TickerInput } from "./ticker-input";
 import type { DataResult, Quote } from "@/lib/providers/types";
@@ -80,6 +81,44 @@ export function WatchlistManager() {
     mutate();
   }
 
+  // ── Reorder (drag, or up/down buttons) ──────────────────────────────────────
+  const [dragId, setDragId] = useState<string | null>(null);
+
+  async function persistOrder(ordered: WatchItem[]) {
+    // Optimistic: show the new order immediately, then persist.
+    mutate(ordered, { revalidate: false });
+    await fetch("/api/watchlist", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ order: ordered.map((w) => w.id) }),
+    }).catch(() => {});
+    mutate();
+  }
+
+  function moveTo(fromId: string, toIndex: number) {
+    const from = items.findIndex((w) => w.id === fromId);
+    if (from === -1) return;
+    const clamped = Math.max(0, Math.min(items.length - 1, toIndex));
+    if (from === clamped) return;
+    const next = [...items];
+    const [moved] = next.splice(from, 1);
+    next.splice(clamped, 0, moved);
+    persistOrder(next);
+  }
+
+  function move(id: string, dir: -1 | 1) {
+    const i = items.findIndex((w) => w.id === id);
+    if (i === -1) return;
+    moveTo(id, i + dir);
+  }
+
+  function onDrop(targetId: string) {
+    if (!dragId || dragId === targetId) { setDragId(null); return; }
+    const target = items.findIndex((w) => w.id === targetId);
+    moveTo(dragId, target);
+    setDragId(null);
+  }
+
   async function analyze(id: string) {
     setBusyId(id);
     try {
@@ -123,15 +162,28 @@ export function WatchlistManager() {
       {items.length > 0 && (
         <>
           <div className="flex items-center gap-2">{anySource && <DataBadge source={anySource} />}</div>
+          <p className="text-[11px] text-ink-faint">Drag the <GripVertical size={11} className="inline" /> handle (or use ↑ ↓) to reorder. New tickers land on top.</p>
           <div className="space-y-3">
-            {items.map((w) => {
+            {items.map((w, idx) => {
               const price = quotes?.[w.symbol]?.data?.price ?? null;
               const atOrBelow = price != null && w.idealBuy != null ? price <= w.idealBuy : null;
               const busy = busyId === w.id;
               return (
-                <div key={w.id} className="glass card-hover rounded-2xl p-4">
+                <div key={w.id}
+                  onDragOver={(e) => { if (dragId) e.preventDefault(); }}
+                  onDrop={() => onDrop(w.id)}
+                  className={`glass card-hover rounded-2xl p-4 transition-opacity ${dragId === w.id ? "opacity-50" : ""}`}>
                   <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2">
+                      <span
+                        draggable
+                        onDragStart={() => setDragId(w.id)}
+                        onDragEnd={() => setDragId(null)}
+                        title="Drag to reorder"
+                        className="cursor-grab touch-none text-ink-faint hover:text-ink-dim active:cursor-grabbing"
+                      >
+                        <GripVertical size={16} />
+                      </span>
                       <a href={`/research?symbol=${w.symbol}`} className="font-display text-lg font-semibold text-brand-300 hover:underline">{w.symbol}</a>
                       <span className="text-sm text-ink-dim">{price != null ? `$${price.toFixed(2)}` : "—"}</span>
                       {w.aiAction && (
@@ -139,6 +191,12 @@ export function WatchlistManager() {
                       )}
                     </div>
                     <div className="flex items-center gap-2">
+                      <div className="flex items-center">
+                        <button onClick={() => move(w.id, -1)} disabled={idx === 0} title="Move up"
+                          className="rounded-md p-1 text-ink-faint hover:text-ink hover:bg-surface disabled:opacity-30 disabled:hover:bg-transparent"><ChevronUp size={15} /></button>
+                        <button onClick={() => move(w.id, 1)} disabled={idx === items.length - 1} title="Move down"
+                          className="rounded-md p-1 text-ink-faint hover:text-ink hover:bg-surface disabled:opacity-30 disabled:hover:bg-transparent"><ChevronDown size={15} /></button>
+                      </div>
                       <button onClick={() => analyze(w.id)} disabled={busy}
                         className="rounded-md border border-brand-500/50 bg-brand-500/10 px-3 py-1.5 text-xs font-medium text-brand-300 hover:bg-brand-500/20 disabled:opacity-50">
                         {busy ? "Analyzing…" : w.analyzedAt ? "Refresh analysis" : "Analyze"}
