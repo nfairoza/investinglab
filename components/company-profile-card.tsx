@@ -53,7 +53,7 @@ export function CompanyProfileCard({ symbol }: { symbol: string }) {
             <Fact label="CEO" value={p.ceo ?? "—"} />
             <Fact label="IPO date" value={p.ipoDate ?? "—"} />
             {p.website && (
-              <div className="flex justify-between gap-3 border-b border-white/5 py-1">
+              <div className="flex justify-between gap-3 border-b border-hairline py-1">
                 <span className="text-ink-faint">Website</span>
                 <a href={p.website} target="_blank" rel="noreferrer" className="text-right text-brand-400 underline truncate max-w-[160px]">
                   {p.website.replace(/^https?:\/\//, "")}
@@ -74,7 +74,7 @@ export function CompanyProfileCard({ symbol }: { symbol: string }) {
               <div className="flex flex-wrap gap-2">
                 {p.peers.slice(0, 8).map((peer) => (
                   <a key={peer} href={`/research?symbol=${peer}`}
-                    className="rounded-md border border-white/10 px-2 py-0.5 text-xs text-brand-300 hover:bg-surface-raised">
+                    className="rounded-md border border-hairline px-2 py-0.5 text-xs text-brand-300 hover:bg-surface-raised">
                     {peer}
                   </a>
                 ))}
@@ -89,7 +89,7 @@ export function CompanyProfileCard({ symbol }: { symbol: string }) {
 
 function Fact({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex justify-between gap-3 border-b border-white/5 py-1">
+    <div className="flex justify-between gap-3 border-b border-hairline py-1">
       <span className="text-ink-faint shrink-0">{label}</span>
       <span className="text-right text-ink-dim">{value}</span>
     </div>

@@ -120,7 +120,7 @@ export function CongressAlphaFeed() {
             {(["HIGH", "MEDIUM", "ALL"] as const).map((t) => (
               <button key={t} onClick={() => setMinTier(t)}
                 className={`rounded-md border px-2.5 py-1 text-xs font-medium transition-colors ${
-                  t === minTier ? "border-brand-500/60 bg-brand-500/15 text-brand-200" : "border-white/10 text-ink-dim hover:bg-white/5"
+                  t === minTier ? "border-brand-500/60 bg-brand-500/15 text-ink" : "border-hairline text-ink-dim hover:bg-surface"
                 }`}>
                 {t === "HIGH" ? "High conviction" : t === "MEDIUM" ? "Medium+" : "All"}
               </button>
@@ -132,7 +132,7 @@ export function CongressAlphaFeed() {
             {WINDOWS.map((w) => (
               <button key={w.days} onClick={() => setDays(w.days)}
                 className={`rounded-md border px-2.5 py-1 text-xs font-medium transition-colors ${
-                  w.days === days ? "border-brand-500/60 bg-brand-500/15 text-brand-200" : "border-white/10 text-ink-dim hover:bg-white/5"
+                  w.days === days ? "border-brand-500/60 bg-brand-500/15 text-ink" : "border-hairline text-ink-dim hover:bg-surface"
                 }`}>
                 {w.label}
               </button>
@@ -142,14 +142,14 @@ export function CongressAlphaFeed() {
         <div className="flex items-center gap-2">
           {data && <DataBadge source={data.source} />}
           <button onClick={() => mutate()} disabled={isValidating}
-            className="rounded-md border border-white/10 px-2 py-1 text-xs text-ink-dim hover:bg-surface-raised disabled:opacity-50">
+            className="rounded-md border border-hairline px-2 py-1 text-xs text-ink-dim hover:bg-surface-raised disabled:opacity-50">
             {isValidating ? "Refreshing…" : "Refresh"}
           </button>
         </div>
       </div>
 
       {/* Score-bar legend — what the colored segments mean. */}
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-lg border border-white/5 bg-black/15 px-3 py-2 text-[11px] text-ink-dim">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-lg border border-hairline bg-black/15 px-3 py-2 text-[11px] text-ink-dim">
         <span className="text-ink-faint">Score bar:</span>
         <span className="flex items-center gap-1"><span className="inline-block h-2 w-3 rounded-sm bg-sky-500" /> Capital scale (25)</span>
         <span className="flex items-center gap-1"><span className="inline-block h-2 w-3 rounded-sm bg-brand-500" /> Committee edge (40)</span>
@@ -174,14 +174,14 @@ export function CongressAlphaFeed() {
               <Landmark size={16} className="text-brand-400" /> Alpha Feed — {rows.length} trades
             </div>
             {rows.length === 0 && (
-              <div className="rounded-lg border border-white/5 bg-black/20 p-6 text-center text-sm text-ink-faint">
+              <div className="rounded-lg border border-hairline bg-surface p-6 text-center text-sm text-ink-faint">
                 No trades at this conviction level. Try “All”.
               </div>
             )}
             {rows.map((r) => (
               <button key={r.id} onClick={() => setSelected(r.id)}
                 className={`w-full rounded-xl border p-3 text-left transition-colors ${
-                  sel?.id === r.id ? "border-brand-500/50 bg-brand-500/[0.06]" : "border-white/10 bg-black/15 hover:bg-white/[0.03]"
+                  sel?.id === r.id ? "border-brand-500/50 bg-brand-500/[0.06]" : "border-hairline bg-black/15 hover:bg-white/[0.03]"
                 }`}>
                 <div className="flex items-center gap-3">
                   <span className="shrink-0 rounded-md bg-surface-raised px-2 py-1 font-bold text-brand-300">{r.ticker}</span>
@@ -234,7 +234,7 @@ export function CongressAlphaFeed() {
                     <span className="text-xs text-ink-faint">{sel.sector}</span>
                   </div>
                   <div className="text-ink-dim">{sel.representative}{sel.party ? ` (${sel.party})` : ""} · {sel.chamber}</div>
-                  <div className={`rounded-lg border p-2 text-xs ${sel.conflictLevel === "primary" ? "border-brand-500/40 bg-brand-500/5 text-brand-200" : sel.conflictLevel === "secondary" ? "border-amber-500/30 bg-amber-500/5 text-amber-200" : "border-white/10 bg-black/20 text-ink-dim"}`}>
+                  <div className={`rounded-lg border p-2 text-xs ${sel.conflictLevel === "primary" ? "border-brand-500/40 bg-brand-500/5 text-ink" : sel.conflictLevel === "secondary" ? "border-amber-500/30 bg-amber-500/5 text-amber-200" : "border-hairline bg-surface text-ink-dim"}`}>
                     {sel.conflictRationale}
                   </div>
                   {/* Score breakdown */}
@@ -243,19 +243,19 @@ export function CongressAlphaFeed() {
                     <Row label="Committee edge" v={sel.breakdown.edge} max={40} />
                     <Row label="Cluster signal" v={sel.breakdown.cluster} max={20} />
                     <Row label="Options (estimated)" v={sel.breakdown.options} max={15} />
-                    <div className="flex justify-between border-t border-white/10 pt-1 font-semibold text-ink">
+                    <div className="flex justify-between border-t border-hairline pt-1 font-semibold text-ink">
                       <span>Conviction</span><span>{sel.convictionScore}/{sel.maxPossible}</span>
                     </div>
                   </div>
                   {/* Options read */}
-                  <div className="rounded-lg border border-white/10 bg-black/20 p-2 text-xs">
+                  <div className="rounded-lg border border-hairline bg-surface p-2 text-xs">
                     <div className="text-ink-faint">Options read <span className="text-ink-faint">(AI-estimated)</span></div>
                     <div className={`font-medium ${sel.optionsValidation === "BULLISH" ? "text-emerald-300" : sel.optionsValidation === "BEARISH" ? "text-rose-300" : "text-ink-dim"}`}>
                       {sel.optionsValidation}
                     </div>
                   </div>
                   {sel.thesis && (
-                    <div className="rounded-lg border border-white/10 bg-black/20 p-2 text-xs text-ink-dim">
+                    <div className="rounded-lg border border-hairline bg-surface p-2 text-xs text-ink-dim">
                       <div className="mb-0.5 text-ink-faint">AI thesis</div>{sel.thesis}
                     </div>
                   )}

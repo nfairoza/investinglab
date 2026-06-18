@@ -152,7 +152,7 @@ export function EtradeConnector() {
   const selectedAccount = status?.accounts.find((a) => a.accountIdKey === status.selectedAccountIdKey);
 
   return (
-    <div className="rounded-xl border border-white/10 bg-black/15 p-5 space-y-4">
+    <div className="rounded-xl border border-hairline bg-black/15 p-5 space-y-4">
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
@@ -198,14 +198,14 @@ export function EtradeConnector() {
               value={consumerKey}
               onChange={(e) => setConsumerKey(e.target.value)}
               placeholder="Consumer key"
-              className="rounded-md border border-white/10 bg-black/25 px-3 py-2 text-sm text-ink placeholder:text-ink-faint focus:border-brand-500 focus:outline-none"
+              className="rounded-md border border-hairline bg-surface px-3 py-2 text-sm text-ink placeholder:text-ink-faint focus:border-brand-500 focus:outline-none"
             />
             <input
               type="password"
               value={consumerSecret}
               onChange={(e) => setConsumerSecret(e.target.value)}
               placeholder="Consumer secret"
-              className="rounded-md border border-white/10 bg-black/25 px-3 py-2 text-sm text-ink placeholder:text-ink-faint focus:border-brand-500 focus:outline-none"
+              className="rounded-md border border-hairline bg-surface px-3 py-2 text-sm text-ink placeholder:text-ink-faint focus:border-brand-500 focus:outline-none"
             />
           </div>
           <button
@@ -256,14 +256,14 @@ export function EtradeConnector() {
                   onChange={(e) => setCode(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && submitCode()}
                   placeholder="Verification code"
-                  className="rounded-md border border-white/10 bg-black/25 px-3 py-2 text-sm text-ink placeholder:text-ink-faint focus:border-brand-500 focus:outline-none"
+                  className="rounded-md border border-hairline bg-surface px-3 py-2 text-sm text-ink placeholder:text-ink-faint focus:border-brand-500 focus:outline-none"
                 />
                 <button onClick={submitCode} disabled={busy || !code.trim()}
                   className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-50">
                   {busy ? "Verifying…" : "Verify & connect"}
                 </button>
                 <button onClick={() => { setAwaitingCode(false); setCode(""); setMsg(null); }}
-                  className="rounded-md border border-white/10 px-3 py-2 text-xs text-ink-dim hover:bg-surface-raised">
+                  className="rounded-md border border-hairline px-3 py-2 text-xs text-ink-dim hover:bg-surface-raised">
                   Cancel
                 </button>
               </div>
@@ -279,7 +279,7 @@ export function EtradeConnector() {
           <select
             value={selectedKey}
             onChange={(e) => setSelectedKey(e.target.value)}
-            className="w-full rounded-md border border-white/10 bg-black/25 px-3 py-2 text-sm text-ink focus:border-brand-500 focus:outline-none"
+            className="w-full rounded-md border border-hairline bg-surface px-3 py-2 text-sm text-ink focus:border-brand-500 focus:outline-none"
           >
             <option value="">Pick an account…</option>
             {status.accounts.map((a) => (
@@ -325,7 +325,7 @@ export function EtradeConnector() {
             <select
               value={selectedKey}
               onChange={(e) => setSelectedKey(e.target.value)}
-              className="rounded-md border border-white/10 bg-black/25 px-2 py-1.5 text-xs text-ink-dim focus:border-brand-500 focus:outline-none"
+              className="rounded-md border border-hairline bg-surface px-2 py-1.5 text-xs text-ink-dim focus:border-brand-500 focus:outline-none"
             >
               {status.accounts.map((a) => (
                 <option key={a.accountIdKey} value={a.accountIdKey}>
@@ -334,11 +334,11 @@ export function EtradeConnector() {
               ))}
             </select>
             {selectedKey !== status.selectedAccountIdKey && (
-              <button onClick={selectAccount} disabled={busy} className="rounded-md border border-white/10 px-2 py-1.5 text-xs text-ink-dim hover:bg-surface-raised disabled:opacity-50">
+              <button onClick={selectAccount} disabled={busy} className="rounded-md border border-hairline px-2 py-1.5 text-xs text-ink-dim hover:bg-surface-raised disabled:opacity-50">
                 Switch account
               </button>
             )}
-            <button onClick={disconnect} disabled={busy} className="rounded-md border border-white/10 px-3 py-1.5 text-xs text-ink-dim hover:bg-surface-raised disabled:opacity-50">
+            <button onClick={disconnect} disabled={busy} className="rounded-md border border-hairline px-3 py-1.5 text-xs text-ink-dim hover:bg-surface-raised disabled:opacity-50">
               Disconnect
             </button>
           </div>

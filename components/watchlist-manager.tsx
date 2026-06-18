@@ -97,7 +97,7 @@ export function WatchlistManager() {
   }
 
   const anySource = quotes ? Object.values(quotes)[0]?.source : undefined;
-  const inputCls = "w-full rounded-md border border-white/10 bg-black/25 px-3 py-2 text-sm text-ink placeholder:text-ink-faint focus:border-brand-500 focus:outline-none";
+  const inputCls = "w-full rounded-md border border-hairline bg-surface px-3 py-2 text-sm text-ink placeholder:text-ink-faint focus:border-brand-500 focus:outline-none";
 
   return (
     <div className="space-y-4">
@@ -115,7 +115,7 @@ export function WatchlistManager() {
       </div>
 
       {items.length === 0 && (
-        <div className="rounded-lg border border-white/5 bg-black/20 p-6 text-center text-sm text-ink-faint">
+        <div className="rounded-lg border border-hairline bg-surface p-6 text-center text-sm text-ink-faint">
           Nothing on your watchlist yet. Add a ticker you&apos;re considering above.
         </div>
       )}
@@ -181,7 +181,7 @@ export function WatchlistManager() {
 
 function Field({ label, value, cls = "text-ink-dim" }: { label: string; value: string; cls?: string }) {
   return (
-    <div className="border-b border-white/5 py-1">
+    <div className="border-b border-hairline py-1">
       <div className="text-[10px] uppercase tracking-wide text-ink-faint">{label}</div>
       <div className={`text-sm ${cls}`}>{value}</div>
     </div>

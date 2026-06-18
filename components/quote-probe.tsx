@@ -65,7 +65,7 @@ export function QuoteProbe({
           <button
             onClick={() => mutate()}
             disabled={isValidating}
-            className="rounded-md border border-white/10 px-2 py-0.5 text-[11px] text-ink-dim hover:bg-surface-raised disabled:opacity-50"
+            className="rounded-md border border-hairline px-2 py-0.5 text-[11px] text-ink-dim hover:bg-surface-raised disabled:opacity-50"
             aria-label={`Refresh ${symbol} quote`}
           >
             {refreshing ? "Refreshing…" : "Refresh"}

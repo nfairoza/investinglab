@@ -30,7 +30,7 @@ export function Term({ id, children }: { id: string; children?: React.ReactNode 
       {open && (
         <span
           role="tooltip"
-          className="absolute left-0 top-full z-50 mt-1 block w-64 rounded-lg border border-white/10 bg-surface-raised p-3 text-left text-xs leading-relaxed shadow-xl"
+          className="absolute left-0 top-full z-50 mt-1 block w-64 rounded-lg border border-hairline bg-surface-raised p-3 text-left text-xs leading-relaxed shadow-xl"
         >
           <span className="block font-semibold text-ink">{entry.term}</span>
           <span className="mt-1 block text-ink-dim">{entry.short}</span>

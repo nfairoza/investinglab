@@ -301,7 +301,7 @@ export function ChatWidget() {
           }}
         >
           {/* Header (click to minimize/restore) */}
-          <div className="flex items-center justify-between border-b border-white/10 bg-white/[0.03] px-4 py-3"
+          <div className="flex items-center justify-between border-b border-hairline bg-white/[0.03] px-4 py-3"
             style={{ borderTopLeftRadius: size === "full" ? 16 : 16, borderTopRightRadius: size === "full" ? 0 : 16 }}>
             <button onClick={() => setMinimized((m) => !m)} className="flex-1 text-left" title={minimized ? "Expand" : "Minimize"}>
               <div className="text-sm font-semibold text-ink">Noor Investing Lab</div>
@@ -353,7 +353,7 @@ export function ChatWidget() {
                 <p className="text-center text-xs text-ink-faint pt-2">Ask anything about your portfolio</p>
                 {SUGGESTIONS.map((s) => (
                   <button key={s} onClick={() => send(s)}
-                    className="w-full rounded-lg border border-white/10 bg-surface px-3 py-2 text-left text-xs text-ink-dim hover:bg-surface-raised hover:text-ink transition-colors">
+                    className="w-full rounded-lg border border-hairline bg-surface px-3 py-2 text-left text-xs text-ink-dim hover:bg-surface-raised hover:text-ink transition-colors">
                     {s}
                   </button>
                 ))}
@@ -393,7 +393,7 @@ export function ChatWidget() {
           </div>
 
           {/* Input */}
-          <div className="border-t border-white/10 px-3 py-2">
+          <div className="border-t border-hairline px-3 py-2">
             {/* Pending image previews */}
             {pendingImages.length > 0 && (
               <div className="mb-2 flex flex-wrap gap-2">
@@ -424,7 +424,7 @@ export function ChatWidget() {
                 onClick={() => fileRef.current?.click()}
                 disabled={streaming || pendingImages.length >= 4}
                 title="Attach image"
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/10 text-ink-dim hover:bg-surface-raised hover:text-ink disabled:opacity-40">
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-hairline text-ink-dim hover:bg-surface-raised hover:text-ink disabled:opacity-40">
                 <ImagePlus size={16} />
               </button>
               <textarea
@@ -436,7 +436,7 @@ export function ChatWidget() {
                 placeholder="Ask anything, or paste/attach an image… (Enter to send)"
                 rows={1}
                 disabled={streaming}
-                className="flex-1 resize-none rounded-xl border border-white/10 bg-surface-raised px-3 py-2 text-sm text-ink placeholder:text-ink-faint focus:border-brand-500 focus:outline-none disabled:opacity-50"
+                className="flex-1 resize-none rounded-xl border border-hairline bg-surface-raised px-3 py-2 text-sm text-ink placeholder:text-ink-faint focus:border-brand-500 focus:outline-none disabled:opacity-50"
                 style={{ maxHeight: 96, overflowY: "auto" }}
                 onInput={(e) => {
                   const el = e.currentTarget;

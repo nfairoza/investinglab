@@ -141,12 +141,12 @@ export function HoldingsManager() {
   const portTotalGain = valued.reduce((s, v) => s + (v.totalGain ?? 0), 0);
   const anySource = quotes ? Object.values(quotes)[0]?.source : undefined;
 
-  const inputCls = "rounded-md border border-white/10 bg-black/25 px-3 py-2 text-sm text-ink placeholder:text-ink-faint focus:border-brand-500 focus:outline-none";
+  const inputCls = "rounded-md border border-hairline bg-surface px-3 py-2 text-sm text-ink placeholder:text-ink-faint focus:border-brand-500 focus:outline-none";
 
   return (
     <div className="space-y-4">
       {/* Broker sync */}
-      <div className="flex flex-wrap items-center gap-3 rounded-lg border border-white/5 bg-black/20 px-4 py-3">
+      <div className="flex flex-wrap items-center gap-3 rounded-lg border border-hairline bg-surface px-4 py-3">
         <button onClick={syncFromEtrade} disabled={syncingEtrade}
           className="rounded-md border border-emerald-600/60 bg-emerald-600/10 px-3 py-1.5 text-sm font-medium text-emerald-300 hover:bg-emerald-600/20 disabled:opacity-50">
           {syncingEtrade ? "Syncing…" : "↓ Sync from E*TRADE"}
@@ -178,7 +178,7 @@ export function HoldingsManager() {
       </div>
 
       {allHoldings.length === 0 && (
-        <div className="rounded-lg border border-white/5 bg-black/20 p-6 text-center text-sm text-ink-faint">
+        <div className="rounded-lg border border-hairline bg-surface p-6 text-center text-sm text-ink-faint">
           No holdings yet. Add a ticker above or sync from E*TRADE.
         </div>
       )}
@@ -217,7 +217,7 @@ export function HoldingsManager() {
               {anySource && <DataBadge source={anySource} />}
               {/* Source filter — only shown when there's more than one source */}
               {presentSources.length > 1 && (
-                <div className="flex items-center gap-1 rounded-lg border border-white/10 bg-black/20 p-0.5">
+                <div className="flex items-center gap-1 rounded-lg border border-hairline bg-surface p-0.5">
                   {(["all", ...presentSources] as const).map((src) => {
                     const label = src === "all" ? "All" : src === "etrade" ? "E*TRADE" : src === "robinhood" ? "Robinhood" : "Manual";
                     const active = sourceFilter === src;
@@ -239,15 +239,15 @@ export function HoldingsManager() {
           </div>
 
           {holdings.length === 0 && (
-            <div className="rounded-lg border border-white/5 bg-black/20 p-4 text-center text-sm text-ink-faint">
+            <div className="rounded-lg border border-hairline bg-surface p-4 text-center text-sm text-ink-faint">
               No {sourceFilter} holdings.
             </div>
           )}
 
           {holdings.length > 0 && (
-          <div className="overflow-x-auto rounded-xl border border-white/10">
+          <div className="overflow-x-auto rounded-xl border border-hairline">
             <table className="w-full text-left text-sm">
-              <thead className="bg-black/25 text-xs uppercase tracking-wide text-ink-faint">
+              <thead className="bg-surface text-xs uppercase tracking-wide text-ink-faint">
                 <tr>
                   <th className="px-3 py-2">Ticker</th>
                   <th className="px-3 py-2">Shares</th>

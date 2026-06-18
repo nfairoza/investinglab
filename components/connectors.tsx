@@ -98,7 +98,7 @@ function ConnectorCard({ connector, stat, onChanged }: { connector: Connector; s
             value={vals[f.id] ?? ""}
             onChange={(e) => setVals((v) => ({ ...v, [f.id]: e.target.value }))}
             placeholder={f.placeholder ?? f.label}
-            className="rounded-md border border-white/10 bg-black/25 px-3 py-2 text-sm text-ink placeholder:text-ink-faint focus:border-brand-500 focus:outline-none"
+            className="rounded-md border border-hairline bg-surface px-3 py-2 text-sm text-ink placeholder:text-ink-faint focus:border-brand-500 focus:outline-none"
           />
         ))}
       </div>
@@ -108,15 +108,15 @@ function ConnectorCard({ connector, stat, onChanged }: { connector: Connector; s
           Save
         </button>
         {connector.testUrl && (
-          <button onClick={test} disabled={busy} className="rounded-md border border-white/10 px-3 py-1.5 text-sm text-ink hover:bg-surface-raised disabled:opacity-50">
+          <button onClick={test} disabled={busy} className="rounded-md border border-hairline px-3 py-1.5 text-sm text-ink hover:bg-surface-raised disabled:opacity-50">
             Test
           </button>
         )}
-        <button onClick={onChanged} disabled={busy} className="rounded-md border border-white/10 px-3 py-1.5 text-sm text-ink-dim hover:bg-surface-raised disabled:opacity-50">
+        <button onClick={onChanged} disabled={busy} className="rounded-md border border-hairline px-3 py-1.5 text-sm text-ink-dim hover:bg-surface-raised disabled:opacity-50">
           Refresh
         </button>
         {stat?.source === "runtime" && (
-          <button onClick={clear} disabled={busy} className="rounded-md border border-white/10 px-3 py-1.5 text-sm text-ink-dim hover:bg-surface-raised disabled:opacity-50">
+          <button onClick={clear} disabled={busy} className="rounded-md border border-hairline px-3 py-1.5 text-sm text-ink-dim hover:bg-surface-raised disabled:opacity-50">
             Clear
           </button>
         )}
@@ -182,8 +182,8 @@ export function Connectors() {
 
 export function SectionHeading({ title, subtitle }: { title: string; subtitle?: string }) {
   return (
-    <div className="border-b border-white/10 pb-2">
-      <h2 className="font-display text-xl font-semibold text-[#ece9e0]">{title}</h2>
+    <div className="border-b border-hairline pb-2">
+      <h2 className="font-display text-xl font-semibold text-ink">{title}</h2>
       {subtitle && <p className="mt-0.5 text-xs text-ink-faint">{subtitle}</p>}
     </div>
   );

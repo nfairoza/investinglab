@@ -69,7 +69,7 @@ export function AnalystPanel({ symbol }: { symbol: string }) {
 
           {/* Latest grade */}
           {a.latestGrade && (
-            <div className="rounded-lg border border-white/10 bg-surface p-3 text-sm">
+            <div className="rounded-lg border border-hairline bg-surface p-3 text-sm">
               <div className="text-xs text-ink-faint mb-1">Latest analyst action</div>
               <div className="flex flex-wrap items-center gap-2">
                 <span className="font-medium text-ink">{a.latestGrade.firm}</span>
@@ -91,7 +91,7 @@ export function AnalystPanel({ symbol }: { symbol: string }) {
 
 function Fact({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
   return (
-    <div className="flex justify-between gap-3 border-b border-white/5 py-1">
+    <div className="flex justify-between gap-3 border-b border-hairline py-1">
       <span className="text-ink-faint shrink-0">{label}</span>
       <span className={`text-right font-medium ${highlight ? "text-brand-300" : "text-ink-dim"}`}>{value}</span>
     </div>

@@ -50,7 +50,7 @@ function Cell(props: any) {
       onClick={() => name && router?.push(`/research?symbol=${name}`)}
       style={{ cursor: name ? "pointer" : "default" }}
     >
-      <rect x={x} y={y} width={width} height={height} fill={fill} stroke="#0a0e0c" strokeWidth={1.5} rx={2} />
+      <rect x={x} y={y} width={width} height={height} fill={fill} stroke="var(--bg)" strokeWidth={1.5} rx={2} />
       {big && (
         <text
           x={cx} y={showPct ? cy - 6 : cy} textAnchor="middle" dominantBaseline="middle"
@@ -123,7 +123,7 @@ export function StockMap() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <select value={sector} onChange={(e) => setSector(e.target.value)}
-            className="rounded-md border border-white/10 bg-[#11150f] px-3 py-2 text-sm text-ink focus:border-brand-500 focus:outline-none [&>option]:bg-[#11150f] [&>option]:text-ink">
+            className="rounded-md border border-hairline bg-[#11150f] px-3 py-2 text-sm text-ink focus:border-brand-500 focus:outline-none [&>option]:bg-[#11150f] [&>option]:text-ink">
             <option value="All">All sectors</option>
             <option value={MY_HOLDINGS}>★ My Holdings{holdings.length ? ` (${ownedSet.size})` : ""}</option>
             {sectors.map((s) => <option key={s} value={s}>{s}</option>)}
@@ -131,7 +131,7 @@ export function StockMap() {
           {data && <DataBadge source={data.source} />}
         </div>
         <button onClick={() => mutate()} disabled={isValidating}
-          className="rounded-md border border-white/10 px-3 py-1.5 text-sm text-ink hover:bg-surface-raised disabled:opacity-50">
+          className="rounded-md border border-hairline px-3 py-1.5 text-sm text-ink hover:bg-surface-raised disabled:opacity-50">
           {isValidating ? "Refreshing…" : "↻ Refresh"}
         </button>
       </div>
@@ -143,7 +143,7 @@ export function StockMap() {
           <button key={p} onClick={() => setPeriod(p)}
             title={PERIOD_LABEL[p]}
             className={`rounded-md border px-2.5 py-1 text-xs font-medium transition-colors ${
-              p === period ? "border-brand-500/60 bg-brand-500/15 text-brand-200" : "border-white/10 text-ink-dim hover:bg-white/5"
+              p === period ? "border-brand-500/60 bg-brand-500/15 text-ink" : "border-hairline text-ink-dim hover:bg-surface"
             }`}>
             {p}
           </button>
@@ -178,7 +178,7 @@ export function StockMap() {
             <Treemap
               data={treeData}
               dataKey="size"
-              stroke="#0a0e0c"
+              stroke="var(--bg)"
               content={<Cell router={router} scale={scale} />}
               isAnimationActive={false}
             >

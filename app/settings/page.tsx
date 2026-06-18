@@ -1,8 +1,10 @@
+
+export const metadata = { title: "Settings" };
 export default function Page() {
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="font-display text-3xl font-semibold text-[#ece9e0]">Settings</h1>
+        <h1 className="font-display text-3xl font-semibold text-ink">Settings</h1>
         <p className="mt-1 max-w-2xl text-sm text-ink-dim">
           App preferences will live here. API keys and the AI layer have moved to{" "}
           <a href="/connectors" className="text-brand-400 underline">Connectors</a> — add your

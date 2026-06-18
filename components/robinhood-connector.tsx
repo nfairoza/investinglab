@@ -82,17 +82,17 @@ export function RobinhoodConnector() {
     finally { setBusy(false); }
   }
 
-  const input = "w-full rounded-md border border-white/10 bg-black/25 px-3 py-2 text-sm text-ink placeholder:text-ink-faint focus:border-brand-500 focus:outline-none";
+  const input = "w-full rounded-md border border-hairline bg-surface px-3 py-2 text-sm text-ink placeholder:text-ink-faint focus:border-brand-500 focus:outline-none";
 
   return (
     <div className="card-hover rounded-2xl glass p-4 space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="font-medium text-ink">Robinhood — portfolio sync</span>
-        <span className="rounded-full border border-white/10 px-2 py-0.5 text-[10px] text-ink-dim">Read-only</span>
+        <span className="rounded-full border border-hairline px-2 py-0.5 text-[10px] text-ink-dim">Read-only</span>
       </div>
 
       {/* ── Crypto (official API) ── */}
-      <div className="rounded-xl border border-white/10 bg-black/20 p-3 space-y-2">
+      <div className="rounded-xl border border-hairline bg-surface p-3 space-y-2">
         <div className="flex items-center justify-between">
           <span className="text-sm font-medium text-ink">Crypto — official API</span>
           {status?.cryptoConfigured
@@ -126,7 +126,7 @@ export function RobinhoodConnector() {
         </p>
 
         {status?.stocksConnected ? (
-          <button onClick={disconnect} disabled={busy} className="rounded-md border border-white/10 px-3 py-1.5 text-sm text-ink-dim hover:bg-surface-raised">
+          <button onClick={disconnect} disabled={busy} className="rounded-md border border-hairline px-3 py-1.5 text-sm text-ink-dim hover:bg-surface-raised">
             Disconnect stocks
           </button>
         ) : !mfaStep ? (
@@ -141,14 +141,14 @@ export function RobinhoodConnector() {
         ) : (
           <div className="flex flex-wrap items-center gap-2">
             <input value={code} onChange={(e) => setCode(e.target.value)} onKeyDown={(e) => e.key === "Enter" && submitMfa()}
-              placeholder="Verification code" className="rounded-md border border-white/10 bg-black/25 px-3 py-2 text-sm text-ink placeholder:text-ink-faint focus:border-brand-500 focus:outline-none" />
+              placeholder="Verification code" className="rounded-md border border-hairline bg-surface px-3 py-2 text-sm text-ink placeholder:text-ink-faint focus:border-brand-500 focus:outline-none" />
             <button onClick={submitMfa} disabled={busy || !code.trim()} className="rounded-md bg-amber-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-amber-500 disabled:opacity-50">
               {busy ? "Verifying…" : "Verify"}
             </button>
-            <button onClick={() => { setCode(""); login(); }} disabled={busy || !pass} className="rounded-md border border-white/10 px-3 py-1.5 text-xs text-ink-dim hover:bg-surface-raised disabled:opacity-50" title="Robinhood will send a new code">
+            <button onClick={() => { setCode(""); login(); }} disabled={busy || !pass} className="rounded-md border border-hairline px-3 py-1.5 text-xs text-ink-dim hover:bg-surface-raised disabled:opacity-50" title="Robinhood will send a new code">
               Resend code
             </button>
-            <button onClick={() => { setMfaStep(false); setCode(""); }} className="rounded-md border border-white/10 px-3 py-1.5 text-xs text-ink-dim hover:bg-surface-raised">Cancel</button>
+            <button onClick={() => { setMfaStep(false); setCode(""); }} className="rounded-md border border-hairline px-3 py-1.5 text-xs text-ink-dim hover:bg-surface-raised">Cancel</button>
           </div>
         )}
       </div>

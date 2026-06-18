@@ -143,7 +143,7 @@ export function InsiderFeed({ symbol }: { symbol: string }) {
       )}
 
       {trades.length > 0 && (
-        <div className="mt-4 max-h-[28rem] overflow-auto rounded-lg border border-white/10">
+        <div className="mt-4 max-h-[28rem] overflow-auto rounded-lg border border-hairline">
           <table className="w-full text-left text-sm">
             <thead className="sticky top-0 bg-black/40 backdrop-blur text-xs uppercase tracking-wide text-ink-faint">
               <tr>

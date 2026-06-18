@@ -75,11 +75,11 @@ export function TickerInput({
         onFocus={() => matches.length && setOpen(true)}
         placeholder={placeholder}
         autoComplete="off"
-        className={className || "w-64 rounded-md border border-white/10 bg-black/25 px-3 py-2 text-sm text-ink placeholder:text-ink-faint focus:border-brand-500 focus:outline-none"}
+        className={className || "w-64 rounded-md border border-hairline bg-surface px-3 py-2 text-sm text-ink placeholder:text-ink-faint focus:border-brand-500 focus:outline-none"}
       />
       {open && matches.length > 0 && (
         <ul
-          className="absolute z-40 mt-1 max-h-72 w-full min-w-[18rem] overflow-auto rounded-xl border border-white/15 py-1 shadow-2xl"
+          className="absolute z-40 mt-1 max-h-72 w-full min-w-[18rem] overflow-auto rounded-xl border border-hairline-strong py-1 shadow-2xl"
           style={{ background: "rgba(14,18,15,0.98)", backdropFilter: "blur(8px)" }}
         >
           {matches.map((m, i) => (
@@ -89,7 +89,7 @@ export function TickerInput({
                 onMouseEnter={() => setActive(i)}
                 onClick={() => pick(m)}
                 className={`flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm transition-colors ${
-                  i === active ? "bg-brand-500/15" : "hover:bg-white/5"
+                  i === active ? "bg-brand-500/15" : "hover:bg-surface"
                 }`}
               >
                 <span className="flex items-baseline gap-2">

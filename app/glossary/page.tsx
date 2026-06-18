@@ -1,10 +1,12 @@
 import { GLOSSARY } from "@/lib/glossary";
 
+export const metadata = { title: "Glossary" };
+
 export default function GlossaryPage() {
   const entries = Object.values(GLOSSARY).sort((a, b) => a.term.localeCompare(b.term));
   return (
     <div className="mx-auto max-w-3xl">
-      <h1 className="font-display text-3xl font-semibold text-[#ece9e0]">Glossary</h1>
+      <h1 className="font-display text-3xl font-semibold text-ink">Glossary</h1>
       <p className="mt-1 text-sm text-ink-dim">
         Every term the app uses, in plain English. These same definitions power the hover tooltips.
       </p>

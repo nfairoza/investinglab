@@ -62,7 +62,7 @@ export function Journal() {
     mutate();
   }
 
-  const input = "rounded-md border border-white/10 bg-black/25 px-3 py-2 text-sm text-ink placeholder:text-ink-faint focus:border-brand-500 focus:outline-none";
+  const input = "rounded-md border border-hairline bg-surface px-3 py-2 text-sm text-ink placeholder:text-ink-faint focus:border-brand-500 focus:outline-none";
 
   return (
     <div className="space-y-4">
@@ -85,7 +85,7 @@ export function Journal() {
       </div>
 
       {items.length === 0 && (
-        <div className="rounded-lg border border-white/5 bg-black/20 p-6 text-center text-sm text-ink-faint">
+        <div className="rounded-lg border border-hairline bg-surface p-6 text-center text-sm text-ink-faint">
           No trades logged yet. Logging your reasoning, target, and exit plan is how you improve over time.
         </div>
       )}
@@ -144,7 +144,7 @@ export function Journal() {
 
 function Field({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex justify-between gap-3 border-b border-white/5 py-1">
+    <div className="flex justify-between gap-3 border-b border-hairline py-1">
       <span className="shrink-0 text-ink-faint">{label}</span>
       <span className="text-right text-ink-dim">{value}</span>
     </div>

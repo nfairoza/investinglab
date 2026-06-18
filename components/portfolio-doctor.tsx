@@ -66,7 +66,7 @@ function money(n: number): string {
 function MoveRow({ m, kind }: { m: Move; kind: "buy" | "sell" }) {
   const isBuy = kind === "buy";
   return (
-    <li className="flex items-start gap-2 rounded-lg border border-white/5 bg-black/15 px-3 py-2">
+    <li className="flex items-start gap-2 rounded-lg border border-hairline bg-black/15 px-3 py-2">
       <span className={`mt-0.5 shrink-0 rounded-md border px-1.5 py-0.5 text-[10px] font-semibold ${isBuy ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300" : "border-rose-500/40 bg-rose-500/10 text-rose-300"}`}>
         {m.action}
       </span>
@@ -229,7 +229,7 @@ export function PortfolioDoctor() {
               {result.analysis.horizons?.map((h, i) => (
                 <button key={h.horizon} onClick={() => setActiveHorizon(i)}
                   className={`rounded-md border px-3 py-1.5 text-xs font-medium transition-colors ${
-                    i === activeHorizon ? "border-brand-500/60 bg-brand-500/15 text-brand-200" : "border-white/10 text-ink-dim hover:bg-white/5"
+                    i === activeHorizon ? "border-brand-500/60 bg-brand-500/15 text-ink" : "border-hairline text-ink-dim hover:bg-surface"
                   }`}>
                   {h.horizon}
                 </button>
@@ -238,7 +238,7 @@ export function PortfolioDoctor() {
 
             {active && (
               <div className="mt-4 space-y-3">
-                <div className="rounded-lg border border-white/10 bg-black/15 px-3 py-2 text-sm text-ink-dim">
+                <div className="rounded-lg border border-hairline bg-black/15 px-3 py-2 text-sm text-ink-dim">
                   <span className="font-medium text-ink">{active.horizon} stance: </span>{active.stance}
                 </div>
                 <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
@@ -249,7 +249,7 @@ export function PortfolioDoctor() {
                     </div>
                     <ul className="space-y-1.5">
                       {active.sells?.length ? active.sells.map((m, i) => <MoveRow key={i} m={m} kind="sell" />)
-                        : <li className="rounded-lg border border-white/5 bg-black/15 px-3 py-2 text-xs text-ink-faint">Nothing to sell at this horizon.</li>}
+                        : <li className="rounded-lg border border-hairline bg-black/15 px-3 py-2 text-xs text-ink-faint">Nothing to sell at this horizon.</li>}
                     </ul>
                   </div>
                   {/* Buys */}
@@ -259,7 +259,7 @@ export function PortfolioDoctor() {
                     </div>
                     <ul className="space-y-1.5">
                       {active.buys?.length ? active.buys.map((m, i) => <MoveRow key={i} m={m} kind="buy" />)
-                        : <li className="rounded-lg border border-white/5 bg-black/15 px-3 py-2 text-xs text-ink-faint">Nothing to buy at this horizon.</li>}
+                        : <li className="rounded-lg border border-hairline bg-black/15 px-3 py-2 text-xs text-ink-faint">Nothing to buy at this horizon.</li>}
                     </ul>
                   </div>
                 </div>
@@ -270,9 +270,9 @@ export function PortfolioDoctor() {
           {/* Per-holding research links */}
           <div className="rounded-xl glass p-4">
             <div className="text-sm font-semibold text-ink">Your holdings — research & predictions</div>
-            <div className="mt-3 overflow-x-auto rounded-lg border border-white/10">
+            <div className="mt-3 overflow-x-auto rounded-lg border border-hairline">
               <table className="w-full text-left text-sm">
-                <thead className="bg-black/25 text-xs uppercase tracking-wide text-ink-faint">
+                <thead className="bg-surface text-xs uppercase tracking-wide text-ink-faint">
                   <tr>
                     <th className="px-3 py-2">Ticker</th>
                     <th className="px-3 py-2">Value</th>

@@ -169,7 +169,7 @@ export function SettingsAI() {
             No key set
           </span>
         )}
-        <button onClick={refresh} className="ml-1 rounded-md border border-white/10 px-2 py-0.5 text-xs text-ink-dim hover:bg-surface-raised">
+        <button onClick={refresh} className="ml-1 rounded-md border border-hairline px-2 py-0.5 text-xs text-ink-dim hover:bg-surface-raised">
           Refresh
         </button>
       </div>
@@ -181,7 +181,7 @@ export function SettingsAI() {
           value={model}
           onChange={(e) => applyModel(e.target.value)}
           disabled={busy}
-          className="w-full rounded-md border border-white/10 bg-black/25 px-3 py-2 text-sm text-ink focus:border-brand-500 focus:outline-none disabled:opacity-50"
+          className="w-full rounded-md border border-hairline bg-surface px-3 py-2 text-sm text-ink focus:border-brand-500 focus:outline-none disabled:opacity-50"
         >
           {MODELS.map((m) => (
             <option key={m.id} value={m.id}>
@@ -198,13 +198,13 @@ export function SettingsAI() {
       </div>
 
       {/* Routing strategy — task-aware model selection */}
-      <div className="space-y-2 border-t border-white/10 pt-4">
+      <div className="space-y-2 border-t border-hairline pt-4">
         <label className="block text-sm text-ink-dim">Routing strategy</label>
         <select
           value={strategy}
           onChange={(e) => applyStrategy(e.target.value)}
           disabled={busy}
-          className="w-full rounded-md border border-white/10 bg-black/25 px-3 py-2 text-sm text-ink focus:border-brand-500 focus:outline-none disabled:opacity-50"
+          className="w-full rounded-md border border-hairline bg-surface px-3 py-2 text-sm text-ink focus:border-brand-500 focus:outline-none disabled:opacity-50"
         >
           {STRATEGIES.map((s) => (
             <option key={s.id} value={s.id}>{s.label}</option>
@@ -226,7 +226,7 @@ export function SettingsAI() {
       </div>
 
       {/* API key */}
-      <div className="space-y-2 border-t border-white/10 pt-4">
+      <div className="space-y-2 border-t border-hairline pt-4">
         <label className="block text-sm text-ink-dim">Claude API key</label>
         <p className="text-xs text-ink-faint">
           Already set via <code className="rounded bg-surface-raised px-1">.env.local</code>? You can leave this blank.
@@ -237,7 +237,7 @@ export function SettingsAI() {
           value={apiKey}
           onChange={(e) => setApiKey(e.target.value)}
           placeholder="sk-ant-…"
-          className="w-full rounded-md border border-white/10 bg-black/25 px-3 py-2 text-sm text-ink placeholder:text-ink-faint focus:border-brand-500 focus:outline-none"
+          className="w-full rounded-md border border-hairline bg-surface px-3 py-2 text-sm text-ink placeholder:text-ink-faint focus:border-brand-500 focus:outline-none"
         />
       </div>
 
@@ -252,14 +252,14 @@ export function SettingsAI() {
         <button
           onClick={test}
           disabled={busy || !status?.configured}
-          className="rounded-md border border-white/10 px-3 py-1.5 text-sm text-ink hover:bg-surface-raised disabled:opacity-50"
+          className="rounded-md border border-hairline px-3 py-1.5 text-sm text-ink hover:bg-surface-raised disabled:opacity-50"
         >
           Test connection
         </button>
         <button
           onClick={clear}
           disabled={busy || status?.source !== "runtime"}
-          className="rounded-md border border-white/10 px-3 py-1.5 text-sm text-ink-dim hover:bg-surface-raised disabled:opacity-50"
+          className="rounded-md border border-hairline px-3 py-1.5 text-sm text-ink-dim hover:bg-surface-raised disabled:opacity-50"
         >
           Clear
         </button>

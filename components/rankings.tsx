@@ -59,7 +59,7 @@ function RankRow({ s, i, horizon }: { s: StockScore; i: number; horizon: Horizon
   const st = BIAS_STYLE[o.bias];
   const today = s.changePct;
   return (
-    <li className="rounded-lg border border-white/5 bg-black/15 px-3 py-2 hover:bg-white/[0.03]">
+    <li className="rounded-lg border border-hairline bg-black/15 px-3 py-2 hover:bg-white/[0.03]">
       <div className="flex items-center gap-3">
         <span className="w-4 shrink-0 text-right text-xs text-ink-faint">{i + 1}</span>
         <a href={`/research?symbol=${s.symbol}`} className="w-14 shrink-0 font-semibold text-brand-300 hover:underline">{s.symbol}</a>
@@ -147,7 +147,7 @@ export function Rankings() {
       </div>
 
       {/* How to read this — legitimacy / methodology */}
-      <details className="rounded-lg border border-white/10 bg-black/15 p-3 text-xs text-ink-dim">
+      <details className="rounded-lg border border-hairline bg-black/15 p-3 text-xs text-ink-dim">
         <summary className="cursor-pointer text-ink-dim">How to read these rankings (and where the numbers come from)</summary>
         <div className="mt-2 space-y-1.5 leading-relaxed">
           <p><span className="text-ink">Today</span> = the stock&apos;s actual % move so far today (real quote data).</p>

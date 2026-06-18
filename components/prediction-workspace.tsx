@@ -186,7 +186,7 @@ export function PredictionWorkspace({ initial = "AMD" }: { initial?: string }) {
               <div className="mb-2 text-sm font-medium text-ink">Recent headlines Claude found</div>
               <ul className="space-y-2">
                 {result.prediction.keyHeadlines.map((hl, i) => (
-                  <li key={i} className="border-b border-white/5 pb-2 last:border-0">
+                  <li key={i} className="border-b border-hairline pb-2 last:border-0">
                     {hl.url ? (
                       <a href={hl.url} target="_blank" rel="noreferrer" className="text-sm font-medium text-brand-300 hover:underline">
                         {hl.title} ↗

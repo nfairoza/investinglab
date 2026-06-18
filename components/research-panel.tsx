@@ -127,7 +127,7 @@ export function ResearchPanel({ symbol }: { symbol: string }) {
           </div>
 
           {/* Sections A–P; toggle swaps pro/beginner. */}
-          <div className="space-y-3 border-t border-white/10 pt-3">
+          <div className="space-y-3 border-t border-hairline pt-3">
             {report.sections.map((s) => (
               <div key={s.id}>
                 <div className="text-sm font-medium text-ink">
@@ -140,7 +140,7 @@ export function ResearchPanel({ symbol }: { symbol: string }) {
 
           {/* Scenario range chart — visual. */}
           {report.scenarios.length > 0 && (
-            <div className="border-t border-white/10 pt-3">
+            <div className="border-t border-hairline pt-3">
               <ScenarioRangeChart
                 scenarios={report.scenarios}
                 currentPrice={
@@ -153,17 +153,17 @@ export function ResearchPanel({ symbol }: { symbol: string }) {
           )}
 
           {/* Financial charts. */}
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 border-t border-white/10 pt-3">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 border-t border-hairline pt-3">
             <RevenueEarningsChart symbol={symbol} />
             <MarginChart symbol={symbol} />
           </div>
 
           {/* Required Action Table. */}
-          <div className="border-t border-white/10 pt-3">
+          <div className="border-t border-hairline pt-3">
             <div className="mb-2 text-sm font-medium text-ink">Action table</div>
             <div className="grid grid-cols-1 gap-x-6 gap-y-1 sm:grid-cols-2">
               {ACTION_ROWS.map((row) => (
-                <div key={row.key} className="flex justify-between gap-3 border-b border-white/5 py-1 text-sm">
+                <div key={row.key} className="flex justify-between gap-3 border-b border-hairline py-1 text-sm">
                   <span className="text-ink-faint">{row.label}</span>
                   <span className="text-right text-ink-dim">{report.actionTable[row.key] || "—"}</span>
                 </div>

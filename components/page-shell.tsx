@@ -20,7 +20,7 @@ export function PageShell({
         </span>
       </div>
       {first && (
-        <div className="mt-5 rounded-xl border border-brand-500/20 bg-brand-500/5 p-4 text-sm text-brand-100">
+        <div className="mt-5 rounded-xl border border-[var(--hairline-gold)] bg-[var(--accent-soft)] p-4 text-sm text-ink">
           <span className="font-semibold">What should I look at first?</span> {first}
         </div>
       )}

@@ -43,7 +43,7 @@ export function PriceZoneBar({
 
 function ZoneRow({ label, value, color, dot }: { label: string; value: string; color: string; dot: string }) {
   return (
-    <div className="flex items-center gap-2 py-1 border-b border-white/5">
+    <div className="flex items-center gap-2 py-1 border-b border-hairline">
       <span className={`h-2 w-2 shrink-0 rounded-full ${dot}`} />
       <span className="shrink-0 text-xs text-ink-faint w-32">{label}</span>
       <span className={`text-sm font-medium ${color}`}>{value}</span>

@@ -1,18 +1,20 @@
 import { PredictionWorkspace } from "@/components/prediction-workspace";
 
+export const metadata = { title: "Predictions" };
+
 export default function Page({ searchParams }: { searchParams: { symbol?: string } }) {
   const initial = (searchParams?.symbol ?? "AMD").toUpperCase();
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="font-display text-3xl font-semibold text-[#ece9e0]">AI Predictions</h1>
+        <h1 className="font-display text-3xl font-semibold text-ink">AI Predictions</h1>
         <p className="mt-1 max-w-2xl text-sm text-ink-dim">
           Ask Claude to research any stock — it pulls live financials and searches the web for
           recent news, then gives a probabilistic prediction across 1 week, 1 month, and 1 year.
           This is an AI opinion, not a guarantee or market-implied odds.
         </p>
       </div>
-      <div className="rounded-lg border border-brand-500/20 bg-brand-500/5 p-3 text-sm text-brand-100">
+      <div className="rounded-lg border border-[var(--hairline-gold)] bg-[var(--accent-soft)] p-3 text-sm text-ink">
         <span className="font-medium">What should I look at first?</span> Read the confidence % and
         the &quot;biggest risk&quot; before the direction — a confident-sounding call with a huge risk is
         still a coin flip.

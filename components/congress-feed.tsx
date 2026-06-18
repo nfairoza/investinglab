@@ -60,14 +60,14 @@ export function CongressFeed() {
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="Filter by member, ticker, or asset…"
-          className="w-72 rounded-md border border-white/10 bg-black/25 px-3 py-1.5 text-sm text-ink placeholder:text-ink-faint focus:border-brand-500 focus:outline-none"
+          className="w-72 rounded-md border border-hairline bg-surface px-3 py-1.5 text-sm text-ink placeholder:text-ink-faint focus:border-brand-500 focus:outline-none"
         />
         <div className="flex items-center gap-2">
           {data && <DataBadge source={data.source} />}
           <button
             onClick={() => mutate()}
             disabled={isValidating}
-            className="rounded-md border border-white/10 px-2 py-1 text-xs text-ink-dim hover:bg-surface-raised disabled:opacity-50"
+            className="rounded-md border border-hairline px-2 py-1 text-xs text-ink-dim hover:bg-surface-raised disabled:opacity-50"
           >
             {isValidating ? "Refreshing…" : "Refresh"}
           </button>
@@ -84,9 +84,9 @@ export function CongressFeed() {
       )}
 
       {!isLoading && data?.data && (
-        <div className="overflow-x-auto rounded-xl border border-white/10">
+        <div className="overflow-x-auto rounded-xl border border-hairline">
           <table className="w-full text-left text-sm">
-            <thead className="bg-black/25 text-xs uppercase tracking-wide text-ink-faint">
+            <thead className="bg-surface text-xs uppercase tracking-wide text-ink-faint">
               <tr>
                 <th className="px-3 py-2">Member</th>
                 <th className="px-3 py-2">Action</th>

@@ -4,11 +4,13 @@ import { EtradeConnector } from "@/components/etrade-connector";
 import { RobinhoodConnector } from "@/components/robinhood-connector";
 import { Suspense } from "react";
 
+export const metadata = { title: "Connectors" };
+
 export default function Page() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="font-display text-3xl font-semibold text-[#ece9e0]">Connectors &amp; API keys</h1>
+        <h1 className="font-display text-3xl font-semibold text-ink">Connectors &amp; API keys</h1>
         <p className="mt-1 max-w-2xl text-sm text-ink-dim">
           One place for every data source and the AI layer. Add keys as you get them — the app
           switches from demo to live automatically when a key is detected.
