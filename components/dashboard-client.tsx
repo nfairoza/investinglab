@@ -77,11 +77,14 @@ export function DashboardClient() {
 
   // Portfolio-value sparkline = sum(close × shares) across the window.
   const days = RANGES.find((r) => r.k === range)?.d ?? 22;
-  const portfolioSeries: { v: number }[] = (() => {
+  const portfolioSeries: { v: number; date?: string }[] = (() => {
     const lens = symbols.map((s) => (histories[s] ?? []).length);
     const maxLen = Math.min(days, Math.max(0, ...lens));
     if (maxLen < 2) return [];
-    const out: { v: number }[] = [];
+    // Use the holding with the most history as the date axis reference.
+    const refSym = symbols.slice().sort((a, b) => (histories[b]?.length ?? 0) - (histories[a]?.length ?? 0))[0];
+    const refPts = histories[refSym] ?? [];
+    const out: { v: number; date?: string }[] = [];
     for (let i = 0; i < maxLen; i++) {
       let sum = 0;
       for (const h of holdings) {
@@ -89,7 +92,7 @@ export function DashboardClient() {
         const p = pts[pts.length - maxLen + i];
         if (p) sum += p.close * h.shares;
       }
-      out.push({ v: sum });
+      out.push({ v: sum, date: refPts[refPts.length - maxLen + i]?.date });
     }
     return out;
   })();
@@ -187,7 +190,7 @@ export function DashboardClient() {
                   </div>
                 </div>
               </div>
-              <div className="mt-3"><Sparkline data={portfolioSeries} height={120} /></div>
+              <div className="mt-3"><Sparkline data={portfolioSeries} height={120} interactive /></div>
             </GlassCard>
 
             {/* Gradient stat row */}
