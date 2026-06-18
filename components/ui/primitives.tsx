@@ -122,11 +122,15 @@ export function ChartFrame({
 export function CountUp({ value, decimals = 0, prefix = "", suffix = "", className, duration = 900 }: {
   value: number; decimals?: number; prefix?: string; suffix?: string; className?: string; duration?: number;
 }) {
-  const [display, setDisplay] = useState(0);
+  const [display, setDisplay] = useState(value || 0);
   const raf = useRef<number>();
   useEffect(() => {
     const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-    if (reduce || !Number.isFinite(value)) { setDisplay(value || 0); return; }
+    // No animation when reduced-motion, non-finite, or the tab is hidden
+    // (rAF is paused in background tabs — would otherwise stick at the start).
+    if (reduce || !Number.isFinite(value) || (typeof document !== "undefined" && document.hidden)) {
+      setDisplay(value || 0); return;
+    }
     const start = performance.now();
     const from = 0;
     const tick = (now: number) => {
@@ -134,9 +138,12 @@ export function CountUp({ value, decimals = 0, prefix = "", suffix = "", classNa
       const eased = 1 - Math.pow(1 - t, 3); // easeOutCubic
       setDisplay(from + (value - from) * eased);
       if (t < 1) raf.current = requestAnimationFrame(tick);
+      else setDisplay(value); // guarantee exact final value
     };
     raf.current = requestAnimationFrame(tick);
-    return () => { if (raf.current) cancelAnimationFrame(raf.current); };
+    // Safety: if rAF hasn't progressed shortly, snap to the value.
+    const fallback = setTimeout(() => setDisplay((d) => (d === 0 && value !== 0 ? value : d)), 400);
+    return () => { if (raf.current) cancelAnimationFrame(raf.current); clearTimeout(fallback); };
   }, [value, duration]);
   return <span className={clsx("font-mono tnum", className)}>{prefix}{display.toLocaleString(undefined, { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}{suffix}</span>;
 }
