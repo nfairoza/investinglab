@@ -98,7 +98,7 @@ export function DashboardClient() {
     .map((v) => ({ symbol: v.h.symbol, pct: (v.value! / total) * 100 })).sort((a, b) => b.pct - a.pct);
   // Top assets row: biggest holdings by value, each with its own sparkline.
   const topAssets = [...valued].filter((v) => v.value != null).sort((a, b) => (b.value! - a.value!)).slice(0, 3)
-    .map((v) => ({ symbol: v.h.symbol, name: v.q?.name, price: v.price, dayPct: v.dayPct, series: (histories[v.h.symbol] ?? []).slice(-30).map((p) => ({ v: p.close })) }));
+    .map((v) => ({ symbol: v.h.symbol, name: v.q?.name, price: v.price, dayPct: v.dayPct, shares: v.h.shares, series: (histories[v.h.symbol] ?? []).slice(-30).map((p) => ({ v: p.close })) }));
   const movers = valued.filter((v) => v.dayPct != null)
     .map((v) => ({ symbol: v.h.symbol, name: v.q?.name ?? v.h.symbol, dayPct: v.dayPct! }))
     .sort((a, b) => Math.abs(b.dayPct) - Math.abs(a.dayPct)).slice(0, 5);

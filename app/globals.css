@@ -16,18 +16,18 @@
   --font-sans: "Inter Tight", "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --font-mono: "JetBrains Mono", "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 
-  /* Brand scale (emerald-mint) — shared; semantic --accent picks the tier per theme. */
-  --brand-50:  #eafff6;
-  --brand-100: #c8ffe7;
-  --brand-200: #93f7cf;
-  --brand-300: #5cecb6;
-  --brand-400: #34e0a1;
-  --brand-500: #18c98a;
-  --brand-600: #0fa872;
-  --brand-700: #0c855b;
-  --brand-800: #0c6849;
-  --brand-900: #0a4f3a;
-  --brand-950: #042b20;
+  /* Brand scale (violet) — shared; semantic --accent picks the tier per theme. */
+  --brand-50:  #f3f1ff;
+  --brand-100: #e9e5ff;
+  --brand-200: #d6cfff;
+  --brand-300: #b9acff;
+  --brand-400: #9a85fb;
+  --brand-500: #8b7cf6;
+  --brand-600: #7459e8;
+  --brand-700: #6244cf;
+  --brand-800: #5138a6;
+  --brand-900: #432f84;
+  --brand-950: #281c54;
 
   /* radii + motion easing (shared) */
   --radius: 16px;
@@ -51,11 +51,11 @@ html.dark, :root {
 
   --hairline: rgba(255,255,255,0.08);
   --hairline-strong: rgba(255,255,255,0.14);
-  --hairline-gold: rgba(52,224,161,0.32); /* accent hairline (name kept for reuse) */
+  --hairline-gold: rgba(139,124,246,0.34); /* accent hairline (name kept for reuse) */
 
-  --accent: #34E0A1;                     /* emerald-mint */
-  --accent-strong: #18c98a;
-  --accent-soft: rgba(52,224,161,0.13);
+  --accent: #8B7CF6;                     /* violet */
+  --accent-strong: #7459e8;
+  --accent-soft: rgba(139,124,246,0.14);
 
   --positive: #34E0A1;                   /* gains = emerald-mint */
   --positive-soft: rgba(52,224,161,0.13);
@@ -93,11 +93,11 @@ html.light {
 
   --hairline: rgba(15,23,42,0.10);
   --hairline-strong: rgba(15,23,42,0.16);
-  --hairline-gold: rgba(15,168,114,0.40); /* emerald hairline */
+  --hairline-gold: rgba(98,68,207,0.40); /* violet hairline */
 
-  --accent: #0FA872;                     /* deep emerald, legible on white */
-  --accent-strong: #0c855b;
-  --accent-soft: rgba(15,168,114,0.10);
+  --accent: #6244CF;                     /* deep violet, legible on white */
+  --accent-strong: #5138a6;
+  --accent-soft: rgba(98,68,207,0.10);
 
   --positive: #0E9E6E;                   /* gain green on white */
   --positive-soft: rgba(14,158,110,0.10);

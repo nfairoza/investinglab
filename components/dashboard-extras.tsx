@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { ArrowUpRight, Bell, NotebookPen, Sparkles } from "lucide-react";
-import { Sparkline } from "./charts/Sparkline";
+import { GlowSparkline } from "./charts/GlowSparkline";
 
 // ── Gradient stat tile (Logip/Kristin look) ─────────────────────────────────
 // Subtle theme-tinted gradient; one headline metric + sublabel.
@@ -29,14 +29,18 @@ export function GradientStat({
   );
 }
 
-// ── Asset KPI card with inline sparkline (Stakent 'Top Assets' look) ─────────
+// ── Asset KPI card: big glow sparkline + peak callout (Stakent 'Top Assets') ──
 export function AssetCard({
-  symbol, name, price, dayPct, series,
-}: { symbol: string; name?: string; price: number | null; dayPct: number | null; series: { v: number }[] }) {
+  symbol, name, price, dayPct, series, shares,
+}: { symbol: string; name?: string; price: number | null; dayPct: number | null; series: { v: number }[]; shares?: number }) {
   const up = (dayPct ?? 0) >= 0;
+  // Period $ change of this position over the sparkline window (close × shares).
+  const first = series[0]?.v;
+  const last = series[series.length - 1]?.v;
+  const periodChange = first != null && last != null && shares ? (last - first) * shares : null;
   return (
     <Link href={`/research?symbol=${symbol}`}
-      className="card-hover group block rounded-md border border-hairline p-4" style={{ background: "var(--surface)" }}>
+      className="card-hover group relative block overflow-hidden rounded-md border border-hairline p-4" style={{ background: "var(--surface)" }}>
       <div className="flex items-start justify-between">
         <div>
           <div className="flex items-center gap-2">
@@ -46,13 +50,23 @@ export function AssetCard({
           {name && <div className="truncate text-[11px] text-ink-faint">{name}</div>}
         </div>
         {dayPct != null && (
-          <span className="font-mono text-sm font-medium" style={{ color: up ? "var(--positive)" : "var(--negative)" }}>
+          <span className="flex items-center gap-1 rounded-full px-2 py-0.5 font-mono text-xs font-medium"
+            style={{ color: up ? "var(--positive)" : "var(--negative)", background: up ? "var(--positive-soft)" : "var(--negative-soft)" }}>
             {up ? "▲" : "▼"} {Math.abs(dayPct).toFixed(2)}%
           </span>
         )}
       </div>
-      <div className="mt-2 font-mono text-xl font-semibold tnum text-ink">{price != null ? `$${price.toFixed(2)}` : "—"}</div>
-      <div className="mt-1 -mb-1"><Sparkline data={series} height={44} /></div>
+      <div className="mt-2 font-mono text-2xl font-semibold tnum text-ink">{price != null ? `$${price.toFixed(2)}` : "—"}</div>
+      {/* Big glow sparkline fills the card bottom */}
+      <div className="relative mt-2 -mx-4 -mb-4">
+        <GlowSparkline data={series} height={88} />
+        {periodChange != null && Math.abs(periodChange) >= 1 && (
+          <span className="absolute right-3 top-1 rounded-md border border-hairline px-1.5 py-0.5 font-mono text-[10px]"
+            style={{ background: "var(--surface-solid)", color: periodChange >= 0 ? "var(--positive)" : "var(--negative)" }}>
+            {periodChange >= 0 ? "+" : "−"}${Math.abs(periodChange).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+          </span>
+        )}
+      </div>
     </Link>
   );
 }
