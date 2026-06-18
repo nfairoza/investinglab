@@ -74,13 +74,37 @@ class FmpLimitError extends Error {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-// Fetch JSON with caching + retry-on-rate-limit. Throws with .status so callers
-// can distinguish 402 (paid-only endpoint), 429 (limit), and other failures.
-async function getJson(url: string, attempt = 0): Promise<unknown> {
+// In-flight request map: collapses duplicate CONCURRENT calls for the same URL
+// into a single HTTP request. The fresh cache only fills after a response
+// returns, so without this two callers firing at the same instant (e.g. the
+// Research page and the score route both wanting the same symbol's quote) each
+// make their own network call. Keyed like the cache (apikey stripped).
+const inflight = new Map<string, Promise<unknown>>();
+
+// Fetch JSON with caching + in-flight dedup + retry-on-rate-limit. Throws with
+// .status so callers can distinguish 402 (paid-only endpoint), 429 (limit), and
+// other failures.
+function getJson(url: string, attempt = 0): Promise<unknown> {
   const key = cacheKey(url);
   const hit = cache.get(key);
-  if (hit && Date.now() - hit.at < CACHE_TTL_MS) return hit.data;
+  if (hit && Date.now() - hit.at < CACHE_TTL_MS) return Promise.resolve(hit.data);
 
+  // Only the first concurrent caller starts a request; the rest await it.
+  // (attempt > 0 is an internal retry — it should not re-dedup.)
+  if (attempt === 0) {
+    const pending = inflight.get(key);
+    if (pending) return pending;
+  }
+
+  const p = fetchJsonUncached(url, attempt).finally(() => {
+    if (inflight.get(key) === p) inflight.delete(key);
+  });
+  if (attempt === 0) inflight.set(key, p);
+  return p;
+}
+
+async function fetchJsonUncached(url: string, attempt: number): Promise<unknown> {
+  const key = cacheKey(url);
   const res = await fetch(url, { cache: "no-store" });
   const text = await res.text();
 

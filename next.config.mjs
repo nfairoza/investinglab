@@ -6,6 +6,9 @@ const nextConfig = {
   // serverExternalPackages in Next 15).
   experimental: {
     serverComponentsExternalPackages: ["lowdb"],
+    // Tree-shake big icon/chart libs so each page only ships the icons/parts it
+    // uses — smaller bundles + faster dev compiles.
+    optimizePackageImports: ["lucide-react", "recharts"],
   },
 };
 export default nextConfig;
