@@ -22,19 +22,11 @@ async function fetchJson<T>(url: string): Promise<T> {
   const r = await fetch(url);
   return r.json();
 }
-async function fetchQuotes(symbols: string[]): Promise<Record<string, DataResult<Quote>>> {
-  const entries = await Promise.all(symbols.map(async (s) => {
-    try { return [s, (await fetch(`/api/quote?symbol=${s}`).then((r) => r.json())) as DataResult<Quote>] as const; }
-    catch { return [s, { data: null, source: "unavailable", asOf: null, provider: "client" } as DataResult<Quote>] as const; }
-  }));
-  return Object.fromEntries(entries);
-}
-async function fetchHistories(symbols: string[]): Promise<Record<string, { date: string; close: number }[]>> {
-  const entries = await Promise.all(symbols.map(async (s) => {
-    try { const d = (await fetch(`/api/price-history?symbol=${s}`).then((r) => r.json())) as DataResult<PriceHistory>; return [s, (d.data?.points ?? [])] as const; }
-    catch { return [s, []] as const; }
-  }));
-  return Object.fromEntries(entries);
+interface DashboardData {
+  symbols: string[];
+  quotes: Record<string, DataResult<Quote>>;
+  histories: Record<string, { date: string; close: number }[]>;
+  asOf: string | null;
 }
 
 const RANGES = [{ k: "1M", d: 22 }, { k: "3M", d: 66 }, { k: "1Y", d: 252 }, { k: "ALL", d: 100000 }] as const;
@@ -47,10 +39,16 @@ export function DashboardClient() {
   const [range, setRange] = useState<string>("1M");
 
   const symbols = holdings.map((h) => h.symbol);
-  const { data: quotes } = useSWR(symbols.length ? ["dash-quotes", symbols.join(",")] : null, () => fetchQuotes(symbols),
-    { refreshInterval: 60_000, keepPreviousData: true });
-  const { data: histories = {} } = useSWR(symbols.length ? ["dash-hist", symbols.join(",")] : null, () => fetchHistories(symbols),
-    { keepPreviousData: true });
+  // One combined request for all holdings' quotes + histories (batched server-
+  // side) instead of N separate calls — keyed on the symbol set so it refetches
+  // when holdings change.
+  const { data: dash } = useSWR<DashboardData>(
+    symbols.length ? `/api/dashboard-data?syms=${symbols.join(",")}` : null,
+    fetchJson,
+    { refreshInterval: 60_000, keepPreviousData: true },
+  );
+  const quotes = dash?.quotes;
+  const histories = dash?.histories ?? {};
 
   const topSym = [...holdings].sort((a, b) => b.avgCost * b.shares - a.avgCost * a.shares)[0]?.symbol;
   const { data: scoreRes } = useSWR<DataResult<StockScore>>(topSym ? `/api/score?symbol=${topSym}` : null, fetchJson);
