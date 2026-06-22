@@ -5,6 +5,7 @@ import useSWR from "swr";
 import { GripVertical, ChevronUp, ChevronDown, ChevronRight, ExternalLink, X } from "lucide-react";
 import { DataBadge, DataTimestamp } from "./data-state";
 import { TickerInput } from "./ticker-input";
+import { Sparkline } from "./charts/Sparkline";
 import type { DataResult, Quote } from "@/lib/providers/types";
 import type { WatchItem } from "@/lib/db";
 
@@ -22,6 +23,21 @@ async function fetchQuotes(symbols: string[]): Promise<Record<string, DataResult
         return [s, (await r.json()) as DataResult<Quote>] as const;
       } catch {
         return [s, { data: null, source: "unavailable", asOf: null, provider: "client", note: "failed" } as DataResult<Quote>] as const;
+      }
+    }),
+  );
+  return Object.fromEntries(entries);
+}
+
+// Last ~30 daily closes per symbol, for the mini trend sparkline.
+async function fetchSparks(symbols: string[]): Promise<Record<string, { v: number }[]>> {
+  const entries = await Promise.all(
+    symbols.map(async (s) => {
+      try {
+        const d = (await fetch(`/api/price-history?symbol=${s}`).then((r) => r.json())) as { data?: { points?: { close: number }[] } };
+        return [s, (d.data?.points ?? []).slice(-30).map((p) => ({ v: p.close }))] as const;
+      } catch {
+        return [s, []] as const;
       }
     }),
   );
@@ -49,6 +65,11 @@ export function WatchlistManager() {
     symbols.length ? ["watch-quotes", symbols.join(",")] : null,
     () => fetchQuotes(symbols),
     { refreshInterval: 60_000, revalidateOnFocus: true, keepPreviousData: true },
+  );
+  const { data: sparks } = useSWR(
+    symbols.length ? ["watch-sparks", symbols.join(",")] : null,
+    () => fetchSparks(symbols),
+    { revalidateOnFocus: false, keepPreviousData: true },
   );
 
   // Add a symbol. If `validated` (came from a dropdown pick) skip the check;
@@ -171,8 +192,10 @@ export function WatchlistManager() {
             {/* Column header */}
             <div className="hidden items-center gap-3 border-b border-hairline px-3 py-2 text-[10px] font-medium uppercase tracking-wide text-ink-faint sm:flex">
               <span className="w-4" />
-              <span className="w-28">Ticker</span>
-              <span className="w-20 text-right">Price</span>
+              <span className="w-24">Ticker</span>
+              <span className="w-16 text-center">Trend</span>
+              <span className="w-24 text-right">Price</span>
+              <span className="w-20 text-right">Today</span>
               <span className="w-24 text-right">Ideal buy</span>
               <span className="w-24 text-center">Vs. target</span>
               <span className="flex-1">Next catalyst</span>
@@ -182,6 +205,8 @@ export function WatchlistManager() {
             <div className="divide-y divide-hairline">
               {items.map((w, idx) => {
                 const price = quotes?.[w.symbol]?.data?.price ?? null;
+                const dayPct = quotes?.[w.symbol]?.data?.changePct ?? null;
+                const spark = sparks?.[w.symbol] ?? [];
                 const atOrBelow = price != null && w.idealBuy != null ? price <= w.idealBuy : null;
                 const busy = busyId === w.id;
                 const isOpen = expanded === w.id;
@@ -206,13 +231,24 @@ export function WatchlistManager() {
                         <GripVertical size={15} />
                       </span>
 
-                      {/* Ticker + action chip */}
-                      <div className="flex w-28 shrink-0 items-center gap-2">
+                      {/* Ticker */}
+                      <div className="flex w-24 shrink-0 items-center gap-2">
                         {hasDetail && <ChevronRight size={13} className={`shrink-0 text-ink-faint transition-transform ${isOpen ? "rotate-90" : ""}`} />}
                         <span className="font-semibold text-brand-300">{w.symbol}</span>
                       </div>
 
-                      <span className="w-20 shrink-0 text-right font-mono text-ink">{price != null ? `$${price.toFixed(2)}` : "—"}</span>
+                      {/* Mini trend sparkline (30d) */}
+                      <div className="hidden h-7 w-16 shrink-0 sm:block">
+                        {spark.length > 1 ? <Sparkline data={spark} height={28} /> : <span className="block pt-2 text-center text-xs text-ink-faint">—</span>}
+                      </div>
+
+                      <span className="w-24 shrink-0 text-right font-mono text-ink">{price != null ? `$${price.toFixed(2)}` : "—"}</span>
+
+                      {/* Today's % change — green up / red down, Robinhood-style */}
+                      <span className={`w-20 shrink-0 text-right font-mono text-xs ${dayPct == null ? "text-ink-faint" : dayPct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                        {dayPct == null ? "—" : `${dayPct >= 0 ? "▲" : "▼"} ${Math.abs(dayPct).toFixed(2)}%`}
+                      </span>
+
                       <span className="w-24 shrink-0 text-right font-mono text-ink-dim">{w.idealBuy != null ? `$${w.idealBuy.toFixed(2)}` : "—"}</span>
                       <span className={`w-24 shrink-0 text-center text-xs ${atOrBelow ? "text-emerald-400" : "text-ink-faint"}`}>
                         {atOrBelow == null ? "—" : atOrBelow ? "● at/below" : "above"}
