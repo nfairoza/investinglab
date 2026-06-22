@@ -313,12 +313,12 @@ export function HoldingsManager() {
                 <tr>
                   <Th label="Ticker" k="symbol" sort={sort} onSort={toggleSort} />
                   <th className="px-3 py-2">Trend</th>
+                  <Th label="Price" k="price" sort={sort} onSort={toggleSort} align="right" />
+                  <Th label="Day's gain" k="day" sort={sort} onSort={toggleSort} align="right" />
+                  <Th label="Value" k="value" sort={sort} onSort={toggleSort} align="right" />
+                  <Th label="Total gain" k="total" sort={sort} onSort={toggleSort} align="right" />
                   <Th label="Shares" k="shares" sort={sort} onSort={toggleSort} align="right" />
                   <Th label="Avg cost" k="avgCost" sort={sort} onSort={toggleSort} align="right" />
-                  <Th label="Price" k="price" sort={sort} onSort={toggleSort} align="right" />
-                  <Th label="Value" k="value" sort={sort} onSort={toggleSort} align="right" />
-                  <Th label="Day's gain" k="day" sort={sort} onSort={toggleSort} align="right" />
-                  <Th label="Total gain" k="total" sort={sort} onSort={toggleSort} align="right" />
                   <Th label="Weight" k="weight" sort={sort} onSort={toggleSort} align="right" />
                   <th className="px-3 py-2"></th>
                 </tr>
@@ -343,20 +343,25 @@ export function HoldingsManager() {
                             : <span className="block pt-2 text-xs text-ink-faint">—</span>}
                         </div>
                       </td>
-                      <td className="px-3 py-2 text-right text-ink-dim">{h.shares}</td>
-                      <td className="px-3 py-2 text-right text-ink-dim">{h.avgCost > 0 ? `$${h.avgCost.toFixed(2)}` : "—"}</td>
+                      {/* Price */}
                       <td className="px-3 py-2 text-right text-ink-dim">{price != null ? `$${price.toFixed(2)}` : "—"}</td>
-                      <td className="px-3 py-2 text-right text-ink-dim">{value != null ? `$${value.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : "—"}</td>
                       {/* Day's gain $ + % */}
                       <td className={`px-3 py-2 text-right ${daysGain == null ? "text-ink-faint" : dUp ? "text-emerald-400" : "text-rose-400"}`}>
                         {daysGain == null
                           ? (daysGainPct != null ? `${daysGainPct >= 0 ? "▲" : "▼"} ${Math.abs(daysGainPct).toFixed(2)}%` : "—")
                           : `${dUp ? "▲" : "▼"} $${Math.abs(daysGain).toFixed(0)}${daysGainPct != null ? ` (${Math.abs(daysGainPct).toFixed(2)}%)` : ""}`}
                       </td>
+                      {/* Value */}
+                      <td className="px-3 py-2 text-right text-ink-dim">{value != null ? `$${value.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : "—"}</td>
                       {/* Total gain $ + % */}
                       <td className={`px-3 py-2 text-right ${totalGain == null || totalGainPct == null ? "text-ink-faint" : tUp ? "text-emerald-400" : "text-rose-400"}`}>
                         {totalGain == null || totalGainPct == null ? "—" : `${tUp ? "▲" : "▼"} $${Math.abs(totalGain).toFixed(0)} (${Math.abs(totalGainPct).toFixed(1)}%)`}
                       </td>
+                      {/* Shares */}
+                      <td className="px-3 py-2 text-right text-ink-dim">{h.shares}</td>
+                      {/* Avg cost */}
+                      <td className="px-3 py-2 text-right text-ink-dim">{h.avgCost > 0 ? `$${h.avgCost.toFixed(2)}` : "—"}</td>
+                      {/* Weight */}
                       <td className="px-3 py-2 text-right text-ink-dim">{weight != null ? `${weight.toFixed(1)}%` : "—"}</td>
                       <td className="px-3 py-2 text-right">
                         <button onClick={() => removeHolding(h.id)} className="text-xs text-ink-faint hover:text-rose-300">Remove</button>
