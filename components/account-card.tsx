@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import useSWR from "swr";
-import { Shield, LogOut, Trash2, Check } from "lucide-react";
+import { Shield, LogOut, Trash2, Check, KeyRound } from "lucide-react";
+import { changePassword } from "@/app/login/actions";
 
 interface Me { authenticated?: boolean; isAdmin?: boolean; email?: string | null; createdAt?: string | null; provider?: string; avatarUrl?: string | null; fullName?: string | null; }
 interface Profile { displayName: string; phone: string; baseCurrency: string; beginnerMode: boolean; }
@@ -34,6 +35,19 @@ export function AccountCard() {
     await mutateProfile();
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
+  }
+
+  // Change password (email accounts only — Google users manage it via Google).
+  const [pw, setPw] = useState("");
+  const [pwMsg, setPwMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [pwBusy, setPwBusy] = useState(false);
+  async function savePassword() {
+    setPwBusy(true); setPwMsg(null);
+    try {
+      const res = await changePassword(pw);
+      setPwMsg({ ok: res.ok, text: res.message });
+      if (res.ok) setPw("");
+    } finally { setPwBusy(false); }
   }
 
   async function deleteAccount() {
@@ -110,6 +124,23 @@ export function AccountCard() {
         <button onClick={saveProfile} className="btn-gold rounded-md px-4 py-1.5 text-sm">Save profile</button>
         {saved && <span className="flex items-center gap-1 text-xs text-emerald-400"><Check size={13} /> Saved</span>}
       </div>
+
+      {/* Change password — email accounts only */}
+      {me?.provider !== "google" && (
+        <div className="mt-5">
+          <div className="text-xs font-medium uppercase tracking-wide text-ink-faint">Password</div>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <input type="password" value={pw} onChange={(e) => setPw(e.target.value)}
+              placeholder="New password (min 6)" autoComplete="new-password"
+              className="w-full max-w-xs rounded-md border border-hairline bg-surface px-3 py-2 text-sm text-ink focus:border-brand-500 focus:outline-none" />
+            <button onClick={savePassword} disabled={pwBusy || pw.length < 6}
+              className="flex items-center gap-1.5 rounded-md border border-hairline px-3 py-2 text-sm text-ink-dim hover:bg-surface hover:text-ink disabled:opacity-50">
+              <KeyRound size={14} /> {pwBusy ? "Updating…" : "Update password"}
+            </button>
+            {pwMsg && <span className={`text-xs ${pwMsg.ok ? "text-emerald-400" : "text-rose-400"}`}>{pwMsg.text}</span>}
+          </div>
+        </div>
+      )}
 
       <div className="my-4 border-t border-hairline" />
 

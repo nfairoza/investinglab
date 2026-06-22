@@ -56,3 +56,15 @@ export async function updatePassword(formData: FormData) {
   if (error) redirect("/reset-password?error=" + encodeURIComponent(error.message));
   redirect("/login?message=" + encodeURIComponent("Password updated — please sign in."));
 }
+
+// Change password from within the app (Settings → Account). Returns a result
+// object instead of redirecting, so the Account card can show inline feedback.
+export async function changePassword(newPassword: string): Promise<{ ok: boolean; message: string }> {
+  if (!newPassword || newPassword.length < 6) return { ok: false, message: "Password must be at least 6 characters." };
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { ok: false, message: "Not signed in." };
+  const { error } = await supabase.auth.updateUser({ password: newPassword });
+  if (error) return { ok: false, message: error.message };
+  return { ok: true, message: "Password updated." };
+}
