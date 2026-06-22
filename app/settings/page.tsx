@@ -1,4 +1,5 @@
 import { CacheSettings } from "@/components/cache-settings";
+import { AccountCard } from "@/components/account-card";
 
 export const metadata = { title: "Settings" };
 export default function Page() {
@@ -7,11 +8,11 @@ export default function Page() {
       <div>
         <h1 className="font-display text-3xl font-semibold text-ink">Settings</h1>
         <p className="mt-1 max-w-2xl text-sm text-ink-dim">
-          App preferences. API keys and the AI layer live in{" "}
-          <a href="/connectors" className="text-brand-400 underline">Connectors</a> — add your
-          stock-data key, Claude key, and other providers there.
+          Your account and app preferences.
         </p>
       </div>
+
+      <AccountCard />
 
       <CacheSettings />
 
