@@ -3,10 +3,11 @@
 import useSWR from "swr";
 import Link from "next/link";
 import { useState } from "react";
-import { ArrowUpRight, Eye, TrendingUp, AlertTriangle } from "lucide-react";
-import type { Holding, WatchItem, JournalEntry } from "@/lib/db";
+import { ArrowUpRight, Eye, TrendingUp, AlertTriangle, Bell, BellRing } from "lucide-react";
+import type { Holding, WatchItem, JournalEntry, Alert } from "@/lib/db";
 import type { DataResult, Quote, PriceHistory } from "@/lib/providers/types";
 import type { StockScore } from "@/lib/scoring/score";
+import { describeAlert, formatTriggerValue } from "@/lib/alerts/evaluate";
 import { DataBadge } from "./data-state";
 import { QuoteProbe } from "./quote-probe";
 import { Sparkline } from "./charts/Sparkline";
@@ -40,6 +41,7 @@ export function DashboardClient() {
   const { data: holdings = [] } = useSWR<Holding[]>("/api/holdings", fetchJson, { revalidateOnFocus: true });
   const { data: watchlist = [] } = useSWR<WatchItem[]>("/api/watchlist", fetchJson, { revalidateOnFocus: true });
   const { data: journal = [] } = useSWR<JournalEntry[]>("/api/journal", fetchJson);
+  const { data: alerts = [] } = useSWR<Alert[]>("/api/alerts", fetchJson, { refreshInterval: 60_000 });
   const [range, setRange] = useState<string>("1M");
 
   const symbols = holdings.map((h) => h.symbol);
@@ -259,6 +261,50 @@ export function DashboardClient() {
             </GlassCard>
 
             <ActivityRail items={activity} />
+
+            {/* Alerts widget — most-recently-triggered on top, then pending */}
+            <GlassCard hover>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-sm font-semibold text-ink"><Bell size={15} className="text-accent" /> Alerts</div>
+                <Link href="/alerts" className="text-xs text-accent hover:underline">Manage</Link>
+              </div>
+              {alerts.length === 0 ? (
+                <p className="mt-2 text-sm text-ink-faint">No alerts set. <Link href="/alerts" className="text-accent hover:underline">Create one</Link> — e.g. ping me when AMD drops below $480.</p>
+              ) : (
+                <ul className="mt-3 space-y-2">
+                  {[...alerts]
+                    .sort((a, b) => {
+                      // triggered first (newest trigger on top), then the rest
+                      const at = a.lastTriggeredAt ? new Date(a.lastTriggeredAt).getTime() : 0;
+                      const bt = b.lastTriggeredAt ? new Date(b.lastTriggeredAt).getTime() : 0;
+                      return bt - at;
+                    })
+                    .slice(0, 5)
+                    .map((a) => {
+                      const fired = Boolean(a.lastTriggeredAt);
+                      return (
+                        <li key={a.id} className="flex items-start gap-2 text-sm">
+                          <span className={`mt-0.5 shrink-0 ${fired ? "text-accent" : a.enabled ? "text-ink-faint" : "text-ink-faint opacity-40"}`}>
+                            {fired ? <BellRing size={14} /> : <Bell size={14} />}
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-baseline justify-between gap-2">
+                              <Link href={`/research?symbol=${a.symbol}`} className="font-mono font-medium text-ink hover:text-accent">{a.symbol}</Link>
+                              {fired
+                                ? <span className="shrink-0 text-[10px] text-ink-faint">{new Date(a.lastTriggeredAt!).toLocaleDateString(undefined, { month: "short", day: "numeric" })}</span>
+                                : <span className={`shrink-0 text-[10px] ${a.enabled ? "text-emerald-500" : "text-ink-faint"}`}>{a.enabled ? "watching" : "paused"}</span>}
+                            </div>
+                            <div className="truncate text-xs text-ink-dim">
+                              {fired ? `Hit ${formatTriggerValue(a, a.lastValue ?? 0)} · ${describeAlert(a)}` : describeAlert(a)}
+                            </div>
+                          </div>
+                        </li>
+                      );
+                    })}
+                </ul>
+              )}
+              {alerts.length > 5 && <p className="mt-2 text-[11px] text-ink-faint">+{alerts.length - 5} more on the Alerts page.</p>}
+            </GlassCard>
 
             <GlassCard hover>
               <div className="flex items-center justify-between">
