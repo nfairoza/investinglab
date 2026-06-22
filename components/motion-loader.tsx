@@ -25,14 +25,16 @@ const C = {
   pink: "#F472B6",
 };
 
-type Scene = "city" | "skyline" | "ribbons" | "constellation" | "confetti" | "orbit" | "rocket";
+type Scene = "city" | "ribbons" | "constellation" | "confetti" | "orbit" | "rocket";
 
+// Gentle, playful scenes (Google-Doodle vibe) — the harsh full-bleed "skyline"
+// bars were dropped. Each page draws a random calm scene.
 const SCENES_BY_PAGE: Record<string, Scene[]> = {
-  predictions: ["ribbons", "skyline", "rocket", "constellation"],
-  doctor: ["skyline", "orbit", "city", "confetti"],
+  predictions: ["ribbons", "rocket", "constellation", "orbit"],
+  doctor: ["orbit", "city", "confetti", "constellation"],
   congress: ["constellation", "city", "ribbons"],
-  research: ["ribbons", "skyline", "orbit", "rocket"],
-  default: ["city", "skyline", "ribbons", "constellation", "confetti", "orbit", "rocket"],
+  research: ["ribbons", "orbit", "rocket", "city"],
+  default: ["city", "ribbons", "constellation", "confetti", "orbit", "rocket"],
 };
 
 function pick<T>(arr: T[]): T {
@@ -44,12 +46,12 @@ export function MotionLoader({
 }: { page?: keyof typeof SCENES_BY_PAGE; label?: string; height?: number }) {
   const scene = useMemo(() => pick(SCENES_BY_PAGE[page] ?? SCENES_BY_PAGE.default), [page]);
 
-  // No card/box — the animation sits on transparent space (like a PNG), so it
-  // blends into whatever's behind it.
+  // No card/box — sits on transparent space like a PNG. Slightly dialed-back
+  // opacity + soft blur so the colors feel friendly, not harsh.
   return (
     <div className="flex w-full flex-col items-center gap-2">
       <div className="relative w-full" style={{ height }}>
-        <div className="absolute inset-0 motion-reduce:hidden">{renderScene(scene)}</div>
+        <div className="absolute inset-0 motion-reduce:hidden" style={{ opacity: 0.82 }}>{renderScene(scene)}</div>
         <div className="absolute inset-0 hidden motion-reduce:block"
           style={{ background: "radial-gradient(50% 50% at 50% 50%, var(--accent-soft), transparent 70%)" }} aria-hidden />
       </div>
@@ -61,7 +63,6 @@ export function MotionLoader({
 function renderScene(scene: Scene) {
   switch (scene) {
     case "city": return <City />;
-    case "skyline": return <Skyline />;
     case "ribbons": return <Ribbons />;
     case "constellation": return <Constellation />;
     case "confetti": return <Confetti />;
@@ -106,22 +107,6 @@ function City() {
         </g>
       ))}
     </svg>
-  );
-}
-
-// ── Skyline: rising/falling bars (a chart that breathes), colorful ───────────
-function Skyline() {
-  const cols = [C.violet, C.mint, C.sky, C.amber, C.rose, C.cyan, C.lilac, C.gold, C.green, C.pink, C.violet, C.mint, C.sky, C.amber];
-  return (
-    <div className="absolute inset-0 flex items-end justify-center gap-2 px-6 pb-10">
-      {cols.map((c, i) => (
-        <span key={i} className="flex-1 origin-bottom rounded-t-lg" style={{
-          height: `${50 + (i % 5) * 12}%`,
-          background: `linear-gradient(${c}, color-mix(in oklab, ${c} 40%, transparent))`,
-          animation: `mg-grow ${1.4 + (i % 6) * 0.2}s ease-in-out ${i * 0.07}s infinite`,
-        }} />
-      ))}
-    </div>
   );
 }
 

@@ -43,13 +43,18 @@ export function CashCard() {
   }
 
   return (
-    <div className="card-hover rounded-xl glass p-4">
+    <div
+      onClick={() => { if (etradeConnected && !editing && !busy) refreshFromBroker(); }}
+      title={etradeConnected ? "Click to sync cash from E*TRADE" : undefined}
+      className={`card-hover rounded-xl glass p-4 ${etradeConnected ? "cursor-pointer" : ""}`}
+    >
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-ink-faint">
           <Wallet size={14} className="text-accent" /> Available cash
+          {busy && <RefreshCw size={11} className="animate-spin text-accent" />}
         </div>
         {!editing && (
-          <button onClick={() => { setDraft(String(amount)); setEditing(true); }} title="Edit cash"
+          <button onClick={(e) => { e.stopPropagation(); setDraft(String(amount)); setEditing(true); }} title="Edit cash"
             className="rounded p-1 text-ink-faint hover:bg-surface hover:text-ink"><Pencil size={13} /></button>
         )}
       </div>
@@ -67,17 +72,10 @@ export function CashCard() {
         <div className="mt-1 text-2xl font-semibold text-ink">${amount.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
       )}
 
-      <div className="mt-1.5 flex items-center justify-between gap-2">
-        <span className="text-[11px] text-ink-faint">
-          {cash?.source === "etrade" ? "From E*TRADE" : "Manual entry"}
-          {cash?.updatedAt ? ` · ${new Date(cash.updatedAt).toLocaleDateString()}` : ""}
-        </span>
-        {etradeConnected && (
-          <button onClick={refreshFromBroker} disabled={busy}
-            className="flex items-center gap-1 text-[11px] text-accent hover:underline disabled:opacity-50">
-            <RefreshCw size={11} className={busy ? "animate-spin" : ""} /> {busy ? "Syncing…" : "Sync from E*TRADE"}
-          </button>
-        )}
+      <div className="mt-1.5 text-[11px] text-ink-faint">
+        {cash?.source === "etrade" ? "From E*TRADE" : "Manual entry"}
+        {cash?.updatedAt ? ` · ${new Date(cash.updatedAt).toLocaleDateString()}` : ""}
+        {etradeConnected ? " · click card to sync" : ""}
       </div>
     </div>
   );
