@@ -3,10 +3,18 @@ import { Connectors, SectionHeading, ConnectorList } from "@/components/connecto
 import { EtradeConnector } from "@/components/etrade-connector";
 import { RobinhoodConnector } from "@/components/robinhood-connector";
 import { Suspense } from "react";
+import { redirect } from "next/navigation";
+import { createClient } from "@/utils/supabase/server";
+import { isAdminUser } from "@/lib/supabase-data";
 
 export const metadata = { title: "Connectors" };
 
-export default function Page() {
+export default async function Page() {
+  // Platform API keys are admin-only. Regular users are redirected home —
+  // they manage their own broker connections elsewhere (per-user).
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!isAdminUser(user)) redirect("/");
   return (
     <div className="space-y-8">
       <div>

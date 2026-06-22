@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { CONNECTORS } from "@/lib/connectors/registry";
 import { setConnectorValues, runtimeHas } from "@/lib/connectors/runtime";
+import { getAdminClient } from "@/lib/supabase-data";
 
 export const dynamic = "force-dynamic";
 
@@ -20,6 +21,10 @@ const EXTRA: Record<string, { fields: string[]; envVars: string[] }> = {
 // POST { connectorId, values: { FIELD: value } }  -> set runtime values
 // POST { connectorId, clear: true }                -> clear that connector
 export async function POST(req: NextRequest) {
+  // Platform API keys are admin-only. Regular users can't view or edit them.
+  const admin = await getAdminClient();
+  if (!admin) return NextResponse.json({ error: "forbidden", message: "Admin only." }, { status: 403 });
+
   const body = await req.json().catch(() => ({}));
   const registry = CONNECTORS.find((c) => c.id === body?.connectorId);
   const fieldIds = registry ? registry.fields.map((f) => f.id) : EXTRA[body?.connectorId]?.fields;

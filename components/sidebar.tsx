@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
+import useSWR from "swr";
 import {
   LayoutDashboard, Wallet, Eye, Search, Stethoscope, TrendingUp, Landmark,
   Bell, BookOpen, Settings, Trophy, NotebookPen, Plug, Grid3x3, Menu, X, Command, LogOut,
@@ -11,8 +12,9 @@ import clsx from "clsx";
 import { ThemeToggle } from "./theme-toggle";
 import { Blossom } from "./ui/primitives";
 
-// Grouped nav so 14 sections scan easily.
-const GROUPS: { label: string; items: { href: string; label: string; icon: any }[] }[] = [
+// Grouped nav so 14 sections scan easily. `adminOnly` items are hidden from
+// regular users (e.g. Connectors, which edits platform API keys).
+const GROUPS: { label: string; items: { href: string; label: string; icon: any; adminOnly?: boolean }[] }[] = [
   {
     label: "Portfolio",
     items: [
@@ -40,7 +42,7 @@ const GROUPS: { label: string; items: { href: string; label: string; icon: any }
   {
     label: "Setup",
     items: [
-      { href: "/connectors", label: "Connectors", icon: Plug },
+      { href: "/connectors", label: "Connectors", icon: Plug, adminOnly: true },
       { href: "/settings", label: "Settings", icon: Settings },
       { href: "/glossary", label: "Glossary", icon: BookOpen },
     ],
@@ -49,13 +51,18 @@ const GROUPS: { label: string; items: { href: string; label: string; icon: any }
 
 function NavList({ onNavigate }: { onNavigate?: () => void }) {
   const path = usePathname();
+  const { data: me } = useSWR<{ isAdmin?: boolean }>("/api/me", (u: string) => fetch(u).then((r) => r.json()), { revalidateOnFocus: false });
+  const isAdmin = Boolean(me?.isAdmin);
   return (
     <nav className="space-y-5">
-      {GROUPS.map((group) => (
+      {GROUPS.map((group) => {
+        const items = group.items.filter((it) => !it.adminOnly || isAdmin);
+        if (!items.length) return null;
+        return (
         <div key={group.label}>
           <div className="px-3 pb-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-ink-faint">{group.label}</div>
           <div className="space-y-0.5">
-            {group.items.map(({ href, label, icon: Icon }) => {
+            {items.map(({ href, label, icon: Icon }) => {
               const active = href === "/" ? path === "/" : path.startsWith(href);
               return (
                 <Link
@@ -75,7 +82,8 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
             })}
           </div>
         </div>
-      ))}
+        );
+      })}
     </nav>
   );
 }
