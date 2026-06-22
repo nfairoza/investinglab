@@ -3,8 +3,10 @@
 import { useState } from "react";
 import Link from "next/link";
 import useSWR from "swr";
+import { ArrowUp, ArrowDown } from "lucide-react";
 import { DataBadge, DataTimestamp } from "./data-state";
 import { TickerInput } from "./ticker-input";
+import { Sparkline } from "./charts/Sparkline";
 import type { DataResult, Quote } from "@/lib/providers/types";
 import type { Holding } from "@/lib/db";
 
@@ -22,6 +24,21 @@ async function fetchQuotes(symbols: string[]): Promise<Record<string, DataResult
         return [s, (await r.json()) as DataResult<Quote>] as const;
       } catch {
         return [s, { data: null, source: "unavailable", asOf: null, provider: "client", note: "failed" } as DataResult<Quote>] as const;
+      }
+    }),
+  );
+  return Object.fromEntries(entries);
+}
+
+// Last ~30 daily closes per symbol, for the mini trend sparkline.
+async function fetchSparks(symbols: string[]): Promise<Record<string, { v: number }[]>> {
+  const entries = await Promise.all(
+    symbols.map(async (s) => {
+      try {
+        const d = (await fetch(`/api/price-history?symbol=${s}`).then((r) => r.json())) as { data?: { points?: { close: number }[] } };
+        return [s, (d.data?.points ?? []).slice(-30).map((p) => ({ v: p.close }))] as const;
+      } catch {
+        return [s, []] as const;
       }
     }),
   );
@@ -54,6 +71,25 @@ export function HoldingsManager() {
     () => fetchQuotes(symbols),
     { refreshInterval: 60_000, revalidateOnFocus: true, keepPreviousData: true },
   );
+  const { data: sparks } = useSWR(
+    symbols.length ? ["holdings-sparks", symbols.join(",")] : null,
+    () => fetchSparks(symbols),
+    { revalidateOnFocus: false, keepPreviousData: true },
+  );
+
+  // Inline sorting (null = insertion order).
+  type SortKey = "symbol" | "shares" | "avgCost" | "price" | "value" | "day" | "total" | "weight";
+  const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" } | null>(null);
+  function toggleSort(key: SortKey) {
+    setSort((prev) => {
+      if (prev?.key === key) {
+        return prev.dir === (key === "symbol" ? "asc" : "desc")
+          ? { key, dir: key === "symbol" ? "desc" : "asc" }
+          : null;
+      }
+      return { key, dir: key === "symbol" ? "asc" : "desc" };
+    });
+  }
 
   async function addHolding() {
     const sym = symbol.trim().toUpperCase();
@@ -140,6 +176,32 @@ export function HoldingsManager() {
   const portDaysGain = valued.reduce((s, v) => s + (v.daysGain ?? 0), 0);
   const portTotalGain = valued.reduce((s, v) => s + (v.totalGain ?? 0), 0);
   const anySource = quotes ? Object.values(quotes)[0]?.source : undefined;
+
+  // Apply the chosen sort (nulls always last).
+  const sortedValued = (() => {
+    if (!sort) return valued;
+    const dir = sort.dir === "asc" ? 1 : -1;
+    const val = (v: typeof valued[number]): number | string | null => {
+      switch (sort.key) {
+        case "symbol": return v.h.symbol;
+        case "shares": return v.h.shares;
+        case "avgCost": return v.h.avgCost || null;
+        case "price": return v.price;
+        case "value": return v.value;
+        case "day": return v.daysGainPct;
+        case "total": return v.totalGainPct;
+        case "weight": return v.value != null && total > 0 ? v.value / total : null;
+      }
+    };
+    return [...valued].sort((a, b) => {
+      const av = val(a), bv = val(b);
+      if (av == null && bv == null) return 0;
+      if (av == null) return 1;
+      if (bv == null) return -1;
+      if (typeof av === "string" && typeof bv === "string") return av.localeCompare(bv) * dir;
+      return ((av as number) - (bv as number)) * dir;
+    });
+  })();
 
   const inputCls = "rounded-md border border-hairline bg-surface px-3 py-2 text-sm text-ink placeholder:text-ink-faint focus:border-brand-500 focus:outline-none";
 
@@ -249,19 +311,20 @@ export function HoldingsManager() {
             <table className="w-full text-left text-sm">
               <thead className="bg-surface text-xs uppercase tracking-wide text-ink-faint">
                 <tr>
-                  <th className="px-3 py-2">Ticker</th>
-                  <th className="px-3 py-2">Shares</th>
-                  <th className="px-3 py-2">Avg cost</th>
-                  <th className="px-3 py-2">Price</th>
-                  <th className="px-3 py-2">Value</th>
-                  <th className="px-3 py-2">Day&apos;s gain</th>
-                  <th className="px-3 py-2">Total gain</th>
-                  <th className="px-3 py-2">Weight</th>
+                  <Th label="Ticker" k="symbol" sort={sort} onSort={toggleSort} />
+                  <th className="px-3 py-2">Trend</th>
+                  <Th label="Shares" k="shares" sort={sort} onSort={toggleSort} align="right" />
+                  <Th label="Avg cost" k="avgCost" sort={sort} onSort={toggleSort} align="right" />
+                  <Th label="Price" k="price" sort={sort} onSort={toggleSort} align="right" />
+                  <Th label="Value" k="value" sort={sort} onSort={toggleSort} align="right" />
+                  <Th label="Day's gain" k="day" sort={sort} onSort={toggleSort} align="right" />
+                  <Th label="Total gain" k="total" sort={sort} onSort={toggleSort} align="right" />
+                  <Th label="Weight" k="weight" sort={sort} onSort={toggleSort} align="right" />
                   <th className="px-3 py-2"></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/5">
-                {valued.map(({ h, price, value, totalGain, totalGainPct, daysGain, daysGainPct }) => {
+                {sortedValued.map(({ h, price, value, totalGain, totalGainPct, daysGain, daysGainPct }) => {
                   const weight = value != null && total > 0 ? (value / total) * 100 : null;
                   const tUp = (totalGain ?? 0) >= 0;
                   const dUp = (daysGain ?? 0) >= 0;
@@ -273,21 +336,28 @@ export function HoldingsManager() {
                         {h.source === "robinhood" && <span className="ml-1 text-[10px] text-ink-faint">RH</span>}
                         {h.assetType === "crypto" && <span className="ml-1 rounded bg-lime-500/15 px-1 text-[9px] text-lime-300">CRYPTO</span>}
                       </td>
-                      <td className="px-3 py-2 text-ink-dim">{h.shares}</td>
-                      <td className="px-3 py-2 text-ink-dim">{h.avgCost > 0 ? `$${h.avgCost.toFixed(2)}` : "—"}</td>
-                      <td className="px-3 py-2 text-ink-dim">{price != null ? `$${price.toFixed(2)}` : "—"}</td>
-                      <td className="px-3 py-2 text-ink-dim">{value != null ? `$${value.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : "—"}</td>
+                      <td className="px-3 py-2">
+                        <div className="h-7 w-16">
+                          {(sparks?.[h.symbol]?.length ?? 0) > 1
+                            ? <Sparkline data={sparks![h.symbol]} height={28} />
+                            : <span className="block pt-2 text-xs text-ink-faint">—</span>}
+                        </div>
+                      </td>
+                      <td className="px-3 py-2 text-right text-ink-dim">{h.shares}</td>
+                      <td className="px-3 py-2 text-right text-ink-dim">{h.avgCost > 0 ? `$${h.avgCost.toFixed(2)}` : "—"}</td>
+                      <td className="px-3 py-2 text-right text-ink-dim">{price != null ? `$${price.toFixed(2)}` : "—"}</td>
+                      <td className="px-3 py-2 text-right text-ink-dim">{value != null ? `$${value.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : "—"}</td>
                       {/* Day's gain $ + % */}
-                      <td className={`px-3 py-2 ${daysGain == null ? "text-ink-faint" : dUp ? "text-emerald-400" : "text-rose-400"}`}>
+                      <td className={`px-3 py-2 text-right ${daysGain == null ? "text-ink-faint" : dUp ? "text-emerald-400" : "text-rose-400"}`}>
                         {daysGain == null
                           ? (daysGainPct != null ? `${daysGainPct >= 0 ? "▲" : "▼"} ${Math.abs(daysGainPct).toFixed(2)}%` : "—")
                           : `${dUp ? "▲" : "▼"} $${Math.abs(daysGain).toFixed(0)}${daysGainPct != null ? ` (${Math.abs(daysGainPct).toFixed(2)}%)` : ""}`}
                       </td>
                       {/* Total gain $ + % */}
-                      <td className={`px-3 py-2 ${totalGain == null || totalGainPct == null ? "text-ink-faint" : tUp ? "text-emerald-400" : "text-rose-400"}`}>
+                      <td className={`px-3 py-2 text-right ${totalGain == null || totalGainPct == null ? "text-ink-faint" : tUp ? "text-emerald-400" : "text-rose-400"}`}>
                         {totalGain == null || totalGainPct == null ? "—" : `${tUp ? "▲" : "▼"} $${Math.abs(totalGain).toFixed(0)} (${Math.abs(totalGainPct).toFixed(1)}%)`}
                       </td>
-                      <td className="px-3 py-2 text-ink-dim">{weight != null ? `${weight.toFixed(1)}%` : "—"}</td>
+                      <td className="px-3 py-2 text-right text-ink-dim">{weight != null ? `${weight.toFixed(1)}%` : "—"}</td>
                       <td className="px-3 py-2 text-right">
                         <button onClick={() => removeHolding(h.id)} className="text-xs text-ink-faint hover:text-rose-300">Remove</button>
                       </td>
@@ -306,5 +376,29 @@ export function HoldingsManager() {
         Saved to <code>data/db.json</code> — persists across restarts, independent of browser cache. Research and educational analysis, not financial advice.
       </p>
     </div>
+  );
+}
+
+// Sortable <th>. Click toggles sort on its column; shows an arrow when active.
+function Th<K extends string>({
+  label, k, sort, onSort, align = "left",
+}: {
+  label: string;
+  k: K;
+  sort: { key: K; dir: "asc" | "desc" } | null;
+  onSort: (key: K) => void;
+  align?: "left" | "right";
+}) {
+  const active = sort?.key === k;
+  return (
+    <th className="px-3 py-2">
+      <button
+        onClick={() => onSort(k)}
+        className={`flex items-center gap-1 uppercase tracking-wide transition-colors hover:text-ink ${active ? "text-brand-300" : ""} ${align === "right" ? "ml-auto" : ""}`}
+      >
+        {label}
+        {active && (sort!.dir === "asc" ? <ArrowUp size={11} /> : <ArrowDown size={11} />)}
+      </button>
+    </th>
   );
 }
