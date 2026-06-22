@@ -1,18 +1,37 @@
 "use client";
 
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from "recharts";
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
+import { useChartTheme } from "./chart-theme";
 
 interface Slice {
   symbol: string;
   value: number; // portfolio weight 0–100
 }
 
-const COLORS = [
-  "var(--accent)", "var(--neutral)", "var(--positive)", "var(--accent)", "var(--negative)",
-  "var(--neutral)", "#fb923c", "var(--positive)", "#f472b6", "var(--accent)",
+// Cohesive, on-brand palette: violet (accent) leads, then harmonized hues that
+// stay legible on both dark and light. No repeats among the first 10 so adjacent
+// slices are always distinguishable. Anything beyond falls back to a muted grey.
+const PALETTE = [
+  "#8B7CF6", // violet (brand)
+  "#34E0A1", // mint (positive)
+  "#60A5FA", // sky
+  "#F59E0B", // amber
+  "#FB7185", // rose
+  "#22D3EE", // cyan
+  "#A78BFA", // light violet
+  "#FBBF24", // gold
+  "#4ADE80", // green
+  "#F472B6", // pink
 ];
+const REST = "var(--neutral)";
+
+function colorAt(i: number) {
+  return i < PALETTE.length ? PALETTE[i] : REST;
+}
 
 export function AllocationDonut({ slices, title = "Portfolio allocation" }: { slices: Slice[]; title?: string }) {
+  const ct = useChartTheme();
+
   if (!slices.length) {
     return (
       <div className="card-hover rounded-xl glass p-4">
@@ -25,37 +44,60 @@ export function AllocationDonut({ slices, title = "Portfolio allocation" }: { sl
   }
 
   const data = slices.map((s) => ({ name: s.symbol, value: +s.value.toFixed(1) }));
+  const top = data.reduce((a, b) => (b.value > a.value ? b : a), data[0]);
 
   return (
-    <div className="rounded-xl glass p-4">
+    <div className="card-hover rounded-xl glass p-4">
       <div className="text-sm font-semibold text-ink">{title}</div>
       <div className="text-xs text-ink-faint mt-0.5">Am I too concentrated in one stock?</div>
-      <ResponsiveContainer width="100%" height={220}>
-        <PieChart>
-          <Pie
-            data={data}
-            cx="50%"
-            cy="50%"
-            innerRadius={55}
-            outerRadius={85}
-            paddingAngle={2}
-            dataKey="value"
-          >
-            {data.map((_, i) => (
-              <Cell key={i} fill={COLORS[i % COLORS.length]} />
-            ))}
-          </Pie>
-          <Tooltip
-            contentStyle={{ background: "var(--tooltip-bg)", border: "1px solid var(--hairline-gold)", borderRadius: 10, fontSize: 12 }}
-            formatter={(v: number, name: string) => [`${v}%`, name]}
-          />
-          <Legend
-            wrapperStyle={{ fontSize: 11, color: "var(--text-dim)" }}
-            formatter={(value, entry) => `${value} ${(entry as any).payload?.value ?? ""}%`}
-          />
-        </PieChart>
-      </ResponsiveContainer>
-      <p className="mt-1 text-[11px] text-ink-faint">Research and educational analysis, not financial advice.</p>
+
+      <div className="relative mt-2">
+        <ResponsiveContainer width="100%" height={220}>
+          <PieChart>
+            <Pie
+              data={data}
+              cx="50%"
+              cy="50%"
+              innerRadius={62}
+              outerRadius={92}
+              paddingAngle={2}
+              cornerRadius={5}
+              dataKey="value"
+              stroke="var(--bg)"
+              strokeWidth={2}
+              isAnimationActive={false}
+            >
+              {data.map((_, i) => (
+                <Cell key={i} fill={colorAt(i)} />
+              ))}
+            </Pie>
+            <Tooltip
+              contentStyle={{ background: ct.tooltipBg, border: `1px solid ${ct.hairline}`, borderRadius: 10, fontSize: 12, color: ct.text }}
+              itemStyle={{ color: ct.text }}
+              formatter={(v: number, name: string) => [`${v}%`, name]}
+            />
+          </PieChart>
+        </ResponsiveContainer>
+
+        {/* Center label — largest position */}
+        <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+          <span className="text-lg font-semibold text-ink">{top.value}%</span>
+          <span className="text-[11px] text-ink-faint">{top.name}</span>
+        </div>
+      </div>
+
+      {/* Custom legend chips — wrap, color dot + symbol + weight */}
+      <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1.5">
+        {data.map((d, i) => (
+          <span key={d.name} className="inline-flex items-center gap-1.5 text-[11px] text-ink-dim">
+            <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: colorAt(i) }} />
+            <span className="font-medium text-ink">{d.name}</span>
+            <span className="text-ink-faint">{d.value}%</span>
+          </span>
+        ))}
+      </div>
+
+      <p className="mt-2 text-[11px] text-ink-faint">Research and educational analysis, not financial advice.</p>
     </div>
   );
 }
