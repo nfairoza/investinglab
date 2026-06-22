@@ -28,7 +28,7 @@ export async function emailSignup(formData: FormData) {
   redirect("/login?message=" + encodeURIComponent("Check your email to confirm your account."));
 }
 
-export async function oauthLogin(provider: "google" | "facebook") {
+export async function oauthLogin(provider: "google") {
   const supabase = createClient();
   const origin = headers().get("origin");
   const { data, error } = await supabase.auth.signInWithOAuth({

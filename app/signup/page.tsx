@@ -1,5 +1,5 @@
 import { emailSignup, oauthLogin } from "../login/actions";
-import { AuthShell, GoogleIcon, FacebookIcon } from "@/components/auth-shell";
+import { AuthShell, GoogleIcon } from "@/components/auth-shell";
 import { AuthSubmit, OAuthSubmit } from "@/components/auth-submit";
 
 export const metadata = { title: "Create account" };
@@ -24,9 +24,6 @@ export default function SignupPage({
 
       <form action={oauthLogin.bind(null, "google")}>
         <OAuthSubmit pendingText="Redirecting…"><GoogleIcon /> Continue with Google</OAuthSubmit>
-      </form>
-      <form action={oauthLogin.bind(null, "facebook")}>
-        <OAuthSubmit pendingText="Redirecting…"><FacebookIcon /> Continue with Facebook</OAuthSubmit>
       </form>
 
       <p className="auth-foot">Already have an account? <a href="/login">Sign in</a></p>
