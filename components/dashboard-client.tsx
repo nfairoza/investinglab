@@ -14,6 +14,7 @@ import { Sparkline } from "./charts/Sparkline";
 import { AllocationDonut } from "./charts/AllocationDonut";
 import { ScoreGauge } from "./charts/ScoreGauge";
 import { CashCard } from "./cash-card";
+import { OpportunitiesCard } from "./opportunities-card";
 import { GlassCard, EmptyState, Button, CountUp } from "./ui/primitives";
 import { GradientStat, AssetCard, ActivityRail, type ActivityItem } from "./dashboard-extras";
 
@@ -227,6 +228,9 @@ export function DashboardClient() {
                 </ul>
               </GlassCard>
             </div>
+
+            {/* AI opportunities — where to deploy cash */}
+            <OpportunitiesCard />
 
             {/* Market overview */}
             <div>

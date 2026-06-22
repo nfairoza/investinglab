@@ -102,12 +102,21 @@ export interface CashState {
   updatedAt: string | null;
 }
 
+// Cached AI output (opportunities scan, suggested alerts). Stored so an
+// auto-run-on-open feature can reuse a recent result instead of re-spending
+// tokens on every visit. `data` is the route-specific payload.
+export interface AiCacheEntry {
+  generatedAt: string;
+  data: unknown;
+}
+
 interface Schema {
   holdings: Holding[];
   watchlist: WatchItem[];
   journal: JournalEntry[];
   alerts: Alert[];
   cash: CashState;
+  aiCache?: Record<string, AiCacheEntry>;
   etrade: EtradeState;
 }
 
@@ -155,6 +164,7 @@ function ensureShape() {
   if (!db.data.journal) db.data.journal = [];
   if (!db.data.alerts) db.data.alerts = [];
   if (!db.data.cash) db.data.cash = { ...EMPTY_CASH };
+  if (!db.data.aiCache) db.data.aiCache = {};
   if (!db.data.etrade) db.data.etrade = { ...EMPTY_ETRADE };
 }
 
