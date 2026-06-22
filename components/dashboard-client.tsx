@@ -12,6 +12,7 @@ import { DataBadge } from "./data-state";
 import { QuoteProbe } from "./quote-probe";
 import { Sparkline } from "./charts/Sparkline";
 import { AllocationDonut } from "./charts/AllocationDonut";
+import { PerformanceChart } from "./charts/PerformanceChart";
 import { ScoreGauge } from "./charts/ScoreGauge";
 import { CashCard } from "./cash-card";
 import { OpportunitiesCard } from "./opportunities-card";
@@ -85,6 +86,26 @@ export function DashboardClient() {
     const maxLen = Math.min(days, Math.max(0, ...lens));
     if (maxLen < 2) return [];
     // Use the holding with the most history as the date axis reference.
+    const refSym = symbols.slice().sort((a, b) => (histories[b]?.length ?? 0) - (histories[a]?.length ?? 0))[0];
+    const refPts = histories[refSym] ?? [];
+    const out: { v: number; date?: string }[] = [];
+    for (let i = 0; i < maxLen; i++) {
+      let sum = 0;
+      for (const h of holdings) {
+        const pts = histories[h.symbol] ?? [];
+        const p = pts[pts.length - maxLen + i];
+        if (p) sum += p.close * h.shares;
+      }
+      out.push({ v: sum, date: refPts[refPts.length - maxLen + i]?.date });
+    }
+    return out;
+  })();
+
+  // Full-history portfolio series (uncapped) for the performance-vs-SPY chart,
+  // which does its own range windowing.
+  const portfolioSeriesFull: { v: number; date?: string }[] = (() => {
+    const maxLen = Math.max(0, ...symbols.map((s) => (histories[s] ?? []).length));
+    if (maxLen < 2) return [];
     const refSym = symbols.slice().sort((a, b) => (histories[b]?.length ?? 0) - (histories[a]?.length ?? 0))[0];
     const refPts = histories[refSym] ?? [];
     const out: { v: number; date?: string }[] = [];
@@ -194,6 +215,9 @@ export function DashboardClient() {
               </div>
               <div className="mt-3"><Sparkline data={portfolioSeries} height={120} interactive /></div>
             </GlassCard>
+
+            {/* Performance vs S&P 500 */}
+            {portfolioSeriesFull.length > 1 && <PerformanceChart series={portfolioSeriesFull} />}
 
             {/* Gradient stat row */}
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
