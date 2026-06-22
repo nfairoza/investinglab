@@ -248,7 +248,7 @@ export function DashboardClient() {
 
           {/* Right rail */}
           <div className="space-y-5">
-            <CashCard etradeConnected={holdings.some((h) => h.source === "etrade")} />
+            <CashCard />
 
             <GlassCard hover>
               <div className="flex items-center justify-between">

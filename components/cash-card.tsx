@@ -12,9 +12,12 @@ async function fetchJson<T>(url: string): Promise<T> {
 
 // Available-cash card for the dashboard. Shows the saved cash, where it came
 // from (manual vs E*TRADE), lets you edit it inline, and (when E*TRADE is
-// connected) refresh it from the broker balance.
-export function CashCard({ etradeConnected }: { etradeConnected?: boolean }) {
+// connected) refresh it from the broker balance. Connection is checked directly
+// via /api/etrade/status so the Sync link shows even before the first sync.
+export function CashCard() {
   const { data: cash, mutate } = useSWR<CashState>("/api/cash", fetchJson);
+  const { data: etrade } = useSWR<{ connected?: boolean; selectedAccountIdKey?: string | null }>("/api/etrade/status", fetchJson, { revalidateOnFocus: false });
+  const etradeConnected = Boolean(etrade?.connected && etrade?.selectedAccountIdKey);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import useSWR from "swr";
 import { ArrowUp, ArrowDown } from "lucide-react";
@@ -110,13 +110,13 @@ export function HoldingsManager() {
     mutate();
   }
 
-  async function syncFromEtrade() {
+  async function syncFromEtrade(silent = false) {
     setSyncingEtrade(true);
-    setSyncMsg(null);
+    if (!silent) setSyncMsg(null);
     try {
       const r = await fetch("/api/etrade/positions");
-      if (r.status === 401) { setSyncMsg("E*TRADE session expired — go to Connectors and reconnect."); return; }
-      if (!r.ok) { const j = await r.json().catch(() => ({})); setSyncMsg((j as any).error ?? "Sync failed."); return; }
+      if (r.status === 401) { if (!silent) setSyncMsg("E*TRADE session expired — go to Connectors and reconnect."); return; }
+      if (!r.ok) { if (!silent) { const j = await r.json().catch(() => ({})); setSyncMsg((j as any).error ?? "Sync failed."); } return; }
       const { holdings: synced, accountName, syncedAt, equityPositions } = await r.json() as {
         holdings: { symbol: string; shares: number; avgCost: number; note?: string }[];
         accountName: string; syncedAt: string; equityPositions: number;
@@ -126,14 +126,33 @@ export function HoldingsManager() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ replace: true, holdings: synced.map((h) => ({ ...h, source: "etrade" })) }),
       });
+      // Also refresh available cash from the broker balance (best-effort).
+      fetch("/api/etrade/balance").catch(() => {});
       mutate();
       setSyncMsg(`Synced ${equityPositions} position${equityPositions !== 1 ? "s" : ""} from ${accountName}. ${new Date(syncedAt).toLocaleTimeString()}`);
     } catch (e) {
-      setSyncMsg(e instanceof Error ? e.message : "Sync error");
+      if (!silent) setSyncMsg(e instanceof Error ? e.message : "Sync error");
     } finally {
       setSyncingEtrade(false);
     }
   }
+
+  // Auto-sync from E*TRADE on first load when connected — no button click needed.
+  // Runs once per mount; silent so it won't show errors if the session lapsed.
+  const autoSynced = useRef(false);
+  useEffect(() => {
+    if (autoSynced.current) return;
+    autoSynced.current = true;
+    (async () => {
+      try {
+        const s = await fetch("/api/etrade/status").then((r) => r.json());
+        if (s?.connected && s?.selectedAccountIdKey) {
+          await syncFromEtrade(true);
+        }
+      } catch { /* ignore — manual sync still available */ }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function syncFromRobinhood() {
     setSyncingRobinhood(true);
@@ -209,7 +228,7 @@ export function HoldingsManager() {
     <div className="space-y-4">
       {/* Broker sync */}
       <div className="flex flex-wrap items-center gap-3 rounded-lg border border-hairline bg-surface px-4 py-3">
-        <button onClick={syncFromEtrade} disabled={syncingEtrade}
+        <button onClick={() => syncFromEtrade()} disabled={syncingEtrade}
           className="rounded-md border border-emerald-600/60 bg-emerald-600/10 px-3 py-1.5 text-sm font-medium text-emerald-300 hover:bg-emerald-600/20 disabled:opacity-50">
           {syncingEtrade ? "Syncing…" : "↓ Sync from E*TRADE"}
         </button>
