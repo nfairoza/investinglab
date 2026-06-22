@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { getDb, withDbWrite, now } from "@/lib/db";
+import { now } from "@/lib/db";
+import { getUserClient, readAiCache, writeAiCache } from "@/lib/supabase-data";
 import { routeText } from "@/lib/ai/router";
 import { resolveApiKey } from "@/lib/ai/anthropic";
 import { geminiKey } from "@/lib/ai/gemini";
@@ -50,8 +51,9 @@ Only include the param fields relevant to each suggestion's type.`;
 
 // GET — return cached suggestions if fresh.
 export async function GET() {
-  const db = getDb();
-  const cached = db.data.aiCache?.[CACHE_KEY];
+  const ctx = await getUserClient();
+  if (!ctx) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  const cached = await readAiCache(ctx, CACHE_KEY);
   if (cached && Date.now() - new Date(cached.generatedAt).getTime() < TTL_MS) {
     return NextResponse.json({ cached: true, ...(cached.data as object) });
   }
@@ -60,27 +62,29 @@ export async function GET() {
 
 // POST — generate fresh suggestions, cache, return.
 export async function POST() {
+  const ctx = await getUserClient();
+  if (!ctx) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   if (!resolveApiKey() && !geminiKey()) {
     return NextResponse.json({ error: "no_key", message: "Add a Claude or Gemini API key in Connectors." }, { status: 400 });
   }
-  const db = getDb();
-  const holdings = (db.data.holdings ?? []).map((h) => h.symbol);
-  const watchlist = (db.data.watchlist ?? []).map((w) => w.symbol);
+  const [{ data: holdings }, { data: wl }] = await Promise.all([
+    ctx.supabase.from("holdings").select("symbol"),
+    ctx.supabase.from("watchlist").select("symbol"),
+  ]);
+  const holdingSyms = (holdings ?? []).map((h: any) => h.symbol);
+  const watchlist = (wl ?? []).map((w: any) => w.symbol);
 
   try {
     const { text, provider, model } = await routeText({
       task: "deep-analysis",
       system: SYSTEM,
-      user: buildPrompt(holdings, watchlist),
+      user: buildPrompt(holdingSyms, watchlist),
       maxTokens: 3072,
       webSearch: true,
     });
     const parsed = parseLooseJson(text);
     const result = { suggestions: parsed.suggestions ?? [], aiName: provider === "claude" ? "Claude" : "Gemini", model, generatedAt: now() };
-    await withDbWrite((db) => {
-      if (!db.data.aiCache) db.data.aiCache = {};
-      db.data.aiCache[CACHE_KEY] = { generatedAt: result.generatedAt, data: result };
-    });
+    await writeAiCache(ctx, CACHE_KEY, { generatedAt: result.generatedAt, data: result });
     return NextResponse.json({ cached: false, ...result });
   } catch (e) {
     return NextResponse.json({ error: "generation_failed", message: e instanceof Error ? e.message : "Failed" }, { status: 500 });

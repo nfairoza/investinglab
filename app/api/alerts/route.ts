@@ -1,16 +1,44 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getDb, withDbWrite, newId, now } from "@/lib/db";
+import { getUserClient } from "@/lib/supabase-data";
 import type { Alert } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
-  const db = getDb();
-  return NextResponse.json(db.data.alerts);
+function toAlert(r: any): Alert {
+  return {
+    id: r.id,
+    symbol: r.symbol,
+    type: r.type,
+    direction: r.direction ?? undefined,
+    price: r.price ?? undefined,
+    movePct: r.move_pct ?? undefined,
+    withinDays: r.within_days ?? undefined,
+    scoreOp: r.score_op ?? undefined,
+    scoreValue: r.score_value ?? undefined,
+    note: r.note ?? undefined,
+    enabled: r.enabled,
+    lastTriggeredAt: r.last_triggered_at ?? undefined,
+    lastValue: r.last_value ?? undefined,
+    triggerCount: r.trigger_count ?? 0,
+    createdAt: r.created_at,
+    updatedAt: r.updated_at,
+  };
 }
 
-// Create an alert. Validates the params relevant to its type.
+async function listAlerts(ctx: { supabase: any }) {
+  const { data } = await ctx.supabase.from("alerts").select("*").order("created_at", { ascending: false });
+  return (data ?? []).map(toAlert);
+}
+
+export async function GET() {
+  const ctx = await getUserClient();
+  if (!ctx) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  return NextResponse.json(await listAlerts(ctx));
+}
+
 export async function POST(req: NextRequest) {
+  const ctx = await getUserClient();
+  if (!ctx) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const body = await req.json().catch(() => ({}));
   const symbol = String(body?.symbol ?? "").toUpperCase().trim();
   const type = body?.type as Alert["type"];
@@ -18,65 +46,55 @@ export async function POST(req: NextRequest) {
   if (!["price", "dayMove", "earnings", "score"].includes(type)) {
     return NextResponse.json({ error: "valid type required" }, { status: 400 });
   }
-
-  // Type-specific validation.
   if (type === "price" && !(Number(body.price) > 0)) return NextResponse.json({ error: "price required" }, { status: 400 });
   if (type === "dayMove" && !(Number(body.movePct) > 0)) return NextResponse.json({ error: "movePct required" }, { status: 400 });
   if (type === "earnings" && !(Number(body.withinDays) >= 0)) return NextResponse.json({ error: "withinDays required" }, { status: 400 });
   if (type === "score" && !(Number(body.scoreValue) >= 0)) return NextResponse.json({ error: "scoreValue required" }, { status: 400 });
 
-  const result = await withDbWrite((db) => {
-    const alert: Alert = {
-      id: newId(),
-      symbol,
-      type,
-      direction: type === "price" ? (body.direction === "above" ? "above" : "below") : undefined,
-      price: type === "price" ? Number(body.price) : undefined,
-      movePct: type === "dayMove" ? Number(body.movePct) : undefined,
-      withinDays: type === "earnings" ? Number(body.withinDays) : undefined,
-      scoreOp: type === "score" ? (body.scoreOp === "above" ? "above" : "below") : undefined,
-      scoreValue: type === "score" ? Number(body.scoreValue) : undefined,
-      note: body.note ? String(body.note) : undefined,
-      enabled: true,
-      triggerCount: 0,
-      createdAt: now(),
-      updatedAt: now(),
-    };
-    db.data.alerts.unshift(alert); // newest first
-    return db.data.alerts;
+  await ctx.supabase.from("alerts").insert({
+    user_id: ctx.userId,
+    symbol,
+    type,
+    direction: type === "price" ? (body.direction === "above" ? "above" : "below") : null,
+    price: type === "price" ? Number(body.price) : null,
+    move_pct: type === "dayMove" ? Number(body.movePct) : null,
+    within_days: type === "earnings" ? Number(body.withinDays) : null,
+    score_op: type === "score" ? (body.scoreOp === "above" ? "above" : "below") : null,
+    score_value: type === "score" ? Number(body.scoreValue) : null,
+    note: body.note ? String(body.note) : null,
+    enabled: true,
+    trigger_count: 0,
   });
-  return NextResponse.json(result);
+  return NextResponse.json(await listAlerts(ctx));
 }
 
-// PATCH { id, enabled? , trigger?: { value, at } }
-//  - enabled: toggle on/off
-//  - trigger: record a firing (sets lastTriggeredAt/lastValue, bumps count)
+// PATCH { id, enabled?, trigger?: { value, at } }
 export async function PATCH(req: NextRequest) {
+  const ctx = await getUserClient();
+  if (!ctx) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const body = await req.json().catch(() => ({}));
   const id = String(body?.id ?? "");
   if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
 
-  const result = await withDbWrite((db) => {
-    const a = db.data.alerts.find((x) => x.id === id);
-    if (!a) return null;
-    if (typeof body.enabled === "boolean") a.enabled = body.enabled;
-    if (body.trigger && typeof body.trigger.value === "number") {
-      a.lastTriggeredAt = body.trigger.at ?? now();
-      a.lastValue = body.trigger.value;
-      a.triggerCount = (a.triggerCount ?? 0) + 1;
-    }
-    a.updatedAt = now();
-    return a;
-  });
-  if (!result) return NextResponse.json({ error: "not found" }, { status: 404 });
-  return NextResponse.json(result);
+  const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  if (typeof body.enabled === "boolean") patch.enabled = body.enabled;
+  if (body.trigger && typeof body.trigger.value === "number") {
+    patch.last_triggered_at = body.trigger.at ?? new Date().toISOString();
+    patch.last_value = body.trigger.value;
+    // Read current count to increment (no atomic increment via PostgREST here).
+    const { data: cur } = await ctx.supabase.from("alerts").select("trigger_count").eq("id", id).maybeSingle();
+    patch.trigger_count = (cur?.trigger_count ?? 0) + 1;
+  }
+  const { data, error } = await ctx.supabase.from("alerts").update(patch).eq("id", id).select("*").maybeSingle();
+  if (error || !data) return NextResponse.json({ error: "not found" }, { status: 404 });
+  return NextResponse.json(toAlert(data));
 }
 
 export async function DELETE(req: NextRequest) {
+  const ctx = await getUserClient();
+  if (!ctx) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const id = req.nextUrl.searchParams.get("id");
   if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
-  await withDbWrite((db) => {
-    db.data.alerts = db.data.alerts.filter((a) => a.id !== id);
-  });
+  await ctx.supabase.from("alerts").delete().eq("id", id);
   return NextResponse.json({ ok: true });
 }

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getDb } from "@/lib/db";
+import { getUserClient } from "@/lib/supabase-data";
 import { marketData } from "@/lib/providers";
 import { computeScore } from "@/lib/scoring/score";
 import { resolveApiKey } from "@/lib/ai/anthropic";
@@ -152,8 +152,13 @@ export async function POST() {
     );
   }
 
-  const db = getDb();
-  const holdings = db.data.holdings ?? [];
+  const ctx = await getUserClient();
+  if (!ctx) return NextResponse.json({ error: "unauthorized", message: "Sign in to run the Portfolio Doctor." }, { status: 401 });
+  const { data: rows } = await ctx.supabase.from("holdings").select("*");
+  const holdings = (rows ?? []).map((h: any) => ({
+    symbol: h.symbol, shares: Number(h.shares), avgCost: Number(h.avg_cost),
+    assetType: h.asset_type ?? "stock", source: h.source ?? "manual",
+  }));
   if (!holdings.length) {
     return NextResponse.json(
       { error: "no_holdings", message: "Add holdings (or sync a broker) first — the doctor needs a portfolio to examine." },

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getDb } from "@/lib/db";
+import { getUserClient } from "@/lib/supabase-data";
 import { marketData } from "@/lib/providers";
 import type { DataResult, Quote, PriceHistory } from "@/lib/providers/types";
 
@@ -25,8 +25,10 @@ async function pool<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>
 // One round-trip for the dashboard: holdings' quotes + price histories, batched
 // server-side. Replaces N client /api/quote + N /api/price-history calls.
 export async function GET() {
-  const db = getDb();
-  const symbols = Array.from(new Set((db.data.holdings ?? []).map((h) => h.symbol.toUpperCase())));
+  const ctx = await getUserClient();
+  if (!ctx) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  const { data: rows } = await ctx.supabase.from("holdings").select("symbol");
+  const symbols = Array.from(new Set((rows ?? []).map((h: any) => String(h.symbol).toUpperCase())));
 
   const quotes: Record<string, DataResult<Quote>> = {};
   const histories: Record<string, { date: string; close: number }[]> = {};

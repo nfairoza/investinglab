@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getDb, withDbWrite, now } from "@/lib/db";
+import { now } from "@/lib/db";
+import { getUserClient, readAiCache, writeAiCache } from "@/lib/supabase-data";
 import { routeText } from "@/lib/ai/router";
 import { resolveApiKey } from "@/lib/ai/anthropic";
 import { geminiKey } from "@/lib/ai/gemini";
@@ -79,9 +80,10 @@ async function generate(cash: number, holdings: any[], watchlist: string[]) {
 // GET — return cached scan if fresh (within TTL), else null + meta so the client
 // can decide whether to trigger a fresh run. ?force=1 ignores the cache.
 export async function GET(req: NextRequest) {
+  const ctx = await getUserClient();
+  if (!ctx) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const force = req.nextUrl.searchParams.get("force") === "1";
-  const db = getDb();
-  const cached = db.data.aiCache?.[CACHE_KEY];
+  const cached = await readAiCache(ctx, CACHE_KEY);
   if (!force && cached && Date.now() - new Date(cached.generatedAt).getTime() < TTL_MS) {
     return NextResponse.json({ cached: true, ...(cached.data as object) });
   }
@@ -90,20 +92,23 @@ export async function GET(req: NextRequest) {
 
 // POST — run a fresh scan, cache it, return it.
 export async function POST() {
+  const ctx = await getUserClient();
+  if (!ctx) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   if (!resolveApiKey() && !geminiKey()) {
     return NextResponse.json({ error: "no_key", message: "Add a Claude or Gemini API key in Connectors to use AI opportunities." }, { status: 400 });
   }
-  const db = getDb();
-  const cash = db.data.cash?.amount ?? 0;
-  const holdings = db.data.holdings ?? [];
-  const watchlist = (db.data.watchlist ?? []).map((w) => w.symbol);
+  const [{ data: cashRow }, { data: holdings }, { data: wl }] = await Promise.all([
+    ctx.supabase.from("cash").select("amount").maybeSingle(),
+    ctx.supabase.from("holdings").select("symbol,shares,avg_cost"),
+    ctx.supabase.from("watchlist").select("symbol"),
+  ]);
+  const cash = Number(cashRow?.amount ?? 0);
+  const holdingList = (holdings ?? []).map((h: any) => ({ symbol: h.symbol, shares: h.shares, avgCost: h.avg_cost }));
+  const watchlist = (wl ?? []).map((w: any) => w.symbol);
 
   try {
-    const result = await generate(cash, holdings, watchlist);
-    await withDbWrite((db) => {
-      if (!db.data.aiCache) db.data.aiCache = {};
-      db.data.aiCache[CACHE_KEY] = { generatedAt: result.generatedAt, data: result };
-    });
+    const result = await generate(cash, holdingList, watchlist);
+    await writeAiCache(ctx, CACHE_KEY, { generatedAt: result.generatedAt, data: result });
     return NextResponse.json({ cached: false, ...result });
   } catch (e) {
     return NextResponse.json(
