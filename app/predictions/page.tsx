@@ -1,4 +1,4 @@
-import { PredictionWorkspace } from "@/components/prediction-workspace";
+import { PredictionsTabs } from "@/components/predictions-tabs";
 
 export const metadata = { title: "Predictions" };
 
@@ -9,17 +9,12 @@ export default function Page({ searchParams }: { searchParams: { symbol?: string
       <div>
         <h1 className="font-display text-3xl font-semibold text-ink">AI Predictions</h1>
         <p className="mt-1 max-w-2xl text-sm text-ink-dim">
-          Ask Claude to research any stock — it pulls live financials and searches the web for
-          recent news, then gives a probabilistic prediction across 1 week, 1 month, and 1 year.
-          This is an AI opinion, not a guarantee or market-implied odds.
+          Two views: a <span className="text-ink">market &amp; portfolio</span> outlook — what to buy,
+          add, trim, or sell with your available cash — and a <span className="text-ink">single-ticker</span>{" "}
+          deep prediction across 1 week, 1 month, and 1 year. AI opinions using live data + web search, not guarantees.
         </p>
       </div>
-      <div className="rounded-lg border border-[var(--hairline-gold)] bg-[var(--accent-soft)] p-3 text-sm text-ink">
-        <span className="font-medium">What should I look at first?</span> Read the confidence % and
-        the &quot;biggest risk&quot; before the direction — a confident-sounding call with a huge risk is
-        still a coin flip.
-      </div>
-      <PredictionWorkspace initial={initial} />
+      <PredictionsTabs initial={initial} />
     </div>
   );
 }
