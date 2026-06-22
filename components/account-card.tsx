@@ -1,23 +1,40 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import useSWR from "swr";
-import { User, Shield, LogOut, Trash2 } from "lucide-react";
+import { User, Shield, LogOut, Trash2, Check } from "lucide-react";
 
 interface Me { authenticated?: boolean; isAdmin?: boolean; email?: string | null; }
+interface Profile { displayName: string; phone: string; baseCurrency: string; beginnerMode: boolean; }
 
 async function fetchJson<T>(url: string): Promise<T> {
   const r = await fetch(url);
   return r.json();
 }
 
+const CURRENCIES = ["USD", "EUR", "GBP", "CAD", "AUD", "INR", "JPY"];
+
 // Account card for Settings: shows the signed-in email, sign-in provider, admin
 // badge, sign out, and delete account.
 export function AccountCard() {
   const { data: me } = useSWR<Me>("/api/me", fetchJson, { revalidateOnFocus: false });
+  const { data: profile, mutate: mutateProfile } = useSWR<Profile>("/api/profile-prefs", fetchJson, { revalidateOnFocus: false });
   const [confirming, setConfirming] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+
+  // Editable profile form, seeded from the fetched prefs.
+  const [form, setForm] = useState<Profile>({ displayName: "", phone: "", baseCurrency: "USD", beginnerMode: true });
+  const [saved, setSaved] = useState(false);
+  useEffect(() => { if (profile) setForm(profile); }, [profile]);
+
+  async function saveProfile() {
+    setSaved(false);
+    await fetch("/api/profile-prefs", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
+    await mutateProfile();
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  }
 
   async function deleteAccount() {
     setDeleting(true); setErr(null);
@@ -48,6 +65,37 @@ export function AccountCard() {
           </span>
         </div>
       </div>
+
+      {/* Editable profile */}
+      <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <label className="text-xs text-ink-faint">Display name
+          <input value={form.displayName} onChange={(e) => setForm({ ...form, displayName: e.target.value })}
+            placeholder="Your name"
+            className="mt-1 w-full rounded-md border border-hairline bg-surface px-3 py-2 text-sm text-ink focus:border-brand-500 focus:outline-none" />
+        </label>
+        <label className="text-xs text-ink-faint">Phone (optional)
+          <input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })}
+            placeholder="+1 …" inputMode="tel"
+            className="mt-1 w-full rounded-md border border-hairline bg-surface px-3 py-2 text-sm text-ink focus:border-brand-500 focus:outline-none" />
+        </label>
+        <label className="text-xs text-ink-faint">Base currency
+          <select value={form.baseCurrency} onChange={(e) => setForm({ ...form, baseCurrency: e.target.value })}
+            className="mt-1 w-full rounded-md border border-hairline px-3 py-2 text-sm text-ink focus:border-brand-500 focus:outline-none"
+            style={{ background: "var(--surface-solid)", color: "var(--text)" }}>
+            {CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}
+          </select>
+        </label>
+        <label className="flex items-center gap-2 self-end pb-2 text-sm text-ink-dim">
+          <input type="checkbox" checked={form.beginnerMode} onChange={(e) => setForm({ ...form, beginnerMode: e.target.checked })} className="accent-brand-500" />
+          Explain like I&apos;m new (default)
+        </label>
+      </div>
+      <div className="mt-3 flex items-center gap-2">
+        <button onClick={saveProfile} className="btn-gold rounded-md px-4 py-1.5 text-sm">Save profile</button>
+        {saved && <span className="flex items-center gap-1 text-xs text-emerald-400"><Check size={13} /> Saved</span>}
+      </div>
+
+      <div className="my-4 border-t border-hairline" />
 
       <div className="mt-4 flex flex-wrap items-center gap-2">
         <form action="/auth/signout" method="post">
