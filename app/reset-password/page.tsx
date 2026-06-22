@@ -1,5 +1,6 @@
 import { updatePassword } from "../login/actions";
 import { AuthShell } from "@/components/auth-shell";
+import { AuthSubmit } from "@/components/auth-submit";
 
 export const metadata = { title: "New password" };
 
@@ -15,7 +16,7 @@ export default function ResetPasswordPage({
 
       <form action={updatePassword} className="auth-form">
         <label>New password<input name="password" type="password" autoComplete="new-password" minLength={6} placeholder="At least 6 characters" required /></label>
-        <button type="submit">Update password</button>
+        <AuthSubmit pendingText="Updating…">Update password</AuthSubmit>
       </form>
     </AuthShell>
   );

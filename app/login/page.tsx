@@ -1,5 +1,6 @@
 import { emailLogin, oauthLogin } from "./actions";
 import { AuthShell, GoogleIcon, FacebookIcon } from "@/components/auth-shell";
+import { AuthSubmit, OAuthSubmit } from "@/components/auth-submit";
 
 export const metadata = { title: "Sign in" };
 
@@ -17,17 +18,17 @@ export default function LoginPage({
       <form action={emailLogin} className="auth-form">
         <label>Email<input name="email" type="email" autoComplete="email" placeholder="you@example.com" required /></label>
         <label>Password<input name="password" type="password" autoComplete="current-password" placeholder="••••••••" required /></label>
-        <button type="submit">Sign in</button>
+        <AuthSubmit pendingText="Signing in…">Sign in</AuthSubmit>
       </form>
       <a href="/forgot-password" className="auth-link">Forgot password?</a>
 
       <div className="auth-divider"><span>or</span></div>
 
       <form action={oauthLogin.bind(null, "google")}>
-        <button type="submit" className="btn-oauth"><GoogleIcon /> Continue with Google</button>
+        <OAuthSubmit pendingText="Redirecting…"><GoogleIcon /> Continue with Google</OAuthSubmit>
       </form>
       <form action={oauthLogin.bind(null, "facebook")}>
-        <button type="submit" className="btn-oauth"><FacebookIcon /> Continue with Facebook</button>
+        <OAuthSubmit pendingText="Redirecting…"><FacebookIcon /> Continue with Facebook</OAuthSubmit>
       </form>
 
       <p className="auth-foot">New here? <a href="/signup">Create an account</a></p>

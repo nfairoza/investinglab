@@ -1,5 +1,6 @@
 import { forgotPassword } from "../login/actions";
 import { AuthShell } from "@/components/auth-shell";
+import { AuthSubmit } from "@/components/auth-submit";
 
 export const metadata = { title: "Reset password" };
 
@@ -16,7 +17,7 @@ export default function ForgotPasswordPage({
 
       <form action={forgotPassword} className="auth-form">
         <label>Email<input name="email" type="email" autoComplete="email" placeholder="you@example.com" required /></label>
-        <button type="submit">Send reset link</button>
+        <AuthSubmit pendingText="Sending…">Send reset link</AuthSubmit>
       </form>
 
       <p className="auth-foot"><a href="/login">Back to sign in</a></p>
