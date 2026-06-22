@@ -17,7 +17,10 @@ export function AuthShell({ children }: { children: React.ReactNode }) {
             <span className="block text-[10px] font-medium uppercase tracking-[0.32em] text-ink-faint">Lab</span>
           </span>
         </div>
-        <h2 className="auth-aside-head">Your portfolio,<br />intelligently watched.</h2>
+        <h2 className="auth-aside-head">Your banking, spending, and E&#8209;Trade portfolio. Unified and predicted by AI.</h2>
+        <div className="auth-trust">
+          🔒 Read-Only Bank Integration via Bank-Grade 256-Bit Encryption. Your Capital Stays Yours.
+        </div>
         <ul className="auth-aside-list">
           <li>Live holdings, scores & research in one place</li>
           <li>AI finds where to put your cash</li>

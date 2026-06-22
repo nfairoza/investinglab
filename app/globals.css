@@ -389,6 +389,12 @@ html.light [class*="text-emerald-300/"] { color: #047857; }
 .auth-aside-list { display: flex; flex-direction: column; gap: 0.7rem; }
 .auth-aside-list li { position: relative; padding-left: 1.4rem; color: var(--text-dim); font-size: 0.95rem; }
 .auth-aside-list li::before { content: "●"; position: absolute; left: 0; color: var(--accent); font-size: 0.7rem; top: 0.25rem; }
+.auth-trust {
+  display: flex; align-items: flex-start; gap: 0.5rem;
+  border: 1px solid var(--positive); border-radius: var(--radius-sm);
+  background: var(--positive-soft); color: var(--positive);
+  padding: 0.65rem 0.85rem; font-size: 0.8rem; font-weight: 600; line-height: 1.4;
+}
 .auth-aside-foot { margin-top: auto; font-size: 0.75rem; color: var(--text-faint); }
 @media (min-width: 900px) { .auth-aside { display: flex; } }
 
