@@ -15,5 +15,9 @@ export async function GET() {
     authenticated: true,
     isAdmin: isAdminUser(user),
     email: user.email ?? null,
+    createdAt: user.created_at ?? null,
+    provider: (user.app_metadata?.provider as string) ?? "email",
+    avatarUrl: (user.user_metadata?.avatar_url as string) ?? null,
+    fullName: (user.user_metadata?.full_name as string) ?? null,
   });
 }

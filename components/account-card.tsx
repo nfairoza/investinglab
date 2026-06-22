@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from "react";
 import useSWR from "swr";
-import { User, Shield, LogOut, Trash2, Check } from "lucide-react";
+import { Shield, LogOut, Trash2, Check } from "lucide-react";
 
-interface Me { authenticated?: boolean; isAdmin?: boolean; email?: string | null; }
+interface Me { authenticated?: boolean; isAdmin?: boolean; email?: string | null; createdAt?: string | null; provider?: string; avatarUrl?: string | null; fullName?: string | null; }
 interface Profile { displayName: string; phone: string; baseCurrency: string; beginnerMode: boolean; }
 
 async function fetchJson<T>(url: string): Promise<T> {
@@ -47,27 +47,43 @@ export function AccountCard() {
     } finally { setDeleting(false); }
   }
 
+  const initial = (form.displayName || me?.fullName || me?.email || "?").trim().charAt(0).toUpperCase();
+  const memberSince = me?.createdAt ? new Date(me.createdAt).toLocaleDateString(undefined, { month: "short", year: "numeric" }) : "—";
+  const providerLabel = me?.provider === "google" ? "Google" : "Email";
+
   return (
     <div className="rounded-xl glass p-5">
-      <div className="flex items-center gap-2 text-sm font-semibold text-ink">
-        <User size={16} className="text-accent" /> Account
+      {/* Header: avatar + name + email */}
+      <div className="flex items-center gap-4">
+        {me?.avatarUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={me.avatarUrl} alt="" className="h-14 w-14 rounded-full border border-hairline-strong object-cover" />
+        ) : (
+          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full text-xl font-semibold text-white" style={{ background: "var(--nav-active)" }}>
+            {initial}
+          </div>
+        )}
+        <div className="min-w-0">
+          <div className="truncate text-lg font-semibold text-ink">{form.displayName || me?.fullName || "Your account"}</div>
+          <div className="truncate text-sm text-ink-dim">{me?.email ?? "—"}</div>
+        </div>
+        <span className={`ml-auto inline-flex shrink-0 items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-medium ${me?.isAdmin ? "border-brand-500/50 bg-brand-500/10 text-brand-300" : "border-hairline text-ink-dim"}`}>
+          {me?.isAdmin && <Shield size={12} />}{me?.isAdmin ? "Administrator" : "Member"}
+        </span>
       </div>
 
-      <div className="mt-4 space-y-2.5 text-sm">
-        <div className="flex items-center justify-between gap-3 border-b border-hairline pb-2">
-          <span className="text-ink-faint">Email</span>
-          <span className="text-ink">{me?.email ?? "—"}</span>
-        </div>
-        <div className="flex items-center justify-between gap-3 border-b border-hairline pb-2">
-          <span className="text-ink-faint">Role</span>
-          <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs ${me?.isAdmin ? "border-brand-500/50 text-brand-300" : "border-hairline text-ink-dim"}`}>
-            {me?.isAdmin && <Shield size={11} />}{me?.isAdmin ? "Administrator" : "Member"}
-          </span>
-        </div>
+      {/* Info chips from the DB / session */}
+      <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <InfoChip label="Signed in with" value={providerLabel} />
+        <InfoChip label="Member since" value={memberSince} />
+        <InfoChip label="Base currency" value={form.baseCurrency} />
       </div>
+
+      <div className="my-4 border-t border-hairline" />
 
       {/* Editable profile */}
-      <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <div className="text-xs font-medium uppercase tracking-wide text-ink-faint">Profile</div>
+      <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
         <label className="text-xs text-ink-faint">Display name
           <input value={form.displayName} onChange={(e) => setForm({ ...form, displayName: e.target.value })}
             placeholder="Your name"
@@ -122,6 +138,15 @@ export function AccountCard() {
       </div>
       {err && <p className="mt-2 text-[11px] text-rose-400">{err}</p>}
       <p className="mt-3 text-[11px] text-ink-faint">Deleting removes your holdings, watchlist, alerts, cash, and connections — permanently.</p>
+    </div>
+  );
+}
+
+function InfoChip({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg border border-hairline bg-surface px-3 py-2">
+      <div className="text-[10px] uppercase tracking-wide text-ink-faint">{label}</div>
+      <div className="mt-0.5 text-sm font-medium text-ink">{value}</div>
     </div>
   );
 }
