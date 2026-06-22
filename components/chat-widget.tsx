@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { usePathname } from "next/navigation";
-import { MessageCircle, X, Send, RotateCcw, Minus, Maximize2, Minimize2, ImagePlus } from "lucide-react";
+import { MessageCircle, X, Send, RotateCcw, Minus, Maximize2, Minimize2, ImagePlus, Square } from "lucide-react";
 import useSWR from "swr";
 import type { Holding, WatchItem } from "@/lib/db";
 import type { DataResult, Quote } from "@/lib/providers/types";
@@ -102,6 +102,8 @@ export function ChatWidget() {
   const [mounted, setMounted] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  // Lets the user abort an in-flight response (the Stop button).
+  const abortRef = useRef<AbortController | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const pathname = usePathname();
@@ -195,9 +197,13 @@ export function ChatWidget() {
     setMessages((prev) => [...prev, userMsg, assistantMsg]);
     setStreaming(true);
 
+    const controller = new AbortController();
+    abortRef.current = controller;
+
     try {
       const res = await fetch("/api/chat", {
         method: "POST",
+        signal: controller.signal,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           // Send messages with text OR images (drop empty assistant placeholders)
@@ -257,19 +263,37 @@ export function ChatWidget() {
         }
       }
     } catch (e) {
-      setMessages((prev) =>
-        prev.map((m) =>
-          m.id === assistantId
-            ? { ...m, content: "Connection error — check that the dev server is running.", streaming: false }
-            : m,
-        ),
-      );
+      // User pressed Stop → keep whatever streamed so far, append a marker.
+      if (e instanceof DOMException && e.name === "AbortError") {
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === assistantId
+              ? { ...m, content: m.content ? m.content + " …(stopped)" : "(stopped)", streaming: false }
+              : m,
+          ),
+        );
+      } else {
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === assistantId
+              ? { ...m, content: "Connection error — check that the dev server is running.", streaming: false }
+              : m,
+          ),
+        );
+      }
     } finally {
       setMessages((prev) =>
         prev.map((m) => (m.id === assistantId ? { ...m, streaming: false } : m)),
       );
       setStreaming(false);
+      abortRef.current = null;
     }
+  }
+
+  // Abort the in-flight response. The fetch/stream throws AbortError, which the
+  // catch above handles by keeping the partial text.
+  function stop() {
+    abortRef.current?.abort();
   }
 
   function handleKey(e: React.KeyboardEvent<HTMLTextAreaElement>) {
@@ -467,13 +491,26 @@ export function ChatWidget() {
                   el.style.height = Math.min(el.scrollHeight, 96) + "px";
                 }}
               />
-              <button
-                onClick={() => send()}
-                disabled={(!input.trim() && pendingImages.length === 0) || streaming}
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-600 text-white hover:bg-brand-600 disabled:opacity-40"
-              >
-                <Send size={15} />
-              </button>
+              {streaming ? (
+                <button
+                  onClick={stop}
+                  title="Stop generating"
+                  aria-label="Stop generating"
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-hairline-strong bg-surface-raised text-ink hover:bg-surface"
+                >
+                  <Square size={13} className="fill-current" />
+                </button>
+              ) : (
+                <button
+                  onClick={() => send()}
+                  disabled={!input.trim() && pendingImages.length === 0}
+                  title="Send"
+                  aria-label="Send"
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-600 text-white hover:bg-brand-600 disabled:opacity-40"
+                >
+                  <Send size={15} />
+                </button>
+              )}
             </div>
             <p className="mt-1 text-center text-[10px] text-ink-faint">
               Educational analysis, not financial advice.

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import useSWR from "swr";
-import { GripVertical, ChevronUp, ChevronDown } from "lucide-react";
+import { GripVertical, ChevronUp, ChevronDown, ChevronRight, ExternalLink, X } from "lucide-react";
 import { DataBadge, DataTimestamp } from "./data-state";
 import { TickerInput } from "./ticker-input";
 import type { DataResult, Quote } from "@/lib/providers/types";
@@ -135,6 +135,7 @@ export function WatchlistManager() {
     }
   }
 
+  const [expanded, setExpanded] = useState<string | null>(null);
   const anySource = quotes ? Object.values(quotes)[0]?.source : undefined;
   const inputCls = "w-full rounded-md border border-hairline bg-surface px-3 py-2 text-sm text-ink placeholder:text-ink-faint focus:border-brand-500 focus:outline-none";
 
@@ -161,75 +162,110 @@ export function WatchlistManager() {
 
       {items.length > 0 && (
         <>
-          <div className="flex items-center gap-2">{anySource && <DataBadge source={anySource} />}</div>
-          <p className="text-[11px] text-ink-faint">Drag the <GripVertical size={11} className="inline" /> handle (or use ↑ ↓) to reorder. New tickers land on top.</p>
-          <div className="space-y-3">
-            {items.map((w, idx) => {
-              const price = quotes?.[w.symbol]?.data?.price ?? null;
-              const atOrBelow = price != null && w.idealBuy != null ? price <= w.idealBuy : null;
-              const busy = busyId === w.id;
-              return (
-                <div key={w.id}
-                  onDragOver={(e) => { if (dragId) e.preventDefault(); }}
-                  onDrop={() => onDrop(w.id)}
-                  onClick={() => { window.location.href = `/research?symbol=${w.symbol}`; }}
-                  role="link" tabIndex={0}
-                  onKeyDown={(e) => { if (e.key === "Enter") window.location.href = `/research?symbol=${w.symbol}`; }}
-                  title={`Open research for ${w.symbol}`}
-                  className={`glass card-hover cursor-pointer rounded-2xl p-4 transition-opacity ${dragId === w.id ? "opacity-50" : ""}`}>
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div className="flex items-center gap-2">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-[11px] text-ink-faint">Drag <GripVertical size={11} className="inline" /> (or ↑ ↓) to reorder. Click a row to expand · the ↗ opens research.</p>
+            {anySource && <DataBadge source={anySource} />}
+          </div>
+
+          <div className="overflow-hidden rounded-xl glass">
+            {/* Column header */}
+            <div className="hidden items-center gap-3 border-b border-hairline px-3 py-2 text-[10px] font-medium uppercase tracking-wide text-ink-faint sm:flex">
+              <span className="w-4" />
+              <span className="w-28">Ticker</span>
+              <span className="w-20 text-right">Price</span>
+              <span className="w-24 text-right">Ideal buy</span>
+              <span className="w-24 text-center">Vs. target</span>
+              <span className="flex-1">Next catalyst</span>
+              <span className="w-44 text-right">Actions</span>
+            </div>
+
+            <div className="divide-y divide-hairline">
+              {items.map((w, idx) => {
+                const price = quotes?.[w.symbol]?.data?.price ?? null;
+                const atOrBelow = price != null && w.idealBuy != null ? price <= w.idealBuy : null;
+                const busy = busyId === w.id;
+                const isOpen = expanded === w.id;
+                const hasDetail = w.bullCase || w.bearCase || w.note || w.fairValue || w.analyzedAt;
+                return (
+                  <div key={w.id}
+                    onDragOver={(e) => { if (dragId) e.preventDefault(); }}
+                    onDrop={() => onDrop(w.id)}
+                    className={`transition-opacity ${dragId === w.id ? "opacity-50" : ""}`}>
+                    {/* Compact row */}
+                    <div
+                      onClick={() => hasDetail && setExpanded(isOpen ? null : w.id)}
+                      className={`flex items-center gap-3 px-3 py-2.5 text-sm ${hasDetail ? "cursor-pointer hover:bg-surface" : ""}`}>
+                      {/* drag handle + expand chevron */}
                       <span
                         draggable
                         onClick={(e) => e.stopPropagation()}
                         onDragStart={(e) => { e.stopPropagation(); setDragId(w.id); }}
                         onDragEnd={() => setDragId(null)}
                         title="Drag to reorder"
-                        className="cursor-grab touch-none text-ink-faint hover:text-ink-dim active:cursor-grabbing"
-                      >
-                        <GripVertical size={16} />
+                        className="shrink-0 cursor-grab touch-none text-ink-faint hover:text-ink-dim active:cursor-grabbing">
+                        <GripVertical size={15} />
                       </span>
-                      <span className="font-display text-lg font-semibold text-brand-300">{w.symbol}</span>
-                      <span className="text-sm text-ink-dim">{price != null ? `$${price.toFixed(2)}` : "—"}</span>
-                      {w.aiAction && (
-                        <span className={`rounded-full border px-2 py-0.5 text-xs ${ACTION_STYLE[w.aiAction] ?? "border-hairline-strong text-ink-dim"}`}>{w.aiAction}</span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                      <div className="flex items-center">
-                        <button onClick={() => move(w.id, -1)} disabled={idx === 0} title="Move up"
-                          className="rounded-md p-1 text-ink-faint hover:text-ink hover:bg-surface disabled:opacity-30 disabled:hover:bg-transparent"><ChevronUp size={15} /></button>
-                        <button onClick={() => move(w.id, 1)} disabled={idx === items.length - 1} title="Move down"
-                          className="rounded-md p-1 text-ink-faint hover:text-ink hover:bg-surface disabled:opacity-30 disabled:hover:bg-transparent"><ChevronDown size={15} /></button>
+
+                      {/* Ticker + action chip */}
+                      <div className="flex w-28 shrink-0 items-center gap-2">
+                        {hasDetail && <ChevronRight size={13} className={`shrink-0 text-ink-faint transition-transform ${isOpen ? "rotate-90" : ""}`} />}
+                        <span className="font-semibold text-brand-300">{w.symbol}</span>
                       </div>
-                      <button onClick={() => analyze(w.id)} disabled={busy}
-                        className="rounded-md border border-brand-500/50 bg-brand-500/10 px-3 py-1.5 text-xs font-medium text-brand-300 hover:bg-brand-500/20 disabled:opacity-50">
-                        {busy ? "Analyzing…" : w.analyzedAt ? "Refresh analysis" : "Analyze"}
-                      </button>
-                      <button onClick={() => removeItem(w.id)} className="text-xs text-ink-faint hover:text-rose-300">Remove</button>
+
+                      <span className="w-20 shrink-0 text-right font-mono text-ink">{price != null ? `$${price.toFixed(2)}` : "—"}</span>
+                      <span className="w-24 shrink-0 text-right font-mono text-ink-dim">{w.idealBuy != null ? `$${w.idealBuy.toFixed(2)}` : "—"}</span>
+                      <span className={`w-24 shrink-0 text-center text-xs ${atOrBelow ? "text-emerald-400" : "text-ink-faint"}`}>
+                        {atOrBelow == null ? "—" : atOrBelow ? "● at/below" : "above"}
+                      </span>
+
+                      {/* catalyst + action chip (catalyst hidden on small screens) */}
+                      <div className="hidden min-w-0 flex-1 items-center gap-2 sm:flex">
+                        <span className="truncate text-xs text-ink-dim">{w.catalyst ?? "—"}</span>
+                        {w.aiAction && (
+                          <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] ${ACTION_STYLE[w.aiAction] ?? "border-hairline-strong text-ink-dim"}`}>{w.aiAction}</span>
+                        )}
+                      </div>
+
+                      {/* Actions */}
+                      <div className="flex shrink-0 items-center justify-end gap-0.5 sm:w-44" onClick={(e) => e.stopPropagation()}>
+                        <button onClick={() => move(w.id, -1)} disabled={idx === 0} title="Move up"
+                          className="rounded p-1 text-ink-faint hover:bg-surface hover:text-ink disabled:opacity-30 disabled:hover:bg-transparent"><ChevronUp size={14} /></button>
+                        <button onClick={() => move(w.id, 1)} disabled={idx === items.length - 1} title="Move down"
+                          className="rounded p-1 text-ink-faint hover:bg-surface hover:text-ink disabled:opacity-30 disabled:hover:bg-transparent"><ChevronDown size={14} /></button>
+                        <a href={`/research?symbol=${w.symbol}`} title={`Research ${w.symbol}`}
+                          className="rounded p-1 text-ink-faint hover:bg-surface hover:text-brand-300"><ExternalLink size={14} /></a>
+                        <button onClick={() => analyze(w.id)} disabled={busy} title={w.analyzedAt ? "Refresh AI analysis" : "Run AI analysis"}
+                          className="ml-1 rounded-md border border-brand-500/50 bg-brand-500/10 px-2 py-1 text-[11px] font-medium text-brand-300 hover:bg-brand-500/20 disabled:opacity-50">
+                          {busy ? "…" : w.analyzedAt ? "↻" : "Analyze"}
+                        </button>
+                        <button onClick={() => removeItem(w.id)} title="Remove"
+                          className="rounded p-1 text-ink-faint hover:text-rose-300"><X size={14} /></button>
+                      </div>
                     </div>
+
+                    {/* Expanded detail */}
+                    {isOpen && (
+                      <div className="bg-black/10 px-3 pb-3 pt-1 dark:bg-white/[0.02]">
+                        <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm sm:grid-cols-4">
+                          <Field label="Fair value" value={w.fairValue ?? "—"} />
+                          <Field label="Next catalyst" value={w.catalyst ?? "—"} />
+                          <Field label="Ideal buy" value={w.idealBuy != null ? `$${w.idealBuy.toFixed(2)}` : "—"} />
+                          <Field label="AI action" value={w.aiAction ?? "—"} />
+                        </div>
+                        {(w.bullCase || w.bearCase) && (
+                          <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                            {w.bullCase && <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-2 text-xs text-emerald-800 dark:bg-emerald-500/5 dark:text-emerald-100"><span className="font-medium">Bull:</span> {w.bullCase}</div>}
+                            {w.bearCase && <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 p-2 text-xs text-rose-800 dark:bg-rose-500/5 dark:text-rose-100"><span className="font-medium">Bear:</span> {w.bearCase}</div>}
+                          </div>
+                        )}
+                        {w.note && <p className="mt-2 text-xs text-ink-faint"><span className="font-medium text-ink-dim">Note:</span> {w.note}</p>}
+                        {w.analyzedAt && <p className="mt-1 text-[10px] text-ink-faint">AI analysis {new Date(w.analyzedAt).toLocaleString()}</p>}
+                      </div>
+                    )}
                   </div>
-
-                  {/* metrics row */}
-                  <div className="mt-3 grid grid-cols-2 gap-x-6 gap-y-1 text-sm sm:grid-cols-4">
-                    <Field label="Ideal buy" value={w.idealBuy != null ? `$${w.idealBuy.toFixed(2)}` : "—"} />
-                    <Field label="Vs. target" value={atOrBelow == null ? "—" : atOrBelow ? "● at/below" : "above"} cls={atOrBelow ? "text-emerald-400" : "text-ink-dim"} />
-                    <Field label="Fair value" value={w.fairValue ?? "—"} />
-                    <Field label="Next catalyst" value={w.catalyst ?? "—"} />
-                  </div>
-
-                  {(w.bullCase || w.bearCase) && (
-                    <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
-                      {w.bullCase && <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-2 text-xs text-emerald-800 dark:bg-emerald-500/5 dark:text-emerald-100"><span className="font-medium">Bull:</span> {w.bullCase}</div>}
-                      {w.bearCase && <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 p-2 text-xs text-rose-800 dark:bg-rose-500/5 dark:text-rose-100"><span className="font-medium">Bear:</span> {w.bearCase}</div>}
-                    </div>
-                  )}
-
-                  {w.note && <p className="mt-2 text-xs text-ink-faint">{w.note}</p>}
-                  {w.analyzedAt && <p className="mt-1 text-[10px] text-ink-faint">AI analysis {new Date(w.analyzedAt).toLocaleString()}</p>}
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
           {quotes && <DataTimestamp asOf={Object.values(quotes)[0]?.asOf ?? null} />}
         </>
