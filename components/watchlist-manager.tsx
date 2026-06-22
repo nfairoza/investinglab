@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import useSWR from "swr";
-import { GripVertical, ChevronUp, ChevronDown, ChevronRight, ExternalLink, X } from "lucide-react";
+import { GripVertical, ChevronRight, ExternalLink, X, ArrowUp, ArrowDown } from "lucide-react";
 import { DataBadge, DataTimestamp } from "./data-state";
 import { TickerInput } from "./ticker-input";
 import { Sparkline } from "./charts/Sparkline";
@@ -127,12 +127,6 @@ export function WatchlistManager() {
     persistOrder(next);
   }
 
-  function move(id: string, dir: -1 | 1) {
-    const i = items.findIndex((w) => w.id === id);
-    if (i === -1) return;
-    moveTo(id, i + dir);
-  }
-
   function onDrop(targetId: string) {
     if (!dragId || dragId === targetId) { setDragId(null); return; }
     const target = items.findIndex((w) => w.id === targetId);
@@ -157,6 +151,51 @@ export function WatchlistManager() {
   }
 
   const [expanded, setExpanded] = useState<string | null>(null);
+
+  // ── Inline sorting ──────────────────────────────────────────────────────────
+  // null = manual (drag) order. Otherwise sort by a column. Dragging is only
+  // offered in manual mode (reordering a sorted view would be meaningless).
+  type SortKey = "symbol" | "price" | "day" | "ideal" | "target";
+  const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" } | null>(null);
+
+  function toggleSort(key: SortKey) {
+    setSort((prev) => {
+      if (prev?.key === key) {
+        // symbol → asc → desc → off; numeric → desc → asc → off
+        return prev.dir === (key === "symbol" ? "asc" : "desc")
+          ? { key, dir: key === "symbol" ? "desc" : "asc" }
+          : null;
+      }
+      return { key, dir: key === "symbol" ? "asc" : "desc" };
+    });
+  }
+
+  // Numeric value for a row by sort key; null sorts last regardless of dir.
+  function sortVal(w: WatchItem, key: SortKey): number | string | null {
+    const price = quotes?.[w.symbol]?.data?.price ?? null;
+    switch (key) {
+      case "symbol": return w.symbol;
+      case "price": return price;
+      case "day": return quotes?.[w.symbol]?.data?.changePct ?? null;
+      case "ideal": return w.idealBuy ?? null;
+      case "target": return price != null && w.idealBuy != null ? price / w.idealBuy : null; // <1 = below target
+    }
+  }
+
+  const displayItems = (() => {
+    if (!sort) return items;
+    const dir = sort.dir === "asc" ? 1 : -1;
+    return [...items].sort((a, b) => {
+      const av = sortVal(a, sort.key);
+      const bv = sortVal(b, sort.key);
+      if (av == null && bv == null) return 0;
+      if (av == null) return 1;   // nulls always last
+      if (bv == null) return -1;
+      if (typeof av === "string" && typeof bv === "string") return av.localeCompare(bv) * dir;
+      return ((av as number) - (bv as number)) * dir;
+    });
+  })();
+
   const anySource = quotes ? Object.values(quotes)[0]?.source : undefined;
   const inputCls = "w-full rounded-md border border-hairline bg-surface px-3 py-2 text-sm text-ink placeholder:text-ink-faint focus:border-brand-500 focus:outline-none";
 
@@ -184,26 +223,30 @@ export function WatchlistManager() {
       {items.length > 0 && (
         <>
           <div className="flex items-center justify-between gap-2">
-            <p className="text-[11px] text-ink-faint">Drag <GripVertical size={11} className="inline" /> (or ↑ ↓) to reorder. Click a row to expand · the ↗ opens research.</p>
+            <p className="text-[11px] text-ink-faint">
+              {sort
+                ? <>Sorted by column — <button onClick={() => setSort(null)} className="text-brand-300 hover:underline">clear to drag-reorder</button>.</>
+                : <>Drag <GripVertical size={11} className="inline" /> to reorder, or click a column header to sort. Click a row to expand · ↗ opens research.</>}
+            </p>
             {anySource && <DataBadge source={anySource} />}
           </div>
 
           <div className="overflow-hidden rounded-xl glass">
-            {/* Column header */}
+            {/* Column header — click to sort */}
             <div className="hidden items-center gap-3 border-b border-hairline px-3 py-2 text-[10px] font-medium uppercase tracking-wide text-ink-faint sm:flex">
               <span className="w-4" />
-              <span className="w-24">Ticker</span>
+              <SortHeader label="Ticker" sortKey="symbol" sort={sort} onSort={toggleSort} className="w-24" />
               <span className="w-16 text-center">Trend</span>
-              <span className="w-24 text-right">Price</span>
-              <span className="w-20 text-right">Today</span>
-              <span className="w-24 text-right">Ideal buy</span>
-              <span className="w-24 text-center">Vs. target</span>
+              <SortHeader label="Price" sortKey="price" sort={sort} onSort={toggleSort} className="w-24 justify-end" />
+              <SortHeader label="Today" sortKey="day" sort={sort} onSort={toggleSort} className="w-20 justify-end" />
+              <SortHeader label="Ideal buy" sortKey="ideal" sort={sort} onSort={toggleSort} className="w-24 justify-end" />
+              <SortHeader label="Vs. target" sortKey="target" sort={sort} onSort={toggleSort} className="w-24 justify-center" />
               <span className="flex-1">Next catalyst</span>
-              <span className="w-44 text-right">Actions</span>
+              <span className="w-32 text-right">Actions</span>
             </div>
 
             <div className="divide-y divide-hairline">
-              {items.map((w, idx) => {
+              {displayItems.map((w) => {
                 const price = quotes?.[w.symbol]?.data?.price ?? null;
                 const dayPct = quotes?.[w.symbol]?.data?.changePct ?? null;
                 const spark = sparks?.[w.symbol] ?? [];
@@ -211,6 +254,7 @@ export function WatchlistManager() {
                 const busy = busyId === w.id;
                 const isOpen = expanded === w.id;
                 const hasDetail = w.bullCase || w.bearCase || w.note || w.fairValue || w.analyzedAt;
+                const canDrag = !sort; // dragging only makes sense in manual order
                 return (
                   <div key={w.id}
                     onDragOver={(e) => { if (dragId) e.preventDefault(); }}
@@ -222,12 +266,12 @@ export function WatchlistManager() {
                       className={`flex items-center gap-3 px-3 py-2.5 text-sm ${hasDetail ? "cursor-pointer hover:bg-surface" : ""}`}>
                       {/* drag handle + expand chevron */}
                       <span
-                        draggable
+                        draggable={canDrag}
                         onClick={(e) => e.stopPropagation()}
-                        onDragStart={(e) => { e.stopPropagation(); setDragId(w.id); }}
+                        onDragStart={(e) => { if (!canDrag) return; e.stopPropagation(); setDragId(w.id); }}
                         onDragEnd={() => setDragId(null)}
-                        title="Drag to reorder"
-                        className="shrink-0 cursor-grab touch-none text-ink-faint hover:text-ink-dim active:cursor-grabbing">
+                        title={canDrag ? "Drag to reorder" : "Clear sorting to drag-reorder"}
+                        className={`shrink-0 text-ink-faint ${canDrag ? "cursor-grab touch-none hover:text-ink-dim active:cursor-grabbing" : "opacity-30"}`}>
                         <GripVertical size={15} />
                       </span>
 
@@ -263,11 +307,7 @@ export function WatchlistManager() {
                       </div>
 
                       {/* Actions */}
-                      <div className="flex shrink-0 items-center justify-end gap-0.5 sm:w-44" onClick={(e) => e.stopPropagation()}>
-                        <button onClick={() => move(w.id, -1)} disabled={idx === 0} title="Move up"
-                          className="rounded p-1 text-ink-faint hover:bg-surface hover:text-ink disabled:opacity-30 disabled:hover:bg-transparent"><ChevronUp size={14} /></button>
-                        <button onClick={() => move(w.id, 1)} disabled={idx === items.length - 1} title="Move down"
-                          className="rounded p-1 text-ink-faint hover:bg-surface hover:text-ink disabled:opacity-30 disabled:hover:bg-transparent"><ChevronDown size={14} /></button>
+                      <div className="flex shrink-0 items-center justify-end gap-0.5 sm:w-32" onClick={(e) => e.stopPropagation()}>
                         <a href={`/research?symbol=${w.symbol}`} title={`Research ${w.symbol}`}
                           className="rounded p-1 text-ink-faint hover:bg-surface hover:text-brand-300"><ExternalLink size={14} /></a>
                         <button onClick={() => analyze(w.id)} disabled={busy} title={w.analyzedAt ? "Refresh AI analysis" : "Run AI analysis"}
@@ -320,5 +360,27 @@ function Field({ label, value, cls = "text-ink-dim" }: { label: string; value: s
       <div className="text-[10px] uppercase tracking-wide text-ink-faint">{label}</div>
       <div className={`text-sm ${cls}`}>{value}</div>
     </div>
+  );
+}
+
+// Clickable, sortable column header. Shows an arrow when active.
+function SortHeader<K extends string>({
+  label, sortKey, sort, onSort, className = "",
+}: {
+  label: string;
+  sortKey: K;
+  sort: { key: K; dir: "asc" | "desc" } | null;
+  onSort: (key: K) => void;
+  className?: string;
+}) {
+  const active = sort?.key === sortKey;
+  return (
+    <button
+      onClick={() => onSort(sortKey)}
+      className={`flex items-center gap-1 uppercase tracking-wide transition-colors hover:text-ink ${active ? "text-brand-300" : ""} ${className}`}
+    >
+      {label}
+      {active && (sort!.dir === "asc" ? <ArrowUp size={11} /> : <ArrowDown size={11} />)}
+    </button>
   );
 }
