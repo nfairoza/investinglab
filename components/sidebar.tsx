@@ -12,9 +12,9 @@ import clsx from "clsx";
 import { ThemeToggle } from "./theme-toggle";
 import { Blossom } from "./ui/primitives";
 
-// Grouped nav so 14 sections scan easily. `adminOnly` items are hidden from
-// regular users (e.g. Connectors, which edits platform API keys).
-const GROUPS: { label: string; items: { href: string; label: string; icon: any; adminOnly?: boolean }[] }[] = [
+// Grouped nav. An `adminOnly` group (or item) is hidden entirely from regular
+// users — they never see it exists.
+const GROUPS: { label: string; adminOnly?: boolean; items: { href: string; label: string; icon: any; adminOnly?: boolean }[] }[] = [
   {
     label: "Portfolio",
     items: [
@@ -42,9 +42,15 @@ const GROUPS: { label: string; items: { href: string; label: string; icon: any; 
   {
     label: "Setup",
     items: [
-      { href: "/connectors", label: "Connectors", icon: Plug, adminOnly: true },
       { href: "/settings", label: "Settings", icon: Settings },
       { href: "/glossary", label: "Glossary", icon: BookOpen },
+    ],
+  },
+  {
+    label: "Admin",
+    adminOnly: true,
+    items: [
+      { href: "/connectors", label: "Connectors & Keys", icon: Plug },
     ],
   },
 ];
@@ -56,6 +62,7 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
   return (
     <nav className="space-y-5">
       {GROUPS.map((group) => {
+        if (group.adminOnly && !isAdmin) return null;
         const items = group.items.filter((it) => !it.adminOnly || isAdmin);
         if (!items.length) return null;
         return (
