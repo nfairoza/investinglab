@@ -294,19 +294,27 @@ export function ChatWidget() {
       {/* Floating button */}
       <button
         onClick={() => setOpen((o) => !o)}
-        className={`fixed bottom-5 right-5 z-50 flex items-center justify-center rounded-full shadow-lg transition-all duration-200 hover:scale-110 active:scale-95
+        className={`flex items-center justify-center rounded-full shadow-lg transition-all duration-200 hover:scale-110 active:scale-95
           ${open ? "bg-surface hover:bg-surface" : "bg-brand-600 hover:bg-brand-500"}`}
-        style={{ width: 52, height: 52 }}
+        style={{ position: "fixed", bottom: 20, right: 20, left: "auto", zIndex: 50, width: 52, height: 52 }}
         aria-label="Open AI chat"
       >
         {open ? <X size={20} className="text-white" /> : <MessageCircle size={20} className="text-white" />}
       </button>
 
-      {/* Chat panel — scales up from the button */}
+      {/* Chat panel — scales up from the button. Positioning is INLINE (not
+          Tailwind) so it's anchored to the viewport's right side and cannot be
+          overridden/re-anchored by any stylesheet or ancestor. */}
       {open && (
         <div
-          className={`glass animate-scale-in fixed z-50 flex flex-col shadow-2xl ${size === "full" ? "bottom-0 right-0 top-0 rounded-l-2xl" : "bottom-20 right-4 rounded-2xl"}`}
+          className={`glass animate-scale-in flex flex-col shadow-2xl ${size === "full" ? "rounded-l-2xl" : "rounded-2xl"}`}
           style={{
+            position: "fixed",
+            zIndex: 50,
+            right: size === "full" ? 0 : 16,
+            bottom: size === "full" ? 0 : 80,
+            top: size === "full" ? 0 : "auto",
+            left: "auto",
             width: SIZES[size].w,
             height: size === "full" ? "100vh" : (minimized ? 52 : SIZES[size].h),
             maxWidth: "95vw",
