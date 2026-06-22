@@ -10,6 +10,7 @@ import type { StockScore } from "@/lib/scoring/score";
 import { DataBadge } from "./data-state";
 import { QuoteProbe } from "./quote-probe";
 import { Sparkline } from "./charts/Sparkline";
+import { AllocationDonut } from "./charts/AllocationDonut";
 import { ScoreGauge } from "./charts/ScoreGauge";
 import { GlassCard, EmptyState, Button, CountUp } from "./ui/primitives";
 import { GradientStat, AssetCard, ActivityRail, type ActivityItem } from "./dashboard-extras";
@@ -206,20 +207,7 @@ export function DashboardClient() {
 
             {/* Allocation + movers */}
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-              <GlassCard hover>
-                <div className="text-sm font-semibold text-ink">Allocation</div>
-                <ul className="mt-3 space-y-2.5">
-                  {alloc.slice(0, 6).map((a) => (
-                    <li key={a.symbol} className="flex items-center gap-3 text-sm">
-                      <Link href={`/holdings/${a.symbol}`} className="w-14 shrink-0 font-mono font-medium text-ink hover:text-accent">{a.symbol}</Link>
-                      <div className="h-1.5 flex-1 overflow-hidden rounded-full" style={{ background: "var(--hairline-strong)" }}>
-                        <div className="h-full rounded-full" style={{ width: `${a.pct}%`, background: "var(--accent)" }} />
-                      </div>
-                      <span className="w-10 shrink-0 text-right font-mono text-xs text-ink-dim">{a.pct.toFixed(0)}%</span>
-                    </li>
-                  ))}
-                </ul>
-              </GlassCard>
+              <AllocationDonut slices={alloc.map((a) => ({ symbol: a.symbol, value: a.pct }))} title="Allocation" />
               <GlassCard hover>
                 <div className="flex items-center gap-2 text-sm font-semibold text-ink"><TrendingUp size={15} className="text-accent" /> Top movers today</div>
                 <ul className="mt-3 space-y-2">
