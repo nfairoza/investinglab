@@ -64,26 +64,6 @@ function money(n: number): string {
   return `$${Math.round(n).toLocaleString()}`;
 }
 
-function MoveRow({ m, kind }: { m: Move; kind: "buy" | "sell" }) {
-  const isBuy = kind === "buy";
-  return (
-    <li className="flex items-start gap-2 rounded-lg border border-hairline bg-black/15 px-3 py-2">
-      <span className={`mt-0.5 shrink-0 rounded-md border px-1.5 py-0.5 text-[10px] font-semibold ${isBuy ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300" : "border-rose-500/40 bg-rose-500/10 text-rose-300"}`}>
-        {m.action}
-      </span>
-      <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-baseline gap-x-2">
-          <a href={`/research?symbol=${m.symbol}`} className="font-semibold text-brand-300 hover:underline">{m.symbol}</a>
-          <span className="text-sm text-ink">{money(m.amountUsd)}</span>
-          {m.shares != null && <span className="text-xs text-ink-faint">≈ {m.shares} sh</span>}
-          {m.isNew && <span className="rounded bg-brand-500/15 px-1 text-[10px] text-brand-300">new idea</span>}
-        </div>
-        <p className="text-xs text-ink-dim">{m.reason}</p>
-      </div>
-    </li>
-  );
-}
-
 export function PortfolioDoctor() {
   const { data: holdings = [] } = useSWR<Holding[]>("/api/holdings", (u: string) => fetch(u).then((r) => r.json()));
   const [busy, setBusy] = useState(false);
@@ -242,28 +222,48 @@ export function PortfolioDoctor() {
                 <div className="rounded-lg border border-hairline bg-black/15 px-3 py-2 text-sm text-ink-dim">
                   <span className="font-medium text-ink">{active.horizon} stance: </span>{active.stance}
                 </div>
-                <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                  {/* Sells */}
-                  <div>
-                    <div className="mb-2 flex items-center gap-1.5 text-sm font-medium text-rose-300">
-                      <TrendingDown size={15} /> Sell / Trim
-                    </div>
-                    <ul className="space-y-1.5">
-                      {active.sells?.length ? active.sells.map((m, i) => <MoveRow key={i} m={m} kind="sell" />)
-                        : <li className="rounded-lg border border-hairline bg-black/15 px-3 py-2 text-xs text-ink-faint">Nothing to sell at this horizon.</li>}
-                    </ul>
+                {/* Combined buy/sell plan as a table */}
+                {(active.sells?.length || active.buys?.length) ? (
+                  <div className="overflow-x-auto rounded-lg border border-hairline">
+                    <table className="w-full text-left text-sm">
+                      <thead className="bg-surface text-xs uppercase tracking-wide text-ink-faint">
+                        <tr>
+                          <th className="px-3 py-2">Ticker</th>
+                          <th className="px-3 py-2">Action</th>
+                          <th className="px-3 py-2 text-right">Amount</th>
+                          <th className="px-3 py-2 text-right">Shares</th>
+                          <th className="px-3 py-2">Why</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-white/5">
+                        {[
+                          ...(active.sells ?? []).map((m) => ({ m, kind: "sell" as const })),
+                          ...(active.buys ?? []).map((m) => ({ m, kind: "buy" as const })),
+                        ].map(({ m, kind }, i) => {
+                          const isBuy = kind === "buy";
+                          return (
+                            <tr key={i} className="align-top hover:bg-surface">
+                              <td className="px-3 py-2.5">
+                                <a href={`/research?symbol=${m.symbol}`} className="font-semibold text-brand-300 hover:underline">{m.symbol}</a>
+                                {m.isNew && <span className="ml-1 rounded bg-brand-500/15 px-1 text-[9px] text-brand-300">NEW</span>}
+                              </td>
+                              <td className="px-3 py-2.5">
+                                <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium ${isBuy ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300" : "border-rose-500/40 bg-rose-500/10 text-rose-700 dark:text-rose-300"}`}>
+                                  {isBuy ? <TrendingUp size={10} /> : <TrendingDown size={10} />}{m.action}
+                                </span>
+                              </td>
+                              <td className="px-3 py-2.5 text-right font-mono text-ink">{money(m.amountUsd)}</td>
+                              <td className="px-3 py-2.5 text-right text-ink-dim">{m.shares != null ? `≈ ${m.shares}` : "—"}</td>
+                              <td className="px-3 py-2.5 text-ink-dim">{m.reason}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
                   </div>
-                  {/* Buys */}
-                  <div>
-                    <div className="mb-2 flex items-center gap-1.5 text-sm font-medium text-emerald-300">
-                      <TrendingUp size={15} /> Buy / Add
-                    </div>
-                    <ul className="space-y-1.5">
-                      {active.buys?.length ? active.buys.map((m, i) => <MoveRow key={i} m={m} kind="buy" />)
-                        : <li className="rounded-lg border border-hairline bg-black/15 px-3 py-2 text-xs text-ink-faint">Nothing to buy at this horizon.</li>}
-                    </ul>
-                  </div>
-                </div>
+                ) : (
+                  <div className="rounded-lg border border-hairline bg-black/15 px-3 py-2 text-xs text-ink-faint">No specific moves at this horizon — hold steady.</div>
+                )}
               </div>
             )}
           </div>
