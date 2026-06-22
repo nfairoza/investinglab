@@ -370,13 +370,30 @@ html.light [class*="text-emerald-300/"] { color: #047857; }
    only this. Uses the theme tokens + accent gradient. */
 .auth-shell {
   position: fixed; inset: 0; z-index: 60;
-  display: flex; align-items: center; justify-content: center;
-  padding: 1.5rem; overflow-y: auto;
+  display: flex; align-items: stretch;
+  overflow-y: auto;
   background:
     radial-gradient(900px 600px at 85% -10%, var(--accent-soft), transparent 60%),
     radial-gradient(700px 600px at -5% 110%, var(--positive-soft), transparent 55%),
     var(--bg);
 }
+/* Left brand panel — hidden under 900px (form goes full width). */
+.auth-aside {
+  display: none;
+  flex-direction: column; justify-content: center; gap: 1.5rem;
+  width: 46%; max-width: 560px; padding: 3rem 3.5rem;
+  background: linear-gradient(160deg, var(--accent-soft), transparent 55%);
+  border-right: 1px solid var(--hairline);
+}
+.auth-aside-head { font-family: var(--font-display); font-size: 2.1rem; line-height: 1.15; font-weight: 600; color: var(--text); letter-spacing: -0.02em; }
+.auth-aside-list { display: flex; flex-direction: column; gap: 0.7rem; }
+.auth-aside-list li { position: relative; padding-left: 1.4rem; color: var(--text-dim); font-size: 0.95rem; }
+.auth-aside-list li::before { content: "●"; position: absolute; left: 0; color: var(--accent); font-size: 0.7rem; top: 0.25rem; }
+.auth-aside-foot { margin-top: auto; font-size: 0.75rem; color: var(--text-faint); }
+@media (min-width: 900px) { .auth-aside { display: flex; } }
+
+/* Right side: form card centered in remaining space */
+.auth-shell > .auth-card { margin: auto; }
 .auth-card {
   width: 100%; max-width: 400px;
   background: var(--glass-bg);
@@ -384,8 +401,10 @@ html.light [class*="text-emerald-300/"] { color: #047857; }
   border: 1px solid var(--glass-border);
   box-shadow: var(--glass-inner), var(--glass-shadow);
   border-radius: var(--radius-lg);
-  padding: 2rem 1.75rem;
+  padding: 2.25rem 2rem;
 }
+.auth-brand-mobile { margin-bottom: 1.5rem; }
+@media (min-width: 900px) { .auth-brand-mobile { display: none; } }
 .auth-card h1 { font-family: var(--font-display); font-size: 1.6rem; font-weight: 600; color: var(--text); letter-spacing: -0.015em; }
 .auth-brand { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 1.25rem; }
 .auth-form { display: flex; flex-direction: column; gap: 0.85rem; margin-top: 1.25rem; }

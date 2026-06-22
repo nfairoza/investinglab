@@ -1,9 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
-import { Sidebar } from "@/components/sidebar";
-import { ChatWidget } from "@/components/chat-widget";
-import { PageTransition } from "@/components/page-transition";
-import { CommandPalette } from "@/components/command-palette";
+import { AppFrame } from "@/components/app-frame";
 import { SwrProvider } from "@/components/swr-provider";
 
 // Fonts load browser-side via <link> (corp SSL blocks build-time next/font fetch).
@@ -43,14 +40,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <div className="bg-grain" aria-hidden />
 
         <SwrProvider>
-          <div className="relative flex min-h-screen">
-            <Sidebar />
-            <main className="flex-1 px-5 py-6 md:px-10 md:py-8">
-              <PageTransition>{children}</PageTransition>
-            </main>
-          </div>
-          <ChatWidget />
-          <CommandPalette />
+          <AppFrame>{children}</AppFrame>
         </SwrProvider>
       </body>
     </html>

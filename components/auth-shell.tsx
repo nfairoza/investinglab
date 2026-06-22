@@ -1,24 +1,40 @@
 import { Blossom } from "./ui/primitives";
 
-// Branded wrapper for all auth screens — full-screen, the app wordmark on top,
-// then the page's form. Server component (no client state needed).
+// Branded wrapper for all auth screens — Robinhood-style split: a branded panel
+// on the left (hidden on small screens) and the form card on the right. Full
+// screen, no app chrome. Server component.
 export function AuthShell({ children }: { children: React.ReactNode }) {
   return (
     <main className="auth-shell">
-      <div className="auth-card">
+      {/* Left brand panel — marketing/identity */}
+      <aside className="auth-aside">
         <div className="auth-brand">
+          <span className="flex h-10 w-10 items-center justify-center rounded-lg border" style={{ borderColor: "var(--hairline-gold)", background: "var(--accent-soft)" }}>
+            <Blossom className="h-6 w-6" />
+          </span>
+          <span className="leading-tight">
+            <span className="block font-display text-[20px] font-semibold tracking-tight" style={{ color: "var(--accent)" }}>Noor Investing</span>
+            <span className="block text-[10px] font-medium uppercase tracking-[0.32em] text-ink-faint">Lab</span>
+          </span>
+        </div>
+        <h2 className="auth-aside-head">Your portfolio,<br />intelligently watched.</h2>
+        <ul className="auth-aside-list">
+          <li>Live holdings, scores & research in one place</li>
+          <li>AI finds where to put your cash</li>
+          <li>Smart alerts on what actually matters</li>
+        </ul>
+        <p className="auth-aside-foot">Private to your account · Not financial advice</p>
+      </aside>
+
+      {/* Right form card */}
+      <div className="auth-card">
+        <div className="auth-brand auth-brand-mobile">
           <span className="flex h-9 w-9 items-center justify-center rounded-md border" style={{ borderColor: "var(--hairline-gold)", background: "var(--accent-soft)" }}>
             <Blossom className="h-5 w-5" />
           </span>
-          <span className="leading-tight">
-            <span className="block font-display text-[17px] font-semibold tracking-tight" style={{ color: "var(--accent)" }}>Noor Investing</span>
-            <span className="block text-[9px] font-medium uppercase tracking-[0.3em] text-ink-faint">Lab</span>
-          </span>
+          <span className="font-display text-[17px] font-semibold tracking-tight" style={{ color: "var(--accent)" }}>Noor Investing Lab</span>
         </div>
         {children}
-        <p className="auth-fineprint">
-          Your data is private to your account. Research and educational analysis, not financial advice.
-        </p>
       </div>
     </main>
   );
