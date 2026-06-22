@@ -1,0 +1,81 @@
+"use client";
+
+import { useState } from "react";
+import useSWR from "swr";
+import { Wallet, Pencil, Check, RefreshCw } from "lucide-react";
+import type { CashState } from "@/lib/db";
+
+async function fetchJson<T>(url: string): Promise<T> {
+  const r = await fetch(url);
+  return r.json();
+}
+
+// Available-cash card for the dashboard. Shows the saved cash, where it came
+// from (manual vs E*TRADE), lets you edit it inline, and (when E*TRADE is
+// connected) refresh it from the broker balance.
+export function CashCard({ etradeConnected }: { etradeConnected?: boolean }) {
+  const { data: cash, mutate } = useSWR<CashState>("/api/cash", fetchJson);
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const amount = cash?.amount ?? 0;
+
+  async function save() {
+    const n = Number(draft);
+    if (!Number.isFinite(n) || n < 0) { setEditing(false); return; }
+    await fetch("/api/cash", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ amount: n }) });
+    setEditing(false);
+    mutate();
+  }
+
+  async function refreshFromBroker() {
+    setBusy(true);
+    try {
+      await fetch("/api/etrade/balance").catch(() => {});
+      mutate();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="card-hover rounded-xl glass p-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-ink-faint">
+          <Wallet size={14} className="text-accent" /> Available cash
+        </div>
+        {!editing && (
+          <button onClick={() => { setDraft(String(amount)); setEditing(true); }} title="Edit cash"
+            className="rounded p-1 text-ink-faint hover:bg-surface hover:text-ink"><Pencil size={13} /></button>
+        )}
+      </div>
+
+      {editing ? (
+        <div className="mt-2 flex items-center gap-2">
+          <span className="text-ink-dim">$</span>
+          <input autoFocus value={draft} onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") save(); if (e.key === "Escape") setEditing(false); }}
+            inputMode="decimal"
+            className="w-32 rounded-md border border-hairline bg-surface px-2 py-1 text-lg font-semibold text-ink focus:border-brand-500 focus:outline-none" />
+          <button onClick={save} className="rounded-md bg-brand-600 p-1.5 text-white hover:bg-brand-500"><Check size={15} /></button>
+        </div>
+      ) : (
+        <div className="mt-1 text-2xl font-semibold text-ink">${amount.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
+      )}
+
+      <div className="mt-1.5 flex items-center justify-between gap-2">
+        <span className="text-[11px] text-ink-faint">
+          {cash?.source === "etrade" ? "From E*TRADE" : "Manual entry"}
+          {cash?.updatedAt ? ` · ${new Date(cash.updatedAt).toLocaleDateString()}` : ""}
+        </span>
+        {etradeConnected && (
+          <button onClick={refreshFromBroker} disabled={busy}
+            className="flex items-center gap-1 text-[11px] text-accent hover:underline disabled:opacity-50">
+            <RefreshCw size={11} className={busy ? "animate-spin" : ""} /> {busy ? "Syncing…" : "Sync from E*TRADE"}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}

@@ -13,6 +13,7 @@ import { QuoteProbe } from "./quote-probe";
 import { Sparkline } from "./charts/Sparkline";
 import { AllocationDonut } from "./charts/AllocationDonut";
 import { ScoreGauge } from "./charts/ScoreGauge";
+import { CashCard } from "./cash-card";
 import { GlassCard, EmptyState, Button, CountUp } from "./ui/primitives";
 import { GradientStat, AssetCard, ActivityRail, type ActivityItem } from "./dashboard-extras";
 
@@ -243,6 +244,8 @@ export function DashboardClient() {
 
           {/* Right rail */}
           <div className="space-y-5">
+            <CashCard etradeConnected={holdings.some((h) => h.source === "etrade")} />
+
             <GlassCard hover>
               <div className="flex items-center justify-between">
                 <div className="text-xs uppercase tracking-wide text-ink-faint">Top holding score</div>

@@ -94,11 +94,20 @@ export interface EtradeState {
   connectedAt: string | null;
 }
 
+// Available cash to deploy. `source` records where the number came from so the
+// UI can show "from E*TRADE" vs a manual entry.
+export interface CashState {
+  amount: number;
+  source: "manual" | "etrade";
+  updatedAt: string | null;
+}
+
 interface Schema {
   holdings: Holding[];
   watchlist: WatchItem[];
   journal: JournalEntry[];
   alerts: Alert[];
+  cash: CashState;
   etrade: EtradeState;
 }
 
@@ -114,7 +123,9 @@ const EMPTY_ETRADE: EtradeState = {
   connectedAt: null,
 };
 
-const DEFAULT: Schema = { holdings: [], watchlist: [], journal: [], alerts: [], etrade: { ...EMPTY_ETRADE } };
+const EMPTY_CASH: CashState = { amount: 0, source: "manual", updatedAt: null };
+
+const DEFAULT: Schema = { holdings: [], watchlist: [], journal: [], alerts: [], cash: { ...EMPTY_CASH }, etrade: { ...EMPTY_ETRADE } };
 
 // Anchor the DB file to the project root. The dev server's cwd can vary (e.g.
 // if launched from a parent dir), which would split reads/writes across
@@ -143,6 +154,7 @@ function ensureShape() {
   if (!db.data.watchlist) db.data.watchlist = [];
   if (!db.data.journal) db.data.journal = [];
   if (!db.data.alerts) db.data.alerts = [];
+  if (!db.data.cash) db.data.cash = { ...EMPTY_CASH };
   if (!db.data.etrade) db.data.etrade = { ...EMPTY_ETRADE };
 }
 
