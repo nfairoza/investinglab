@@ -20,8 +20,9 @@ import type { DataResult, Quote } from "@/lib/providers/types";
 import type { StockScore } from "@/lib/scoring/score";
 import type { ResearchReport } from "@/lib/research/types";
 type DR<T> = DataResult<T>;
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { freshness } from "@/lib/research/staleness";
+import { MotionLoader } from "./motion-loader";
 
 async function getJson<T>(url: string): Promise<T> {
   const r = await fetch(url);
@@ -91,6 +92,19 @@ export function HoldingDetail({ symbol }: { symbol: string }) {
   const score = scoreResult?.data;
   const report = researchResult?.data;
   const fresh = report ? freshness(report.generatedAt) : null;
+  const noKey = Boolean(researchResult?.note && /key|connector|settings/i.test(researchResult.note));
+
+  // Auto-generate the memo once per symbol when none is saved (no manual click).
+  const autoFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (generating || report || noKey) return;
+    if (researchResult === undefined) return; // wait for the initial GET
+    if (autoFor.current === symbol) return;
+    autoFor.current = symbol;
+    generateAnalysis();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [symbol, researchResult, report, noKey, generating]);
+  const memoGenerating = generating || (!report && !noKey && researchResult !== undefined);
 
   // Computed holding stats
   const price = quote?.price ?? null;
@@ -192,17 +206,22 @@ export function HoldingDetail({ symbol }: { symbol: string }) {
             </label>
             <button
               onClick={generateAnalysis}
-              disabled={generating}
+              disabled={memoGenerating}
               className="rounded-md bg-brand-600 px-3 py-1 text-[12px] font-medium text-white hover:bg-brand-600 disabled:opacity-50"
             >
-              {generating ? "Generating…" : report ? "Refresh analysis" : "Generate analysis"}
+              {memoGenerating ? "Generating…" : "Refresh analysis"}
             </button>
           </div>
         </div>
 
-        {!report && researchResult && (
-          <div className="mt-4 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-sm text-amber-200">
-            {researchResult.note ?? "No research yet — click Generate analysis."}
+        {memoGenerating && !report && (
+          <div className="mt-4"><MotionLoader page="research" height={220} label="Writing the deep-dive memo — reading financials and recent news…" /></div>
+        )}
+
+        {noKey && !report && !memoGenerating && (
+          <div className="mt-4 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-sm text-amber-700 dark:text-amber-200">
+            {researchResult?.note ?? "Add a Claude or Gemini API key to generate the memo."}{" "}
+            <a href="/connectors" className="underline">Open Connectors</a>
           </div>
         )}
 

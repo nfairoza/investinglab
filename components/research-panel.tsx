@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import useSWR from "swr";
 import { DataBadge } from "./data-state";
 import type { DataResult } from "@/lib/providers/types";
@@ -10,6 +10,7 @@ import { RecommendationGauge } from "./charts/RecommendationGauge";
 import { ScenarioRangeChart } from "./charts/ScenarioRangeChart";
 import { RevenueEarningsChart } from "./charts/RevenueEarningsChart";
 import { MarginChart } from "./charts/MarginChart";
+import { MotionLoader } from "./motion-loader";
 
 async function getReport(url: string): Promise<DataResult<ResearchReport>> {
   const r = await fetch(url);
@@ -35,7 +36,7 @@ const ACTION_ROWS: { key: keyof ResearchReport["actionTable"]; label: string }[]
   { key: "dataAsOf", label: "Data as of" },
 ];
 
-export function ResearchPanel({ symbol }: { symbol: string }) {
+export function ResearchPanel({ symbol, autoRun = true }: { symbol: string; autoRun?: boolean }) {
   const { data, isLoading, mutate } = useSWR<DataResult<ResearchReport>>(
     `/api/research?symbol=${symbol}`,
     getReport,
@@ -61,7 +62,28 @@ export function ResearchPanel({ symbol }: { symbol: string }) {
 
   const report = data?.data;
   const fresh = report ? freshness(report.generatedAt) : null;
-  const unavailable = !report && !isLoading;
+  // "no_key" is the only state where auto-generating won't help — surface the
+  // manual prompt then. Otherwise we auto-generate below.
+  const noKey = Boolean(data?.note && /key|connector|settings/i.test(data.note));
+
+  // Auto-generate the memo once per symbol when none is saved — no manual click
+  // needed. Skipped if there's no AI key (manual prompt shown instead).
+  const autoFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (!autoRun) return;
+    if (isLoading || busy) return;
+    if (report) return;          // already have one
+    if (noKey) return;           // can't — show prompt
+    if (autoFor.current === symbol) return; // tried already this symbol
+    autoFor.current = symbol;
+    regenerate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [symbol, isLoading, report, noKey, autoRun]);
+
+  // Reset the auto-trigger guard when the symbol changes.
+  useEffect(() => { autoFor.current = autoFor.current === symbol ? symbol : null; }, [symbol]);
+
+  const generating = busy || (autoRun && !report && !noKey);
 
   return (
     <div className="rounded-xl glass p-5">
@@ -69,7 +91,7 @@ export function ResearchPanel({ symbol }: { symbol: string }) {
         <div className="flex items-center gap-3">
           <div>
             <h2 className="text-lg font-semibold text-ink">{symbol} — AI deep-dive memo</h2>
-            <p className="text-[11px] text-ink-faint">Full written analysis (A–P sections, scenarios, action table). The quick call is the AI prediction at the top of the page.</p>
+            <p className="text-[11px] text-ink-faint">Full written analysis (A–P sections, scenarios, action table) — generated automatically. The quick call is the AI prediction at the top of the page.</p>
           </div>
           {data && <DataBadge source={data.source} />}
         </div>
@@ -85,28 +107,28 @@ export function ResearchPanel({ symbol }: { symbol: string }) {
           </label>
           <button
             onClick={regenerate}
-            disabled={busy}
+            disabled={generating}
             className="rounded-md bg-brand-600 px-3 py-1 text-[12px] font-medium text-white hover:bg-brand-600 disabled:opacity-50"
           >
-            {busy ? "Generating…" : report ? "Refresh analysis" : "Generate analysis"}
+            {generating ? "Generating…" : "Refresh analysis"}
           </button>
         </div>
       </div>
 
-      {isLoading && <div className="mt-4 h-20 animate-pulse rounded bg-surface-raised" />}
+      {/* Auto-generating (or manual generate) — show the motion loader. */}
+      {generating && !report && (
+        <div className="mt-4"><MotionLoader page="research" height={220} label="Writing the deep-dive memo — reading financials and recent news…" /></div>
+      )}
 
-      {unavailable && (
-        <div className="mt-4 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-sm text-amber-200">
-          {data?.note ?? "No research yet."}{" "}
-          {data?.note?.includes("Settings") && (
-            <a href="/settings" className="underline">
-              Open Settings
-            </a>
-          )}
+      {/* Only when we truly can't generate (no AI key) do we show the prompt. */}
+      {noKey && !report && !generating && (
+        <div className="mt-4 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-sm text-amber-700 dark:text-amber-200">
+          {data?.note ?? "Add a Claude or Gemini API key to generate the memo."}{" "}
+          <a href="/connectors" className="underline">Open Connectors</a>
         </div>
       )}
 
-      {!isLoading && report && (
+      {report && (
         <div className="mt-4 space-y-5">
           {/* Recommendation gauge — rating, confidence, biggest risk. */}
           <RecommendationGauge
