@@ -1,0 +1,36 @@
+import { emailLogin, oauthLogin } from "./actions";
+import { AuthShell, GoogleIcon, FacebookIcon } from "@/components/auth-shell";
+
+export const metadata = { title: "Sign in" };
+
+export default function LoginPage({
+  searchParams,
+}: { searchParams: { error?: string; message?: string } }) {
+  return (
+    <AuthShell>
+      <h1>Welcome back</h1>
+      <p className="mt-1 text-sm text-ink-dim">Sign in to your investing workspace.</p>
+
+      {searchParams?.message && <p className="auth-ok">{searchParams.message}</p>}
+      {searchParams?.error && <p className="auth-err">{searchParams.error}</p>}
+
+      <form action={emailLogin} className="auth-form">
+        <label>Email<input name="email" type="email" autoComplete="email" placeholder="you@example.com" required /></label>
+        <label>Password<input name="password" type="password" autoComplete="current-password" placeholder="••••••••" required /></label>
+        <button type="submit">Sign in</button>
+      </form>
+      <a href="/forgot-password" className="auth-link">Forgot password?</a>
+
+      <div className="auth-divider"><span>or</span></div>
+
+      <form action={oauthLogin.bind(null, "google")}>
+        <button type="submit" className="btn-oauth"><GoogleIcon /> Continue with Google</button>
+      </form>
+      <form action={oauthLogin.bind(null, "facebook")}>
+        <button type="submit" className="btn-oauth"><FacebookIcon /> Continue with Facebook</button>
+      </form>
+
+      <p className="auth-foot">New here? <a href="/signup">Create an account</a></p>
+    </AuthShell>
+  );
+}

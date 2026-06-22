@@ -365,6 +365,66 @@ html.light .text-emerald-300,
 html.light [class*="text-emerald-200/"],
 html.light [class*="text-emerald-300/"] { color: #047857; }
 
+/* ── Auth screens (login / signup / reset) ───────────────────────────────────
+   Full-screen branded overlay that covers the app shell — logged-out users see
+   only this. Uses the theme tokens + accent gradient. */
+.auth-shell {
+  position: fixed; inset: 0; z-index: 60;
+  display: flex; align-items: center; justify-content: center;
+  padding: 1.5rem; overflow-y: auto;
+  background:
+    radial-gradient(900px 600px at 85% -10%, var(--accent-soft), transparent 60%),
+    radial-gradient(700px 600px at -5% 110%, var(--positive-soft), transparent 55%),
+    var(--bg);
+}
+.auth-card {
+  width: 100%; max-width: 400px;
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: blur(16px) saturate(130%); backdrop-filter: blur(16px) saturate(130%);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-inner), var(--glass-shadow);
+  border-radius: var(--radius-lg);
+  padding: 2rem 1.75rem;
+}
+.auth-card h1 { font-family: var(--font-display); font-size: 1.6rem; font-weight: 600; color: var(--text); letter-spacing: -0.015em; }
+.auth-brand { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 1.25rem; }
+.auth-form { display: flex; flex-direction: column; gap: 0.85rem; margin-top: 1.25rem; }
+.auth-form label { display: flex; flex-direction: column; gap: 0.3rem; font-size: 0.8rem; color: var(--text-dim); }
+.auth-form input {
+  width: 100%; border-radius: var(--radius-sm);
+  border: 1px solid var(--hairline); background: var(--surface);
+  color: var(--text); padding: 0.7rem 0.85rem; font-size: 0.95rem;
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+.auth-form input::placeholder { color: var(--text-faint); }
+.auth-form input:focus { outline: none; border-color: var(--hairline-gold); box-shadow: 0 0 0 3px var(--accent-soft); }
+.auth-form button[type="submit"] {
+  margin-top: 0.35rem; border-radius: var(--radius-sm); padding: 0.75rem 1rem;
+  font-weight: 600; font-size: 0.95rem; color: #fff; cursor: pointer;
+  background: var(--nav-active); box-shadow: var(--nav-active-glow);
+  border: none; transition: filter 150ms ease;
+}
+.auth-form button[type="submit"]:hover { filter: brightness(1.06); }
+.auth-form button[type="submit"]:disabled { opacity: 0.6; cursor: default; }
+.auth-divider { display: flex; align-items: center; gap: 0.75rem; margin: 1.25rem 0; color: var(--text-faint); font-size: 0.75rem; }
+.auth-divider::before, .auth-divider::after { content: ""; flex: 1; height: 1px; background: var(--hairline); }
+.btn-oauth {
+  width: 100%; display: flex; align-items: center; justify-content: center; gap: 0.6rem;
+  border-radius: var(--radius-sm); padding: 0.7rem 1rem; font-weight: 500; font-size: 0.9rem;
+  cursor: pointer; margin-bottom: 0.6rem; border: 1px solid var(--hairline-strong);
+  background: var(--surface-solid); color: var(--text); transition: background-color 150ms ease;
+}
+.btn-oauth:hover { background: var(--surface-raised); }
+.btn-oauth svg { width: 18px; height: 18px; }
+.auth-link { display: inline-block; margin-top: 0.6rem; font-size: 0.8rem; color: var(--accent); }
+.auth-link:hover { text-decoration: underline; }
+.auth-foot { margin-top: 1.25rem; font-size: 0.85rem; color: var(--text-dim); text-align: center; }
+.auth-foot a { color: var(--accent); font-weight: 500; }
+.auth-foot a:hover { text-decoration: underline; }
+.auth-ok { margin-top: 0.75rem; border-radius: var(--radius-sm); border: 1px solid var(--positive); background: var(--positive-soft); color: var(--positive); padding: 0.6rem 0.8rem; font-size: 0.82rem; }
+.auth-err { margin-top: 0.75rem; border-radius: var(--radius-sm); border: 1px solid var(--negative); background: var(--negative-soft); color: var(--negative); padding: 0.6rem 0.8rem; font-size: 0.82rem; }
+.auth-fineprint { margin-top: 1.25rem; font-size: 0.7rem; line-height: 1.5; color: var(--text-faint); text-align: center; }
+
 /* Chat markdown */
 .chat-md a { word-break: break-word; color: var(--accent); }
 .chat-md ul, .chat-md ol { margin: 0.25rem 0; }

@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import {
   LayoutDashboard, Wallet, Eye, Search, Stethoscope, TrendingUp, Landmark,
-  Bell, BookOpen, Settings, Trophy, NotebookPen, Plug, Grid3x3, Menu, X, Command,
+  Bell, BookOpen, Settings, Trophy, NotebookPen, Plug, Grid3x3, Menu, X, Command, LogOut,
 } from "lucide-react";
 import clsx from "clsx";
 import { ThemeToggle } from "./theme-toggle";
@@ -104,6 +104,13 @@ function Footer() {
         <span className="flex items-center gap-2"><Command size={13} /> Quick search</span>
         <kbd className="rounded border border-hairline px-1.5 py-0.5 text-[10px]">⌘K</kbd>
       </button>
+      {/* Sign out — posts to the auth signout route, clears the session. */}
+      <form action="/auth/signout" method="post">
+        <button type="submit"
+          className="flex w-full items-center gap-2 rounded-md border border-hairline px-3 py-2 text-xs text-ink-dim hover:bg-surface hover:text-ink">
+          <LogOut size={13} /> Sign out
+        </button>
+      </form>
       <div className="flex items-center justify-between">
         <ThemeToggle />
         <p className="text-[10px] leading-tight text-ink-faint">Research only.<br />Not advice.</p>
