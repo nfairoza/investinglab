@@ -142,6 +142,9 @@ export function HoldingDetail({ symbol }: { symbol: string }) {
       {/* Company overview */}
       <CompanyProfileCard symbol={symbol} />
 
+      {/* Price chart (Robinhood-style) — right after the overview */}
+      <PriceChart symbol={symbol} />
+
       {/* Analyst + DCF side by side */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <AnalystPanel symbol={symbol} />
@@ -163,8 +166,7 @@ export function HoldingDetail({ symbol }: { symbol: string }) {
         />
       )}
 
-      {/* Price chart (Robinhood-style) + moving averages */}
-      <PriceChart symbol={symbol} />
+      {/* Moving averages */}
       <PriceHistoryChart symbol={symbol} />
 
       {/* Insider transactions */}
