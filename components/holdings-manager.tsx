@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import useSWR from "swr";
-import { ArrowUp, ArrowDown } from "lucide-react";
+import { ArrowUp, ArrowDown, RefreshCw } from "lucide-react";
 import { DataBadge, DataTimestamp } from "./data-state";
 import { TickerInput } from "./ticker-input";
 import { Sparkline } from "./charts/Sparkline";
@@ -226,25 +226,6 @@ export function HoldingsManager() {
 
   return (
     <div className="space-y-4">
-      {/* Broker sync */}
-      <div className="flex flex-wrap items-center gap-3 rounded-lg border border-hairline bg-surface px-4 py-3">
-        <button onClick={() => syncFromEtrade()} disabled={syncingEtrade}
-          className="rounded-md border border-emerald-600/60 bg-emerald-600/10 px-3 py-1.5 text-sm font-medium text-emerald-300 hover:bg-emerald-600/20 disabled:opacity-50">
-          {syncingEtrade ? "Syncing…" : "↓ Sync from E*TRADE"}
-        </button>
-        <button onClick={syncFromRobinhood} disabled={syncingRobinhood}
-          className="rounded-md border border-lime-600/60 bg-lime-600/10 px-3 py-1.5 text-sm font-medium text-lime-300 hover:bg-lime-600/20 disabled:opacity-50">
-          {syncingRobinhood ? "Syncing…" : "↓ Sync from Robinhood"}
-        </button>
-        {syncMsg && (
-          <span className={`text-sm ${syncMsg.includes("expired") || syncMsg.includes("failed") || syncMsg.includes("Connect") ? "text-rose-400" : "text-ink-dim"}`}>
-            {syncMsg}
-            {syncMsg.includes("Connectors") && <a href="/connectors" className="ml-1 text-brand-400 underline">Go to Connectors</a>}
-          </span>
-        )}
-        {!syncMsg && <span className="text-xs text-ink-faint">Connect a broker in Connectors first, then sync here.</span>}
-      </div>
-
       {/* Add form */}
       <div className="rounded-xl glass p-4">
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
@@ -293,8 +274,25 @@ export function HoldingsManager() {
           </div>
 
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <span className="text-xs text-ink-faint">{holdings.length} position{holdings.length !== 1 ? "s" : ""}</span>
             <div className="flex items-center gap-2">
+              <span className="text-xs text-ink-faint">{holdings.length} position{holdings.length !== 1 ? "s" : ""}</span>
+              {syncMsg && (
+                <span className={`text-[11px] ${syncMsg.includes("expired") || syncMsg.includes("failed") || syncMsg.includes("Connect") ? "text-rose-400" : "text-ink-faint"}`}>
+                  · {syncMsg}
+                  {syncMsg.includes("Connectors") && <a href="/connectors" className="ml-1 text-brand-400 underline">Connectors</a>}
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              {/* Subtle refresh — re-syncs connected brokers + live prices */}
+              <button
+                onClick={() => { syncFromEtrade(); syncFromRobinhood(); }}
+                disabled={syncingEtrade || syncingRobinhood}
+                title="Refresh from connected brokers (E*TRADE / Robinhood)"
+                className="flex items-center gap-1 rounded-md border border-hairline px-2 py-1 text-[11px] text-ink-dim hover:bg-surface hover:text-ink disabled:opacity-50">
+                <RefreshCw size={12} className={syncingEtrade || syncingRobinhood ? "animate-spin" : ""} />
+                {syncingEtrade || syncingRobinhood ? "Syncing…" : "Refresh"}
+              </button>
               {anySource && <DataBadge source={anySource} />}
               {/* Source filter — only shown when there's more than one source */}
               {presentSources.length > 1 && (
