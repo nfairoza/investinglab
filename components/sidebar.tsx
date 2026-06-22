@@ -82,7 +82,7 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
 
 function Wordmark() {
   return (
-    <div className="flex items-center gap-3 px-2">
+    <Link href="/" className="flex items-center gap-3 px-2 transition-opacity hover:opacity-80" title="Go to Dashboard">
       <div className="flex h-10 w-10 items-center justify-center rounded-md border" style={{ borderColor: "var(--hairline-gold)", background: "var(--accent-soft)" }}>
         <Blossom className="h-5 w-5" />
       </div>
@@ -90,7 +90,7 @@ function Wordmark() {
         <div className="font-display text-[19px] font-semibold tracking-tight text-shimmer">Noor Investing</div>
         <div className="text-[10px] font-medium tracking-[0.35em] uppercase text-ink-faint">Lab</div>
       </div>
-    </div>
+    </Link>
   );
 }
 
