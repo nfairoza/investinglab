@@ -44,22 +44,16 @@ export function MotionLoader({
 }: { page?: keyof typeof SCENES_BY_PAGE; label?: string; height?: number }) {
   const scene = useMemo(() => pick(SCENES_BY_PAGE[page] ?? SCENES_BY_PAGE.default), [page]);
 
+  // No card/box — the animation sits on transparent space (like a PNG), so it
+  // blends into whatever's behind it.
   return (
-    <div className="flex w-full flex-col items-center gap-3">
-      <div
-        className="relative w-full overflow-hidden rounded-2xl border border-hairline"
-        style={{
-          height,
-          background: "linear-gradient(180deg, color-mix(in oklab, var(--accent-soft) 60%, transparent), transparent 70%), var(--surface)",
-        }}
-      >
+    <div className="flex w-full flex-col items-center gap-2">
+      <div className="relative w-full" style={{ height }}>
         <div className="absolute inset-0 motion-reduce:hidden">{renderScene(scene)}</div>
         <div className="absolute inset-0 hidden motion-reduce:block"
-          style={{ background: "radial-gradient(60% 60% at 50% 50%, var(--accent-soft), transparent 70%)" }} aria-hidden />
-        <div className="absolute inset-x-0 bottom-0 p-3" style={{ background: "linear-gradient(0deg, var(--surface) 10%, transparent)" }}>
-          <AiThinking label={label} />
-        </div>
+          style={{ background: "radial-gradient(50% 50% at 50% 50%, var(--accent-soft), transparent 70%)" }} aria-hidden />
       </div>
+      <AiThinking label={label} />
     </div>
   );
 }
