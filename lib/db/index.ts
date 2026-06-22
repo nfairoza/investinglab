@@ -46,6 +46,25 @@ export interface WatchItem {
   updatedAt: string;
 }
 
+export interface Alert {
+  id: string;
+  symbol: string;
+  type: "price" | "dayMove" | "earnings" | "score";
+  direction?: "above" | "below";   // price target
+  price?: number;                  // price target $
+  movePct?: number;                // dayMove threshold (abs %)
+  withinDays?: number;             // earnings horizon (days)
+  scoreOp?: "below" | "above";     // score crossing
+  scoreValue?: number;             // score threshold 0..100
+  note?: string;
+  enabled: boolean;
+  lastTriggeredAt?: string;        // ISO; de-dupe + feed
+  lastValue?: number;              // the value that tripped it
+  triggerCount?: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface JournalEntry {
   id: string;
   symbol: string;
@@ -79,6 +98,7 @@ interface Schema {
   holdings: Holding[];
   watchlist: WatchItem[];
   journal: JournalEntry[];
+  alerts: Alert[];
   etrade: EtradeState;
 }
 
@@ -94,7 +114,7 @@ const EMPTY_ETRADE: EtradeState = {
   connectedAt: null,
 };
 
-const DEFAULT: Schema = { holdings: [], watchlist: [], journal: [], etrade: { ...EMPTY_ETRADE } };
+const DEFAULT: Schema = { holdings: [], watchlist: [], journal: [], alerts: [], etrade: { ...EMPTY_ETRADE } };
 
 // Anchor the DB file to the project root. The dev server's cwd can vary (e.g.
 // if launched from a parent dir), which would split reads/writes across
@@ -122,6 +142,7 @@ function ensureShape() {
   if (!db.data.holdings) db.data.holdings = [];
   if (!db.data.watchlist) db.data.watchlist = [];
   if (!db.data.journal) db.data.journal = [];
+  if (!db.data.alerts) db.data.alerts = [];
   if (!db.data.etrade) db.data.etrade = { ...EMPTY_ETRADE };
 }
 
