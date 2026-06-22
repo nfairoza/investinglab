@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import useSWR from "swr";
-import { Bell, BellRing, X } from "lucide-react";
+import { Bell, BellRing, X, Sparkles, Plus, RefreshCw } from "lucide-react";
 import { TickerInput } from "./ticker-input";
 import { evaluateAlert, describeAlert, formatTriggerValue, needsScore, type AlertContext } from "@/lib/alerts/evaluate";
 import type { Alert } from "@/lib/db";
@@ -83,6 +83,57 @@ export function AlertsManager() {
     await fetch(`/api/alerts?id=${id}`, { method: "DELETE" });
     mutate();
   }
+
+  // ── AI-suggested alerts ───────────────────────────────────────────────────────
+  interface Suggestion {
+    symbol: string; type: Alert["type"]; reason?: string;
+    direction?: "above" | "below"; price?: number; movePct?: number;
+    withinDays?: number; scoreOp?: "above" | "below"; scoreValue?: number;
+  }
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+  const [suggestBusy, setSuggestBusy] = useState(false);
+  const [dismissed, setDismissed] = useState<Set<string>>(new Set());
+  const ranSuggest = useRef(false);
+
+  const sigOf = (s: Suggestion) => `${s.symbol}-${s.type}-${s.price ?? ""}${s.movePct ?? ""}${s.withinDays ?? ""}${s.scoreValue ?? ""}`;
+  // Hide suggestions that already match an existing alert.
+  function alreadyExists(s: Suggestion): boolean {
+    return alerts.some((a) => a.symbol === s.symbol && a.type === s.type);
+  }
+
+  async function loadSuggestions(force = false) {
+    setSuggestBusy(true);
+    try {
+      if (!force) {
+        const cached = await fetch("/api/alerts/suggest").then((r) => r.json());
+        if (cached.cached && Array.isArray(cached.suggestions)) { setSuggestions(cached.suggestions); return; }
+        if (cached.data?.suggestions) setSuggestions(cached.data.suggestions);
+      }
+      const fresh = await fetch("/api/alerts/suggest", { method: "POST" }).then((r) => r.json());
+      if (Array.isArray(fresh.suggestions)) setSuggestions(fresh.suggestions);
+    } catch { /* ignore — manual add still works */ }
+    finally { setSuggestBusy(false); }
+  }
+
+  useEffect(() => {
+    if (ranSuggest.current) return;
+    ranSuggest.current = true;
+    loadSuggestions();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function approve(s: Suggestion) {
+    const payload: Record<string, unknown> = { symbol: s.symbol, type: s.type, note: s.reason };
+    if (s.type === "price") { payload.direction = s.direction ?? "below"; payload.price = s.price; }
+    if (s.type === "dayMove") payload.movePct = s.movePct;
+    if (s.type === "earnings") payload.withinDays = s.withinDays;
+    if (s.type === "score") { payload.scoreOp = s.scoreOp ?? "below"; payload.scoreValue = s.scoreValue; }
+    await fetch("/api/alerts", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    setDismissed((d) => new Set(d).add(sigOf(s)));
+    mutate();
+  }
+
+  const visibleSuggestions = suggestions.filter((s) => !dismissed.has(sigOf(s)) && !alreadyExists(s));
 
   // ── Polling engine ────────────────────────────────────────────────────────────
   // Re-read the latest alerts inside the interval via a ref so we don't restart
@@ -233,6 +284,45 @@ export function AlertsManager() {
         </div>
         <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Note (optional)" className={`${inputCls} mt-2`} />
         {addErr && <p className="mt-2 text-[11px] text-rose-400">{addErr}</p>}
+      </div>
+
+      {/* AI-suggested alerts */}
+      <div className="rounded-xl glass p-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2 text-sm font-semibold text-ink">
+            <Sparkles size={15} className="text-accent" /> Suggested by AI
+          </div>
+          <button onClick={() => loadSuggestions(true)} disabled={suggestBusy}
+            className="flex items-center gap-1.5 text-xs text-accent hover:underline disabled:opacity-50">
+            <RefreshCw size={11} className={suggestBusy ? "animate-spin" : ""} /> {suggestBusy ? "Thinking…" : "Refresh"}
+          </button>
+        </div>
+        <p className="mt-0.5 text-[11px] text-ink-faint">
+          AI scans your holdings, watchlist & the market for the alerts worth setting. Approve the ones you want.
+        </p>
+        {suggestBusy && visibleSuggestions.length === 0 ? (
+          <p className="mt-3 text-sm text-ink-faint">Researching what to watch…</p>
+        ) : visibleSuggestions.length === 0 ? (
+          <p className="mt-3 text-sm text-ink-faint">No new suggestions right now — you&apos;re covered.</p>
+        ) : (
+          <div className="mt-3 space-y-2">
+            {visibleSuggestions.map((s) => (
+              <div key={sigOf(s)} className="flex items-center gap-3 rounded-lg border border-hairline bg-surface px-3 py-2 text-sm">
+                <span className="w-14 shrink-0 font-semibold text-brand-300">{s.symbol}</span>
+                <div className="min-w-0 flex-1">
+                  <div className="text-ink-dim">{describeAlert(s as unknown as Alert)}</div>
+                  {s.reason && <div className="truncate text-[11px] text-ink-faint">{s.reason}</div>}
+                </div>
+                <button onClick={() => approve(s)} title="Add this alert"
+                  className="flex shrink-0 items-center gap-1 rounded-md border border-brand-500/50 bg-brand-500/10 px-2.5 py-1 text-[11px] font-medium text-brand-300 hover:bg-brand-500/20">
+                  <Plus size={12} /> Add
+                </button>
+                <button onClick={() => setDismissed((d) => new Set(d).add(sigOf(s)))} title="Dismiss"
+                  className="shrink-0 rounded p-1 text-ink-faint hover:text-rose-300"><X size={13} /></button>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Active alerts */}
