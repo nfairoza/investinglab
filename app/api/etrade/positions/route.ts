@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { etradeGet } from "@/lib/etrade/client";
 import { getSelectedAccountIdKey, getAccounts } from "@/lib/etrade/token-store";
+import { getAdminClient } from "@/lib/supabase-data";
 
 export const dynamic = "force-dynamic";
 
@@ -37,6 +38,9 @@ function asArray<T>(v: T | T[] | undefined | null): T[] {
 // to the Holding shape used by the local holdings store.
 // Read-only — no order endpoints are called.
 export async function GET() {
+  // Broker tokens are still shared (admin's) until per-user migration — gate to
+  // admin so a regular user can NEVER read the admin's E*TRADE positions.
+  if (!(await getAdminClient())) return NextResponse.json({ error: "forbidden" }, { status: 403 });
   const accountIdKey = getSelectedAccountIdKey();
   if (!accountIdKey) {
     return NextResponse.json({ error: "No account selected — pick one in the Connectors tab." }, { status: 400 });

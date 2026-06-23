@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server";
 import { getCryptoHoldings, hasCryptoKeys } from "@/lib/robinhood/crypto";
 import { withDbWrite, newId, now, type Holding } from "@/lib/db";
+import { getAdminClient } from "@/lib/supabase-data";
 
 export const dynamic = "force-dynamic";
 
 // GET /api/robinhood/crypto-sync — pull live crypto holdings from Robinhood's
 // official API and store them as holdings (source "robinhood", assetType crypto).
 export async function GET() {
+  if (!(await getAdminClient())) return NextResponse.json({ error: "forbidden" }, { status: 403 });
   if (!hasCryptoKeys()) {
     return NextResponse.json({ error: "Add your Robinhood crypto API key + private key in Connectors." }, { status: 400 });
   }

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { etradeGet } from "@/lib/etrade/client";
 import { getSelectedAccountIdKey, getAccounts } from "@/lib/etrade/token-store";
-import { getUserClient } from "@/lib/supabase-data";
+import { getAdminClient } from "@/lib/supabase-data";
 
 export const dynamic = "force-dynamic";
 
@@ -16,8 +16,10 @@ function firstNum(...vals: any[]): number | null {
 // GET /api/etrade/balance — fetch the selected account's available cash and
 // persist it as the app's cash (source: etrade). Read-only on E*TRADE's side.
 export async function GET() {
-  const ctx = await getUserClient();
-  if (!ctx) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  // Admin-only: the E*TRADE account is the admin's (shared tokens) until per-user
+  // migration. ctx is still the admin's own Supabase row for the cash upsert.
+  const ctx = await getAdminClient();
+  if (!ctx) return NextResponse.json({ error: "forbidden" }, { status: 403 });
   const accountIdKey = getSelectedAccountIdKey();
   if (!accountIdKey) {
     return NextResponse.json({ error: "No account selected — pick one in Connectors." }, { status: 400 });

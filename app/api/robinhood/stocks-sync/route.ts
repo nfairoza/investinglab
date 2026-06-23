@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server";
 import { getStockPositions, rhStocksConnected } from "@/lib/robinhood/stocks";
 import { withDbWrite, newId, now, type Holding } from "@/lib/db";
+import { getAdminClient } from "@/lib/supabase-data";
 
 export const dynamic = "force-dynamic";
 
 // GET /api/robinhood/stocks-sync — pull live equity positions via the unofficial
 // RH API and store them as holdings (source "robinhood", assetType stock).
 export async function GET() {
+  if (!(await getAdminClient())) return NextResponse.json({ error: "forbidden" }, { status: 403 });
   if (!rhStocksConnected()) {
     return NextResponse.json({ error: "Log in to Robinhood (stocks) in Connectors first." }, { status: 400 });
   }

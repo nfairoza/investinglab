@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { withDbWrite, newId, now, type Holding } from "@/lib/db";
+import { getAdminClient } from "@/lib/supabase-data";
 
 export const dynamic = "force-dynamic";
 
@@ -8,6 +9,7 @@ export const dynamic = "force-dynamic";
 // uploaded CSV (Robinhood → Account → Reports & statements, or holdings export).
 // Replaces all robinhood-sourced rows; leaves manual + E*TRADE rows untouched.
 export async function POST(req: NextRequest) {
+  if (!(await getAdminClient())) return NextResponse.json({ error: "forbidden" }, { status: 403 });
   const body = await req.json().catch(() => ({}));
   const rows = Array.isArray(body?.rows) ? body.rows : [];
   if (!rows.length) return NextResponse.json({ error: "No rows to import." }, { status: 400 });

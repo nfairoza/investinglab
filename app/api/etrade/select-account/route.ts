@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { setSelectedAccount, getAccounts } from "@/lib/etrade/token-store";
+import { getAdminClient } from "@/lib/supabase-data";
 
 export const dynamic = "force-dynamic";
 
 // POST /api/etrade/select-account { accountIdKey }
 // Saves which account to sync positions from.
 export async function POST(req: NextRequest) {
+  if (!(await getAdminClient())) return NextResponse.json({ error: "forbidden" }, { status: 403 });
   const body = await req.json().catch(() => ({}));
   const accountIdKey = typeof body?.accountIdKey === "string" ? body.accountIdKey : null;
 

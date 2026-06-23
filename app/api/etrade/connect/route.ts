@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { fetchRequestToken, AUTH_URL, hasConsumerKey, getConsumerKey } from "@/lib/etrade/client";
 import { setRequestToken } from "@/lib/etrade/token-store";
+import { getAdminClient } from "@/lib/supabase-data";
 
 export const dynamic = "force-dynamic";
 
@@ -8,6 +9,7 @@ export const dynamic = "force-dynamic";
 // Starts the OAuth 1.0a flow: fetches a request token and returns the
 // E*TRADE authorization URL for the browser to redirect to.
 export async function GET(req: Request) {
+  if (!(await getAdminClient())) return NextResponse.json({ error: "forbidden" }, { status: 403 });
   if (!hasConsumerKey()) {
     return NextResponse.json(
       { error: "ETRADE_CONSUMER_KEY and ETRADE_CONSUMER_SECRET must be set in .env.local or the Connectors tab." },
