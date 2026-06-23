@@ -12,6 +12,7 @@ import clsx from "clsx";
 import { ThemeToggle } from "./theme-toggle";
 import { Blossom } from "./ui/primitives";
 import { AccountMenu } from "./account-menu";
+import { useAlertsBadge } from "./use-alerts-badge";
 
 // Grouped nav. An `adminOnly` group (or item) is hidden entirely from regular
 // users — they never see it exists.
@@ -48,6 +49,7 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
   const path = usePathname();
   const { data: me } = useSWR<{ isAdmin?: boolean }>("/api/me", (u: string) => fetch(u).then((r) => r.json()), { revalidateOnFocus: false });
   const isAdmin = Boolean(me?.isAdmin);
+  const alertsNew = useAlertsBadge();
   return (
     <nav className="space-y-5">
       {GROUPS.map((group) => {
@@ -71,7 +73,12 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
                   )}
                   style={active ? { background: "var(--nav-active)", color: "var(--nav-active-fg)", boxShadow: "var(--nav-active-glow)" } : undefined}
                 >
-                  <Icon size={16} className={clsx("transition-transform duration-200 group-hover:scale-110", !active && "text-ink-faint")} style={active ? { color: "var(--nav-active-fg)" } : undefined} />
+                  <span className="relative">
+                    <Icon size={16} className={clsx("transition-transform duration-200 group-hover:scale-110", !active && "text-ink-faint")} style={active ? { color: "var(--nav-active-fg)" } : undefined} />
+                    {href === "/alerts" && alertsNew && (
+                      <span className="absolute -right-1 -top-0.5 h-2 w-2 rounded-full bg-rose-500" />
+                    )}
+                  </span>
                   {label}
                 </Link>
               );

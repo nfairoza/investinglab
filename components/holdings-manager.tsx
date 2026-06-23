@@ -228,8 +228,8 @@ export function HoldingsManager() {
     <div className="space-y-4">
       {/* Add form */}
       <div className="rounded-xl glass p-4">
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
-          <TickerInput value={symbol} onChange={setSymbol} onSelect={setSymbol} placeholder="Search ticker…" className={inputCls} />
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-5">
+          <TickerInput value={symbol} onChange={setSymbol} onSelect={setSymbol} placeholder="Search ticker…" className={`${inputCls} w-full`} />
           <input value={shares} onChange={(e) => setShares(e.target.value)} placeholder="Shares" inputMode="decimal" className={inputCls} />
           <input value={avgCost} onChange={(e) => setAvgCost(e.target.value)} placeholder="Avg cost $" inputMode="decimal" className={inputCls} />
           <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Note (optional)" className={inputCls} />
@@ -395,7 +395,7 @@ export function HoldingsManager() {
       )}
 
       <p className="text-[11px] text-ink-faint">
-        Saved to <code>data/db.json</code> — persists across restarts, independent of browser cache. Research and educational analysis, not financial advice.
+        Saved securely to your account — private to you and synced across devices. Research and educational analysis, not financial advice.
       </p>
     </div>
   );

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LayoutDashboard, Wallet, Search, Bell, Menu } from "lucide-react";
 import clsx from "clsx";
+import { useAlertsBadge } from "./use-alerts-badge";
 
 // Native-app-style bottom tab bar (phones only). Primary destinations live here;
 // "More" opens the full slide-in drawer (Sidebar listens for the open-nav event).
@@ -16,6 +17,7 @@ const TABS = [
 
 export function MobileTabBar() {
   const path = usePathname() || "/";
+  const alertsNew = useAlertsBadge();
 
   return (
     <nav
@@ -38,7 +40,12 @@ export function MobileTabBar() {
             )}
             style={active ? { color: "var(--accent)" } : undefined}
           >
-            <Icon size={20} />
+            <span className="relative">
+              <Icon size={20} />
+              {href === "/alerts" && alertsNew && (
+                <span className="absolute -right-1 -top-0.5 h-2.5 w-2.5 rounded-full border-2 bg-rose-500" style={{ borderColor: "var(--surface-solid)" }} />
+              )}
+            </span>
             {label}
           </Link>
         );
