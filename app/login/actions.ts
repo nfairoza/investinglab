@@ -65,14 +65,29 @@ export async function updatePassword(formData: FormData) {
   redirect("/login?message=" + encodeURIComponent("Password updated — please sign in."));
 }
 
-// Change password from within the app (Settings → Account). Returns a result
-// object instead of redirecting, so the Account card can show inline feedback.
-export async function changePassword(newPassword: string): Promise<{ ok: boolean; message: string }> {
-  if (!newPassword || newPassword.length < 6) return { ok: false, message: "Password must be at least 6 characters." };
+// Change password from within the app (Profile → Password). Standard flow:
+// verify the CURRENT password first (Supabase updateUser can't), then set the new
+// one. Returns a result object so the Profile card can show inline feedback.
+export async function changePassword(
+  currentPassword: string,
+  newPassword: string,
+): Promise<{ ok: boolean; message: string }> {
+  if (!currentPassword) return { ok: false, message: "Enter your current password." };
+  if (!newPassword || newPassword.length < 8) return { ok: false, message: "New password must be at least 8 characters." };
+  if (newPassword === currentPassword) return { ok: false, message: "New password must be different from the current one." };
+
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { ok: false, message: "Not signed in." };
+  if (!user?.email) return { ok: false, message: "Not signed in." };
+
+  // Verify the current password by attempting a sign-in with it.
+  const { error: verifyErr } = await supabase.auth.signInWithPassword({
+    email: user.email,
+    password: currentPassword,
+  });
+  if (verifyErr) return { ok: false, message: "Current password is incorrect." };
+
   const { error } = await supabase.auth.updateUser({ password: newPassword });
   if (error) return { ok: false, message: error.message };
-  return { ok: true, message: "Password updated." };
+  return { ok: true, message: "Password updated successfully." };
 }

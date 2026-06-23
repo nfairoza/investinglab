@@ -60,16 +60,26 @@ export function AccountCard() {
     setTimeout(() => setSaved(false), 2500);
   }
 
-  // Change password — email accounts only.
-  const [pw, setPw] = useState("");
+  // Change password — email accounts only. Standard flow: open the form, enter
+  // current + new + confirm, validate, submit.
+  const [pwOpen, setPwOpen] = useState(false);
+  const [curPw, setCurPw] = useState("");
+  const [newPw, setNewPw] = useState("");
+  const [confirmPw, setConfirmPw] = useState("");
   const [pwMsg, setPwMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [pwBusy, setPwBusy] = useState(false);
+  function resetPwForm() {
+    setCurPw(""); setNewPw(""); setConfirmPw(""); setPwMsg(null); setPwOpen(false);
+  }
   async function savePassword() {
-    setPwBusy(true); setPwMsg(null);
+    setPwMsg(null);
+    if (newPw.length < 8) { setPwMsg({ ok: false, text: "New password must be at least 8 characters." }); return; }
+    if (newPw !== confirmPw) { setPwMsg({ ok: false, text: "New passwords don't match." }); return; }
+    setPwBusy(true);
     try {
-      const res = await changePassword(pw);
+      const res = await changePassword(curPw, newPw);
       setPwMsg({ ok: res.ok, text: res.message });
-      if (res.ok) setPw("");
+      if (res.ok) { setCurPw(""); setNewPw(""); setConfirmPw(""); setTimeout(() => setPwOpen(false), 1200); }
     } finally { setPwBusy(false); }
   }
 
@@ -87,7 +97,10 @@ export function AccountCard() {
     } finally { setDeleting(false); }
   }
 
-  const displayName = resolvedName || "Your account";
+  // Fall back to the email's local part (e.g. "noorkhan") rather than a generic
+  // "Your account" when no display name is set yet.
+  const emailLocal = me?.email ? me.email.split("@")[0] : "";
+  const displayName = resolvedName || emailLocal || "Your account";
   const initial = (resolvedName || me?.email || "?").trim().charAt(0).toUpperCase();
   const memberSince = me?.createdAt ? new Date(me.createdAt).toLocaleDateString(undefined, { month: "long", year: "numeric" }) : "—";
 
@@ -95,36 +108,35 @@ export function AccountCard() {
     <div className="space-y-5">
       {/* ── Identity header card ── */}
       <div className="overflow-hidden rounded-2xl glass">
-        <div className="h-20" style={{ background: "var(--brand-gradient)" }} />
+        <div className="h-16" style={{ background: "var(--brand-gradient)" }} />
         <div className="px-6 pb-6">
-          <div className="-mt-10 flex items-end justify-between gap-4">
-            <div className="flex items-end gap-4">
-              {me?.avatarUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={me.avatarUrl} alt="" className="h-20 w-20 rounded-full border-4 object-cover" style={{ borderColor: "var(--surface-solid)" }} />
-              ) : (
-                <div className="flex h-20 w-20 items-center justify-center rounded-full border-4 text-2xl font-bold text-white" style={{ background: "var(--nav-active)", borderColor: "var(--surface-solid)" }}>
-                  {initial}
-                </div>
-              )}
-              <div className="pb-1">
-                <div className="flex items-center gap-2">
-                  <h2 className="text-xl font-bold text-ink">{displayName}</h2>
-                  {me?.isAdmin && (
-                    <span className="inline-flex items-center gap-1 rounded-full border border-brand-500/50 bg-brand-500/10 px-2 py-0.5 text-[11px] font-medium text-brand-300">
-                      <Shield size={11} /> Admin
-                    </span>
-                  )}
-                </div>
-                <div className="text-sm text-ink-dim">{me?.email}</div>
+          {/* Avatar overlaps the gradient; name/email sit below it (never straddling). */}
+          <div className="-mt-10 flex items-start justify-between gap-3">
+            {me?.avatarUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={me.avatarUrl} alt="" className="h-20 w-20 rounded-full border-4 object-cover" style={{ borderColor: "var(--surface-solid)" }} />
+            ) : (
+              <div className="flex h-20 w-20 items-center justify-center rounded-full border-4 text-2xl font-bold text-white" style={{ background: "var(--nav-active)", borderColor: "var(--surface-solid)" }}>
+                {initial}
               </div>
-            </div>
+            )}
             {!editing && !isSocial && (
               <button onClick={() => setEditing(true)}
-                className="mb-1 inline-flex items-center gap-1.5 rounded-lg border border-hairline px-3 py-1.5 text-sm text-ink-dim transition-colors hover:bg-surface hover:text-ink">
+                className="mt-12 inline-flex items-center gap-1.5 rounded-lg border border-hairline px-3 py-1.5 text-sm text-ink-dim transition-colors hover:bg-surface hover:text-ink">
                 <Pencil size={14} /> Edit
               </button>
             )}
+          </div>
+          <div className="mt-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="text-xl font-bold text-ink">{displayName}</h2>
+              {me?.isAdmin && (
+                <span className="inline-flex items-center gap-1 rounded-full border border-brand-500/50 bg-brand-500/10 px-2 py-0.5 text-[11px] font-medium text-brand-300">
+                  <Shield size={11} /> Admin
+                </span>
+              )}
+            </div>
+            <div className="text-sm text-ink-dim">{me?.email}</div>
           </div>
 
           {/* ── Info grid (read-only view) ── */}
@@ -195,56 +207,94 @@ export function AccountCard() {
         </div>
       </div>
 
-      {/* ── Security (email accounts) ── */}
+      {/* ── Security (email accounts) — standard change-password flow ── */}
       {me?.provider === "email" && (
         <div className="rounded-2xl glass p-6">
-          <div className="text-sm font-semibold text-ink">Password</div>
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            <input type="password" value={pw} onChange={(e) => setPw(e.target.value)} placeholder="New password (min 6)" autoComplete="new-password"
-              className="w-full max-w-xs rounded-lg border border-hairline bg-surface px-3 py-2 text-sm text-ink focus:border-brand-500 focus:outline-none" />
-            <button onClick={savePassword} disabled={pwBusy || pw.length < 6}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-hairline px-3 py-2 text-sm text-ink-dim hover:bg-surface hover:text-ink disabled:opacity-50">
-              <KeyRound size={14} /> {pwBusy ? "Updating…" : "Update password"}
-            </button>
-            {pwMsg && <span className={`text-xs ${pwMsg.ok ? "text-emerald-400" : "text-rose-400"}`}>{pwMsg.text}</span>}
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <div className="text-sm font-semibold text-ink">Password</div>
+              <p className="text-[11px] text-ink-faint">Change the password you use to sign in.</p>
+            </div>
+            {!pwOpen && (
+              <button onClick={() => { setPwMsg(null); setPwOpen(true); }}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-hairline px-3 py-1.5 text-sm text-ink-dim hover:bg-surface hover:text-ink">
+                <KeyRound size={14} /> Change password
+              </button>
+            )}
           </div>
+
+          {pwOpen && (
+            <div className="mt-4 space-y-3">
+              <label className="block text-xs text-ink-faint">Current password
+                <input type="password" value={curPw} onChange={(e) => setCurPw(e.target.value)} autoComplete="current-password" className={pwInput} />
+              </label>
+              <label className="block text-xs text-ink-faint">New password
+                <input type="password" value={newPw} onChange={(e) => setNewPw(e.target.value)} autoComplete="new-password" className={pwInput} />
+              </label>
+              <label className="block text-xs text-ink-faint">Confirm new password
+                <input type="password" value={confirmPw} onChange={(e) => setConfirmPw(e.target.value)} autoComplete="new-password" className={pwInput} />
+              </label>
+              <p className="text-[11px] text-ink-faint">At least 8 characters, and different from your current password.</p>
+              {pwMsg && <p className={`text-xs ${pwMsg.ok ? "text-emerald-400" : "text-rose-400"}`}>{pwMsg.text}</p>}
+              <div className="flex items-center gap-2">
+                <button onClick={savePassword} disabled={pwBusy || !curPw || !newPw || !confirmPw}
+                  className="btn-gold rounded-lg px-4 py-2 text-sm disabled:opacity-50">
+                  {pwBusy ? "Updating…" : "Update password"}
+                </button>
+                <button onClick={resetPwForm} className="inline-flex items-center gap-1.5 rounded-lg border border-hairline px-3 py-2 text-sm text-ink-dim hover:bg-surface hover:text-ink">
+                  <X size={14} /> Cancel
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
-      {/* ── Danger zone ── */}
-      <div className="rounded-2xl border border-rose-500/20 bg-rose-500/[0.03] p-6">
-        <div className="flex flex-wrap items-center justify-between gap-3">
+      {/* ── Sign out (neutral, its own card) ── */}
+      <div className="rounded-2xl glass p-6">
+        <div className="flex items-center justify-between gap-3">
           <div>
-            <div className="text-sm font-semibold text-ink">Sign out or delete</div>
-            <p className="text-[11px] text-ink-faint">Deleting removes your holdings, watchlist, alerts, cash, and connections — permanently.</p>
+            <div className="text-sm font-semibold text-ink">Sign out</div>
+            <p className="text-[11px] text-ink-faint">Sign out of rukMoney on this device.</p>
           </div>
-          <div className="flex items-center gap-2">
-            <form action="/auth/signout" method="post">
-              <button type="submit" className="inline-flex items-center gap-1.5 rounded-lg border border-hairline px-3 py-1.5 text-sm text-ink-dim hover:bg-surface hover:text-ink">
-                <LogOut size={14} /> Sign out
+          <form action="/auth/signout" method="post">
+            <button type="submit" className="inline-flex items-center gap-1.5 rounded-lg border border-hairline px-4 py-1.5 text-sm text-ink-dim hover:bg-surface hover:text-ink">
+              <LogOut size={14} /> Sign out
+            </button>
+          </form>
+        </div>
+      </div>
+
+      {/* ── Danger zone — deliberately separated from sign out ── */}
+      <div className="rounded-2xl border border-rose-500/30 bg-rose-500/[0.04] p-6">
+        <div className="text-sm font-semibold text-rose-300">Danger zone</div>
+        <p className="mt-1 text-[11px] text-ink-faint">
+          Deleting your account permanently removes your holdings, watchlist, alerts, cash, and broker
+          connections. This cannot be undone.
+        </p>
+        <div className="mt-4">
+          {!confirming ? (
+            <button onClick={() => setConfirming(true)}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-rose-500/50 px-3 py-1.5 text-sm text-rose-400 hover:bg-rose-500/10">
+              <Trash2 size={14} /> Delete account
+            </button>
+          ) : (
+            <div className="flex flex-wrap items-center gap-2 rounded-lg border border-rose-500/40 bg-rose-500/5 px-3 py-2">
+              <span className="text-xs text-rose-300">Permanently delete your account and all data?</span>
+              <button onClick={deleteAccount} disabled={deleting} className="rounded bg-rose-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-rose-500 disabled:opacity-50">
+                {deleting ? "Deleting…" : "Yes, delete everything"}
               </button>
-            </form>
-            {!confirming ? (
-              <button onClick={() => setConfirming(true)}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-rose-500/40 px-3 py-1.5 text-sm text-rose-400 hover:bg-rose-500/10">
-                <Trash2 size={14} /> Delete account
-              </button>
-            ) : (
-              <div className="flex items-center gap-2 rounded-lg border border-rose-500/40 bg-rose-500/5 px-3 py-1.5">
-                <span className="text-xs text-rose-300">Delete permanently?</span>
-                <button onClick={deleteAccount} disabled={deleting} className="rounded bg-rose-600 px-2 py-1 text-xs font-medium text-white hover:bg-rose-500 disabled:opacity-50">
-                  {deleting ? "Deleting…" : "Yes, delete"}
-                </button>
-                <button onClick={() => setConfirming(false)} className="text-xs text-ink-faint hover:text-ink">Cancel</button>
-              </div>
-            )}
-          </div>
+              <button onClick={() => setConfirming(false)} className="text-xs text-ink-faint hover:text-ink">Cancel</button>
+            </div>
+          )}
         </div>
         {err && <p className="mt-2 text-[11px] text-rose-400">{err}</p>}
       </div>
     </div>
   );
 }
+
+const pwInput = "mt-1 w-full rounded-lg border border-hairline bg-surface px-3 py-2 text-sm text-ink focus:border-brand-500 focus:outline-none";
 
 const inputCls = "mt-1 w-full rounded-lg border border-hairline bg-surface px-3 py-2 text-sm text-ink focus:border-brand-500 focus:outline-none";
 
