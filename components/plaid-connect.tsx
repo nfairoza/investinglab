@@ -102,8 +102,8 @@ export function PlaidConnect() {
       </div>
 
       <p className="text-sm text-ink-dim">
-        Securely link your bank accounts via Plaid to see balances, spending, and investments in one place.
-        rukMoney never sees your bank login, and access is read-only.
+        You log in directly with your bank — rukMoney never sees your password. Read-only: we can&apos;t
+        move money. Powered by Plaid. Disconnect anytime.
       </p>
 
       {/* Total cash */}
