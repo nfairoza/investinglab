@@ -6,7 +6,7 @@ import { useState } from "react";
 import useSWR from "swr";
 import {
   LayoutDashboard, Wallet, Eye, Search, Stethoscope, TrendingUp, Landmark,
-  Bell, BookOpen, Trophy, NotebookPen, Grid3x3, Menu, X, Command, LogOut,
+  Bell, Trophy, NotebookPen, Grid3x3, Menu, X, Command, LogOut,
 } from "lucide-react";
 import clsx from "clsx";
 import { ThemeToggle } from "./theme-toggle";
@@ -40,14 +40,8 @@ const GROUPS: { label: string; adminOnly?: boolean; items: { href: string; label
     label: "Alerts",
     items: [{ href: "/alerts", label: "Alerts", icon: Bell }],
   },
-  {
-    // Account, Settings, Reports, and admin tools now live in the top-right
-    // account menu — only the reference/learning link stays in the sidebar.
-    label: "Learn",
-    items: [
-      { href: "/glossary", label: "Glossary", icon: BookOpen },
-    ],
-  },
+  // Glossary lives in Help; Account/Settings/Reports/Admin live in the top-right
+  // account menu — none duplicated in the sidebar.
 ];
 
 function NavList({ onNavigate }: { onNavigate?: () => void }) {
