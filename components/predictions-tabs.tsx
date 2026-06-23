@@ -13,7 +13,7 @@ export function PredictionsTabs({ initial, startOnTicker = false }: { initial: s
 
   return (
     <div className="space-y-4">
-      <div className="flex gap-1.5">
+      <div className="flex gap-1.5 overflow-x-auto whitespace-nowrap pb-1 [&>button]:shrink-0">
         <button onClick={() => setTab("market")}
           className={`flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm font-medium transition-colors ${
             tab === "market" ? "tab-active" : "border-hairline text-ink-dim hover:bg-surface"

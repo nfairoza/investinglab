@@ -42,7 +42,7 @@ export function Hero({
 
       <div className="relative px-7 py-12 md:px-10 md:py-16">
         <div className="text-xs uppercase tracking-[0.35em]" style={{ color: "var(--accent)" }}>{greeting}</div>
-        <h1 className="mt-2 font-display text-4xl font-bold leading-tight md:text-5xl">
+        <h1 className="mt-2 font-display text-3xl font-bold leading-tight sm:text-4xl md:text-5xl">
           <span className="text-ink">ruk</span><span className="text-shimmer">Money</span>
         </h1>
 
@@ -50,7 +50,7 @@ export function Hero({
           <div className="mt-5">
             <div className="text-[11px] uppercase tracking-wide text-ink-dim">Portfolio value</div>
             <div className="mt-1 flex flex-wrap items-baseline gap-3">
-              <CountUp value={total!} prefix="$" className="text-4xl font-semibold text-ink md:text-5xl" />
+              <CountUp value={total!} prefix="$" className="text-3xl font-semibold text-ink sm:text-4xl md:text-5xl" />
               {typeof totalGain === "number" && (
                 <span className="font-mono text-sm font-medium" style={{ color: gainUp ? "var(--positive)" : "var(--negative)" }}>
                   {gainUp ? "▲" : "▼"} ${Math.abs(totalGain).toLocaleString(undefined, { maximumFractionDigits: 0 })}

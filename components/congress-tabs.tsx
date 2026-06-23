@@ -10,7 +10,7 @@ export function CongressTabs() {
   const [tab, setTab] = useState<"alpha" | "raw">("alpha");
   return (
     <div className="space-y-4">
-      <div className="flex gap-1.5">
+      <div className="flex gap-1.5 overflow-x-auto whitespace-nowrap pb-1 [&>button]:shrink-0">
         <button onClick={() => setTab("alpha")}
           className={`rounded-md border px-3 py-1.5 text-sm font-medium transition-colors ${
             tab === "alpha" ? "tab-active" : "border-hairline text-ink-dim hover:bg-surface"
