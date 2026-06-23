@@ -1,24 +1,45 @@
+import { Suspense } from "react";
 import { CacheSettings } from "@/components/cache-settings";
-import { AccountCard } from "@/components/account-card";
+import { EtradeConnector } from "@/components/etrade-connector";
+import { RobinhoodConnector } from "@/components/robinhood-connector";
 
 export const metadata = { title: "Settings" };
+
 export default function Page() {
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <div>
         <h1 className="font-display text-3xl font-semibold text-ink">Settings</h1>
         <p className="mt-1 max-w-2xl text-sm text-ink-dim">
-          Your account and app preferences.
+          Connect your brokerage and manage app preferences. Your profile and account
+          live under the account menu (top-right) → Profile.
         </p>
       </div>
 
-      <AccountCard />
+      {/* ── Brokerage (per-user connections) ── */}
+      <section className="space-y-3">
+        <div>
+          <h2 className="text-lg font-semibold text-ink">Connect your brokerage</h2>
+          <p className="text-sm text-ink-dim">
+            Link your own E*TRADE or Robinhood to sync your real positions into Holdings.
+            Connections are private to your account — read-only, never shared.
+          </p>
+        </div>
+        <Suspense>
+          <EtradeConnector />
+        </Suspense>
+        <RobinhoodConnector />
+        <p className="text-[11px] text-ink-faint">
+          This app never places trades or modifies your account — broker access is read-only.
+          Your broker tokens are stored only in your own account.
+        </p>
+      </section>
 
-      <CacheSettings />
-
-      <div className="rounded-xl glass p-5 text-sm text-ink-dim">
-        Coming soon: base currency, default Beginner mode. Theme can be toggled from the sidebar.
-      </div>
+      {/* ── App preferences ── */}
+      <section className="space-y-3">
+        <h2 className="text-lg font-semibold text-ink">App preferences</h2>
+        <CacheSettings />
+      </section>
     </div>
   );
 }

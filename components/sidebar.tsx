@@ -6,11 +6,12 @@ import { useState } from "react";
 import useSWR from "swr";
 import {
   LayoutDashboard, Wallet, Eye, Search, Stethoscope, TrendingUp, Landmark,
-  Bell, BookOpen, Settings, Trophy, NotebookPen, Plug, Grid3x3, Menu, X, Command, LogOut, FileText, Link2,
+  Bell, BookOpen, Settings, Trophy, NotebookPen, Plug, Grid3x3, Menu, X, Command, LogOut, FileText,
 } from "lucide-react";
 import clsx from "clsx";
 import { ThemeToggle } from "./theme-toggle";
 import { Blossom } from "./ui/primitives";
+import { AccountMenu } from "./account-menu";
 
 // Grouped nav. An `adminOnly` group (or item) is hidden entirely from regular
 // users — they never see it exists.
@@ -20,7 +21,6 @@ const GROUPS: { label: string; adminOnly?: boolean; items: { href: string; label
     items: [
       { href: "/", label: "Dashboard", icon: LayoutDashboard },
       { href: "/holdings", label: "Holdings", icon: Wallet },
-      { href: "/brokerage", label: "Connect brokerage", icon: Link2 },
       { href: "/watchlist", label: "Watchlist", icon: Eye },
       { href: "/journal", label: "Journal", icon: NotebookPen },
       { href: "/reports", label: "Reports", icon: FileText },
@@ -144,9 +144,12 @@ export function Sidebar() {
       {/* Mobile top bar */}
       <div className="sticky top-0 z-40 flex items-center justify-between border-b border-hairline px-4 py-3 md:hidden" style={{ background: "var(--surface-solid)" }}>
         <Wordmark />
-        <button onClick={() => setOpen(true)} aria-label="Open menu" className="rounded-md border border-hairline p-2 text-ink-dim hover:text-ink">
-          <Menu size={18} />
-        </button>
+        <div className="flex items-center gap-2">
+          <AccountMenu />
+          <button onClick={() => setOpen(true)} aria-label="Open menu" className="rounded-md border border-hairline p-2 text-ink-dim hover:text-ink">
+            <Menu size={18} />
+          </button>
+        </div>
       </div>
 
       {/* Mobile drawer */}

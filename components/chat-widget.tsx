@@ -145,6 +145,14 @@ export function ChatWidget() {
     if (open) setTimeout(() => inputRef.current?.focus(), 100);
   }, [open]);
 
+  // Allow any part of the app (e.g. the Help page) to open the chat via a global
+  // event: window.dispatchEvent(new Event("open-chat")).
+  useEffect(() => {
+    function openChat() { setOpen(true); setMinimized(false); }
+    window.addEventListener("open-chat", openChat);
+    return () => window.removeEventListener("open-chat", openChat);
+  }, []);
+
   function uid() {
     return Math.random().toString(36).slice(2);
   }
