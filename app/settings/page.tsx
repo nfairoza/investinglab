@@ -16,12 +16,13 @@ export default function Page() {
         </p>
       </div>
 
-      {/* ── Banking (Plaid) ── */}
+      {/* ── Linked institutions (Plaid) ── */}
       <section className="space-y-3">
         <div>
-          <h2 className="text-lg font-semibold text-ink">Banks &amp; cash</h2>
+          <h2 className="text-lg font-semibold text-ink">Linked accounts</h2>
           <p className="text-sm text-ink-dim">
-            Link your bank accounts to track balances, spending, and investments — read-only, private to you.
+            Link banks, credit cards, brokerages, and retirement accounts to track balances,
+            spending, and investments — read-only, private to you.
           </p>
         </div>
         <PlaidConnect />

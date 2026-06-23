@@ -14,10 +14,19 @@ export async function GET() {
     .select("item_id, institution_name, accounts, created_at")
     .order("created_at", { ascending: true });
 
-  const items = (data ?? []).map((r: any) => ({
-    itemId: r.item_id,
-    institution: r.institution_name ?? "Bank",
-    accountCount: Array.isArray(r.accounts) ? r.accounts.length : 0,
-  }));
+  const items = (data ?? []).map((r: any) => {
+    const accts = Array.isArray(r.accounts) ? r.accounts : [];
+    return {
+      itemId: r.item_id,
+      institution: r.institution_name ?? "Institution",
+      accountCount: accts.length,
+      accounts: accts.map((a: any) => ({
+        name: a.name,
+        mask: a.mask ?? null,
+        type: a.type ?? null,
+        subtype: a.subtype ?? null,
+      })),
+    };
+  });
   return NextResponse.json({ configured: plaidConfigured(), items });
 }

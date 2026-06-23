@@ -5,17 +5,32 @@ import useSWR from "swr";
 import { usePlaidLink } from "react-plaid-link";
 import { Landmark, Plus, Trash2 } from "lucide-react";
 
-// Plaid Link locks body scroll while open and occasionally fails to restore it
-// if the flow ends abruptly. Force-restore scroll after Link closes.
+// Plaid Link locks page scroll while open (sets overflow/position on body) and
+// occasionally fails to restore it if the flow ends abruptly. Fully reset the
+// styles it touches — twice, since the SDK may re-apply during teardown.
 function restoreScroll() {
-  try {
-    document.body.style.overflow = "";
-    document.documentElement.style.overflow = "";
-  } catch { /* ignore */ }
+  const reset = () => {
+    try {
+      for (const el of [document.body, document.documentElement]) {
+        el.style.overflow = "";
+        el.style.position = "";
+        el.style.top = "";
+        el.style.width = "";
+        el.style.height = "";
+      }
+    } catch { /* ignore */ }
+  };
+  reset();
+  setTimeout(reset, 300);
 }
 
-interface StatusItem { itemId: string; institution: string; accountCount: number }
+interface StatusAccount { name: string; mask: string | null; type: string | null; subtype: string | null }
+interface StatusItem { itemId: string; institution: string; accountCount: number; accounts: StatusAccount[] }
 interface Status { configured: boolean; items: StatusItem[] }
+
+const TYPE_LABEL: Record<string, string> = {
+  depository: "Cash", credit: "Credit card", loan: "Loan", investment: "Investment", brokerage: "Brokerage", other: "Account",
+};
 
 const fetchJson = (u: string) => fetch(u).then((r) => r.json());
 
@@ -90,36 +105,49 @@ export function PlaidConnect() {
     <div className="rounded-2xl glass p-5 space-y-4">
       <div className="flex items-center gap-2">
         <Landmark size={18} className="text-brand-400" />
-        <span className="font-medium text-ink">Banks &amp; cards</span>
+        <span className="font-medium text-ink">Linked institutions</span>
         <span className="rounded-full border border-hairline-strong px-2 py-0.5 text-[10px] text-ink-dim">Read-only</span>
       </div>
 
       <p className="text-sm text-ink-dim">
-        You log in directly with your bank — rukMoney never sees your password. Read-only: we can&apos;t
-        move money. Powered by Plaid. Disconnect anytime. View balances and spending under{" "}
+        Link any financial institution — banks, credit cards, brokerages (Robinhood, E*TRADE),
+        and retirement (Fidelity, Vanguard). You log in directly with them; rukMoney never sees your
+        password and can&apos;t move money. Powered by Plaid. View balances and spending under{" "}
         <span className="text-ink">Money</span>.
       </p>
 
-      {/* Connected institutions — names only (status) */}
+      {/* Connected institutions + their accounts (status only) */}
       {linked.length > 0 && (
-        <ul className="divide-y divide-hairline rounded-xl border border-hairline bg-surface">
+        <div className="space-y-2">
           {linked.map((it) => (
-            <li key={it.itemId} className="flex items-center justify-between gap-3 px-4 py-3">
-              <div className="min-w-0">
-                <div className="truncate text-sm font-medium text-ink">{it.institution}</div>
-                <div className="text-[11px] text-ink-faint">{it.accountCount} account{it.accountCount !== 1 ? "s" : ""}</div>
+            <div key={it.itemId} className="rounded-xl border border-hairline bg-surface">
+              <div className="flex items-center justify-between gap-3 px-4 py-3">
+                <div className="min-w-0">
+                  <div className="truncate text-sm font-medium text-ink">{it.institution}</div>
+                  <div className="text-[11px] text-ink-faint">{it.accountCount} account{it.accountCount !== 1 ? "s" : ""}</div>
+                </div>
+                <button onClick={() => disconnect(it.itemId)}
+                  className="inline-flex shrink-0 items-center gap-1 rounded-md border border-hairline px-2 py-1 text-[11px] text-ink-dim hover:bg-rose-500/10 hover:text-rose-400">
+                  <Trash2 size={12} /> Disconnect
+                </button>
               </div>
-              <button onClick={() => disconnect(it.itemId)}
-                className="inline-flex shrink-0 items-center gap-1 rounded-md border border-hairline px-2 py-1 text-[11px] text-ink-dim hover:bg-rose-500/10 hover:text-rose-400">
-                <Trash2 size={12} /> Disconnect
-              </button>
-            </li>
+              {it.accounts.length > 0 && (
+                <ul className="divide-y divide-hairline border-t border-hairline">
+                  {it.accounts.map((a, i) => (
+                    <li key={i} className="flex items-center justify-between px-4 py-2 text-sm">
+                      <span className="truncate text-ink-dim">{a.name}{a.mask ? <span className="text-ink-faint"> ••{a.mask}</span> : null}</span>
+                      <span className="shrink-0 text-[11px] text-ink-faint">{TYPE_LABEL[a.type ?? "other"] ?? a.type}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
           ))}
-        </ul>
+        </div>
       )}
 
       {/* Always available — connect another institution any time */}
-      <LinkButton label={linked.length ? "Connect another bank" : "Connect a bank or card"} onLinked={mutate} />
+      <LinkButton label={linked.length ? "Connect another institution" : "Connect an institution"} onLinked={mutate} />
     </div>
   );
 }
