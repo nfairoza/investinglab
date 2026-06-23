@@ -153,6 +153,17 @@ export function ChatWidget() {
     return () => window.removeEventListener("open-chat", openChat);
   }, []);
 
+  // On phones the chat docks as a full-width bottom sheet instead of a fixed
+  // floating box (which would be cramped / could cover content).
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 767px)");
+    const update = () => setIsMobile(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
+
   function uid() {
     return Math.random().toString(36).slice(2);
   }
@@ -328,7 +339,7 @@ export function ChatWidget() {
         onClick={() => setOpen((o) => !o)}
         className={`flex items-center justify-center rounded-full shadow-lg transition-all duration-200 hover:scale-110 active:scale-95
           ${open ? "bg-surface hover:bg-surface" : "bg-brand-600 hover:bg-brand-500"}`}
-        style={{ position: "fixed", bottom: 20, right: 20, left: "auto", zIndex: 50, width: 52, height: 52 }}
+        style={{ position: "fixed", bottom: "calc(20px + env(safe-area-inset-bottom))", right: "calc(20px + env(safe-area-inset-right))", left: "auto", zIndex: 50, width: 52, height: 52 }}
         aria-label="Chat with Rukmani"
       >
         {open ? <X size={20} className="text-white" /> : <MessageCircle size={20} className="text-white" />}
@@ -339,8 +350,22 @@ export function ChatWidget() {
           overridden/re-anchored by any stylesheet or ancestor. */}
       {open && (
         <div
-          className={`glass animate-scale-in flex flex-col shadow-2xl ${size === "full" ? "rounded-l-2xl" : "rounded-2xl"}`}
-          style={{
+          className={`glass animate-scale-in flex flex-col shadow-2xl ${isMobile ? "rounded-t-2xl" : size === "full" ? "rounded-l-2xl" : "rounded-2xl"}`}
+          style={isMobile ? {
+            // Phone: full-width bottom sheet, respecting safe-area insets.
+            position: "fixed",
+            zIndex: 50,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            top: minimized ? "auto" : "10vh",
+            width: "100vw",
+            maxWidth: "100vw",
+            height: minimized ? 52 : "auto",
+            paddingBottom: "env(safe-area-inset-bottom)",
+            background: "var(--surface-solid)",
+            transition: "height 200ms ease",
+          } : {
             position: "fixed",
             zIndex: 50,
             right: size === "full" ? 0 : 16,

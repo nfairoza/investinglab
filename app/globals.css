@@ -137,6 +137,9 @@ html.light {
 }
 
 html, body { height: 100%; }
+/* No horizontal page scroll on any viewport — content fits the device width;
+   wide elements (tables, heatmap) scroll inside their own containers, not here. */
+html, body { overflow-x: hidden; max-width: 100%; }
 
 body {
   background-color: var(--bg);
@@ -382,6 +385,8 @@ html.light [class*="text-emerald-300/"] { color: #047857; }
   position: fixed; inset: 0; z-index: 60;
   display: flex; align-items: stretch;
   overflow-y: auto;
+  /* Side gutter so the form card never touches the screen edge on phones. */
+  padding: 0 1rem;
   background:
     radial-gradient(900px 600px at 85% -10%, var(--accent-soft), transparent 60%),
     radial-gradient(700px 600px at -5% 110%, var(--positive-soft), transparent 55%),
@@ -417,8 +422,9 @@ html.light [class*="text-emerald-300/"] { color: #047857; }
   border: 1px solid var(--glass-border);
   box-shadow: var(--glass-inner), var(--glass-shadow);
   border-radius: var(--radius-lg);
-  padding: 2.25rem 2rem;
+  padding: 1.5rem 1.25rem;
 }
+@media (min-width: 640px) { .auth-card { padding: 2.25rem 2rem; } }
 .auth-brand-mobile { margin-bottom: 1.5rem; }
 @media (min-width: 900px) { .auth-brand-mobile { display: none; } }
 .auth-card h1 { font-family: var(--font-display); font-size: 1.6rem; font-weight: 600; color: var(--text); letter-spacing: -0.015em; }

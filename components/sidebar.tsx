@@ -125,6 +125,12 @@ export function Sidebar() {
       <div className="sticky top-0 z-40 flex items-center justify-between border-b border-hairline px-4 py-3 md:hidden" style={{ background: "var(--surface-solid)" }}>
         <Wordmark />
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => window.dispatchEvent(new KeyboardEvent("keydown", { key: "k", metaKey: true }))}
+            aria-label="Search"
+            className="rounded-md border border-hairline p-2 text-ink-dim hover:text-ink">
+            <Search size={18} />
+          </button>
           <ThemeToggle compact />
           <AccountMenu />
           <button onClick={() => setOpen(true)} aria-label="Open menu" className="rounded-md border border-hairline p-2 text-ink-dim hover:text-ink">

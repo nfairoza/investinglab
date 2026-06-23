@@ -175,23 +175,32 @@ export function StockMap() {
           </div>
         )}
         {!isLoading && treeData.length > 0 && (
-          <ResponsiveContainer width="100%" height={560}>
-            <Treemap
-              data={treeData}
-              dataKey="size"
-              stroke="var(--bg)"
-              content={<Cell router={router} scale={scale} />}
-              isAnimationActive={false}
-            >
-              <Tooltip
-                contentStyle={{ background: "var(--tooltip-bg)", border: "1px solid var(--hairline-strong)", borderRadius: 10, fontSize: 12, color: "var(--text)" }}
-                formatter={(v: number, _n: string, p: any) => {
-                  const pct = p?.payload?.changePct;
-                  return [`${pct != null ? (pct >= 0 ? "+" : "") + pct.toFixed(2) + "%" : ""} · cap ${(v / 1e9).toFixed(0)}B`, p?.payload?.name];
-                }}
-              />
-            </Treemap>
-          </ResponsiveContainer>
+          // On phones the heatmap scrolls horizontally inside its own box (min
+          // width keeps tiles legible) — never widens the page body.
+          <div className="-mx-2 overflow-x-auto px-2">
+            <div className="min-w-[640px] md:min-w-0">
+              <ResponsiveContainer width="100%" height={560}>
+                <Treemap
+                  data={treeData}
+                  dataKey="size"
+                  stroke="var(--bg)"
+                  content={<Cell router={router} scale={scale} />}
+                  isAnimationActive={false}
+                >
+                  <Tooltip
+                    contentStyle={{ background: "var(--tooltip-bg)", border: "1px solid var(--hairline-strong)", borderRadius: 10, fontSize: 12, color: "var(--text)" }}
+                    formatter={(v: number, _n: string, p: any) => {
+                      const pct = p?.payload?.changePct;
+                      return [`${pct != null ? (pct >= 0 ? "+" : "") + pct.toFixed(2) + "%" : ""} · cap ${(v / 1e9).toFixed(0)}B`, p?.payload?.name];
+                    }}
+                  />
+                </Treemap>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        )}
+        {!isLoading && treeData.length > 0 && (
+          <p className="mt-1 text-center text-[11px] text-ink-faint md:hidden">Scroll the map sideways →</p>
         )}
       </div>
 
