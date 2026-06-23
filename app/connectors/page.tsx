@@ -31,7 +31,7 @@ export default async function Page() {
 
       {/* ── Brokerage / portfolio ── */}
       <section className="space-y-3">
-        <SectionHeading title="Brokerage" subtitle="Brokerage connections are now per-user. Every user (including you) connects their own E*TRADE / Robinhood under Portfolio → Connect brokerage. The E*TRADE app credentials below identify this app to E*TRADE for everyone." />
+        <SectionHeading title="Brokerage" subtitle="Brokerage connections are per-user. Every user connects their own E*TRADE under Settings. The E*TRADE app credentials below identify this app to E*TRADE for everyone." />
         <a href="/brokerage" className="inline-block rounded-md border border-hairline px-3 py-1.5 text-sm text-ink-dim hover:bg-surface hover:text-ink">
           Go to Connect brokerage →
         </a>

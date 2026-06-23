@@ -55,9 +55,8 @@ export function HoldingsManager() {
   const [avgCost, setAvgCost] = useState("");
   const [note, setNote] = useState("");
   const [syncingEtrade, setSyncingEtrade] = useState(false);
-  const [syncingRobinhood, setSyncingRobinhood] = useState(false);
   const [syncMsg, setSyncMsg] = useState<string | null>(null);
-  const [sourceFilter, setSourceFilter] = useState<"all" | "manual" | "etrade" | "robinhood">("all");
+  const [sourceFilter, setSourceFilter] = useState<"all" | "manual" | "etrade">("all");
 
   // Which sources actually exist in the data (for showing only relevant chips).
   const presentSources = Array.from(new Set(allHoldings.map((h) => h.source ?? "manual")));
@@ -153,28 +152,6 @@ export function HoldingsManager() {
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  async function syncFromRobinhood() {
-    setSyncingRobinhood(true);
-    setSyncMsg(null);
-    try {
-      // Crypto (official API) + stocks (unofficial) — sync whichever is connected.
-      const [c, s] = await Promise.all([
-        fetch("/api/robinhood/crypto-sync").then((r) => r.json()).catch(() => ({})),
-        fetch("/api/robinhood/stocks-sync").then((r) => r.json()).catch(() => ({})),
-      ]);
-      mutate();
-      const parts: string[] = [];
-      if (typeof c.imported === "number") parts.push(`${c.imported} crypto`);
-      if (typeof s.imported === "number") parts.push(`${s.imported} stocks`);
-      if (parts.length) setSyncMsg(`Synced from Robinhood: ${parts.join(" + ")}.`);
-      else setSyncMsg(c.error || s.error || "Nothing synced — connect Robinhood in Connectors.");
-    } catch (e) {
-      setSyncMsg(e instanceof Error ? e.message : "Sync error");
-    } finally {
-      setSyncingRobinhood(false);
-    }
-  }
 
   const valued = holdings.map((h) => {
     const q = quotes?.[h.symbol]?.data ?? null;
@@ -284,21 +261,21 @@ export function HoldingsManager() {
               )}
             </div>
             <div className="flex items-center gap-2">
-              {/* Subtle refresh — re-syncs the user's own connected brokers + live prices */}
+              {/* Subtle refresh — re-syncs the user's connected E*TRADE + live prices */}
               <button
-                onClick={() => { syncFromEtrade(); syncFromRobinhood(); }}
-                disabled={syncingEtrade || syncingRobinhood}
-                title="Refresh from your connected brokers (E*TRADE / Robinhood)"
+                onClick={() => { syncFromEtrade(); }}
+                disabled={syncingEtrade}
+                title="Refresh from your connected E*TRADE account"
                 className="flex items-center gap-1 rounded-md border border-hairline px-2 py-1 text-[11px] text-ink-dim hover:bg-surface hover:text-ink disabled:opacity-50">
-                <RefreshCw size={12} className={syncingEtrade || syncingRobinhood ? "animate-spin" : ""} />
-                {syncingEtrade || syncingRobinhood ? "Syncing…" : "Refresh"}
+                <RefreshCw size={12} className={syncingEtrade ? "animate-spin" : ""} />
+                {syncingEtrade ? "Syncing…" : "Refresh"}
               </button>
               {anySource && <DataBadge source={anySource} />}
               {/* Source filter — only shown when there's more than one source */}
               {presentSources.length > 1 && (
                 <div className="flex items-center gap-1 rounded-lg border border-hairline bg-surface p-0.5">
                   {(["all", ...presentSources] as const).map((src) => {
-                    const label = src === "all" ? "All" : src === "etrade" ? "E*TRADE" : src === "robinhood" ? "Robinhood" : "Manual";
+                    const label = src === "all" ? "All" : src === "etrade" ? "E*TRADE" : "Manual";
                     const active = sourceFilter === src;
                     return (
                       <button
@@ -350,7 +327,6 @@ export function HoldingsManager() {
                       <td className="px-3 py-2 font-medium">
                         <Link href={`/holdings/${h.symbol}`} className="text-brand-400 hover:underline">{h.symbol}</Link>
                         {h.source === "etrade" && <span className="ml-1 text-[10px] text-ink-faint">E*T</span>}
-                        {h.source === "robinhood" && <span className="ml-1 text-[10px] text-ink-faint">RH</span>}
                         {h.assetType === "crypto" && <span className="ml-1 rounded bg-lime-500/15 px-1 text-[9px] text-lime-300">CRYPTO</span>}
                       </td>
                       <td className="px-3 py-2">
