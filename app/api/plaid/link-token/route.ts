@@ -21,6 +21,9 @@ export async function POST() {
       products: [Products.Transactions, Products.Investments],
       country_codes: [CountryCode.Us],
       language: "en",
+      // Required for bank OAuth flows (Chase, etc.). Must exactly match an
+      // allowed redirect URI registered in the Plaid dashboard.
+      ...(process.env.PLAID_REDIRECT_URI ? { redirect_uri: process.env.PLAID_REDIRECT_URI } : {}),
     });
     return NextResponse.json({ link_token: resp.data.link_token });
   } catch (e: any) {
