@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { CountryCode } from "plaid";
-import { getPlaid, plaidConfigured } from "@/lib/plaid";
+import { getPlaid, plaidConfigured, plaidCapReached, recordPlaidItemCreated } from "@/lib/plaid";
 import { getUserClient } from "@/lib/supabase-data";
 
 export const dynamic = "force-dynamic";
@@ -13,6 +13,10 @@ export async function POST(req: NextRequest) {
   const ctx = await getUserClient();
   if (!ctx) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   if (!plaidConfigured()) return NextResponse.json({ error: "Plaid is not configured." }, { status: 400 });
+  // Re-check the cap at exchange (closes the race between link-token and finish).
+  if (await plaidCapReached()) {
+    return NextResponse.json({ error: "cap_reached", message: "Account connections are currently at their limit. Please reach out to your admin for more information." }, { status: 403 });
+  }
 
   const body = await req.json().catch(() => ({}));
   const publicToken = typeof body?.public_token === "string" ? body.public_token : "";
@@ -58,6 +62,9 @@ export async function POST(req: NextRequest) {
       },
       { onConflict: "user_id,item_id" },
     );
+
+    // Record in the app-wide audit so the cap counts Items ever created.
+    await recordPlaidItemCreated(ctx.userId, itemId).catch(() => {});
 
     return NextResponse.json({ ok: true, institution: institutionName, accounts: accounts.length });
   } catch (e: any) {

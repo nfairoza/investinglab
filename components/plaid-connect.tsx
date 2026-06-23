@@ -44,7 +44,7 @@ function LinkButton({ onLinked }: { onLinked: () => void }) {
     try {
       const r = await fetch("/api/plaid/link-token", { method: "POST" });
       const j = await r.json();
-      if (!r.ok || j.error) { setErr(j.error ?? "Could not start Plaid."); return; }
+      if (!r.ok || j.error) { setErr(j.message ?? j.error ?? "Could not start Plaid."); return; }
       // Persist the token so a bank OAuth redirect (/plaid/oauth) can resume Link.
       try { localStorage.setItem("plaid_link_token", j.link_token); } catch { /* ignore */ }
       setToken(j.link_token);

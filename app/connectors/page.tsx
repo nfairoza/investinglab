@@ -1,5 +1,6 @@
 import { SettingsAI } from "@/components/settings-ai";
 import { Connectors, SectionHeading, ConnectorList } from "@/components/connectors";
+import { PlaidAdminStatus } from "@/components/plaid-admin-status";
 import { redirect } from "next/navigation";
 import { createClient } from "@/utils/supabase/server";
 import { isAdminUser } from "@/lib/supabase-data";
@@ -29,11 +30,17 @@ export default async function Page() {
         <ConnectorList category="ai" />
       </section>
 
+      {/* ── Banking (Plaid) — admin status, read-only ── */}
+      <section className="space-y-3">
+        <SectionHeading title="Banking (Plaid)" subtitle="Plaid keys live in environment variables only — never entered or shown here. Users connect their own banks under Settings. This shows app-wide connection usage." />
+        <PlaidAdminStatus />
+      </section>
+
       {/* ── Brokerage / portfolio ── */}
       <section className="space-y-3">
         <SectionHeading title="Brokerage" subtitle="Brokerage connections are per-user. Every user connects their own E*TRADE under Settings. The E*TRADE app credentials below identify this app to E*TRADE for everyone." />
-        <a href="/brokerage" className="inline-block rounded-md border border-hairline px-3 py-1.5 text-sm text-ink-dim hover:bg-surface hover:text-ink">
-          Go to Connect brokerage →
+        <a href="/settings" className="inline-block rounded-md border border-hairline px-3 py-1.5 text-sm text-ink-dim hover:bg-surface hover:text-ink">
+          Go to Settings → Connect brokerage →
         </a>
       </section>
 
