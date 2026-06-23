@@ -6,7 +6,7 @@ import { useState } from "react";
 import useSWR from "swr";
 import {
   LayoutDashboard, Wallet, Eye, Search, Stethoscope, TrendingUp, Landmark,
-  Bell, BookOpen, Settings, Trophy, NotebookPen, Plug, Grid3x3, Menu, X, Command, LogOut, FileText,
+  Bell, BookOpen, Trophy, NotebookPen, Grid3x3, Menu, X, Command, LogOut,
 } from "lucide-react";
 import clsx from "clsx";
 import { ThemeToggle } from "./theme-toggle";
@@ -23,7 +23,6 @@ const GROUPS: { label: string; adminOnly?: boolean; items: { href: string; label
       { href: "/holdings", label: "Holdings", icon: Wallet },
       { href: "/watchlist", label: "Watchlist", icon: Eye },
       { href: "/journal", label: "Journal", icon: NotebookPen },
-      { href: "/reports", label: "Reports", icon: FileText },
     ],
   },
   {
@@ -42,17 +41,11 @@ const GROUPS: { label: string; adminOnly?: boolean; items: { href: string; label
     items: [{ href: "/alerts", label: "Alerts", icon: Bell }],
   },
   {
-    label: "Setup",
+    // Account, Settings, Reports, and admin tools now live in the top-right
+    // account menu — only the reference/learning link stays in the sidebar.
+    label: "Learn",
     items: [
-      { href: "/settings", label: "Settings", icon: Settings },
       { href: "/glossary", label: "Glossary", icon: BookOpen },
-    ],
-  },
-  {
-    label: "Admin",
-    adminOnly: true,
-    items: [
-      { href: "/connectors", label: "Connectors & Keys", icon: Plug },
     ],
   },
 ];

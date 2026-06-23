@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import useSWR from "swr";
-import { User, FileText, Settings as SettingsIcon, HelpCircle, LogOut, Shield, ChevronDown } from "lucide-react";
+import { User, FileText, Settings as SettingsIcon, HelpCircle, LogOut, Shield, ChevronDown, Plug } from "lucide-react";
 
 interface Me {
   authenticated?: boolean;
@@ -44,6 +44,10 @@ export function AccountMenu() {
     { href: "/settings", label: "Settings", icon: SettingsIcon },
     { href: "/help", label: "Help", icon: HelpCircle },
   ];
+  // Admin-only tools (platform API keys etc.) — never rendered for regular users.
+  const adminItems = me.isAdmin
+    ? [{ href: "/connectors", label: "Connectors & Keys", icon: Plug }]
+    : [];
 
   return (
     <div ref={ref} className="relative">
@@ -92,6 +96,25 @@ export function AccountMenu() {
               </Link>
             ))}
           </div>
+
+          {/* Admin tools — only for administrators */}
+          {adminItems.length > 0 && (
+            <div className="border-t border-hairline py-1.5">
+              <div className="px-4 pb-1 pt-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-ink-faint">Admin</div>
+              {adminItems.map(({ href, label, icon: Icon }) => (
+                <Link
+                  key={href}
+                  href={href}
+                  onClick={() => setOpen(false)}
+                  role="menuitem"
+                  className="flex items-center gap-3 px-4 py-2 text-sm text-ink-dim transition-colors hover:bg-surface hover:text-ink"
+                >
+                  <Icon size={16} className="text-brand-400" />
+                  {label}
+                </Link>
+              ))}
+            </div>
+          )}
 
           {/* Sign out */}
           <div className="border-t border-hairline py-1.5">

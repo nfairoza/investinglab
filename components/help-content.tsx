@@ -33,17 +33,18 @@ export function HelpContent() {
       <div className="rounded-xl border border-brand-500/20 bg-gradient-to-br from-brand-500/[0.07] to-transparent p-5">
         <div className="flex items-center gap-2 text-ink">
           <MessageCircle size={18} className="text-brand-400" />
-          <span className="font-semibold">Ask the rukMoney AI assistant</span>
+          <span className="font-semibold">Ask Rukmani, your AI assistant</span>
         </div>
         <p className="mt-1 text-sm text-ink-dim">
-          The fastest way to get help. Ask anything about your portfolio, a ticker, a finance term,
-          or how to use the app — it knows every page.
+          The fastest way to get help. Rukmani is your financial advisor, investment banker, and
+          finance teacher in one — ask anything about your portfolio, a ticker, a finance term, or
+          how to use the app. She knows every page.
         </p>
         <button
           onClick={() => window.dispatchEvent(new Event("open-chat"))}
           className="btn-gold mt-3 inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm"
         >
-          <MessageCircle size={15} /> Open AI chat
+          <MessageCircle size={15} /> Chat with Rukmani
         </button>
       </div>
 

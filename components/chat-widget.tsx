@@ -329,7 +329,7 @@ export function ChatWidget() {
         className={`flex items-center justify-center rounded-full shadow-lg transition-all duration-200 hover:scale-110 active:scale-95
           ${open ? "bg-surface hover:bg-surface" : "bg-brand-600 hover:bg-brand-500"}`}
         style={{ position: "fixed", bottom: 20, right: 20, left: "auto", zIndex: 50, width: 52, height: 52 }}
-        aria-label="Open AI chat"
+        aria-label="Chat with Rukmani"
       >
         {open ? <X size={20} className="text-white" /> : <MessageCircle size={20} className="text-white" />}
       </button>
@@ -359,7 +359,7 @@ export function ChatWidget() {
           <div className="flex items-center justify-between border-b border-hairline bg-white/[0.03] px-4 py-3"
             style={{ borderTopLeftRadius: size === "full" ? 16 : 16, borderTopRightRadius: size === "full" ? 0 : 16 }}>
             <button onClick={() => setMinimized((m) => !m)} className="flex-1 text-left" title={minimized ? "Expand" : "Minimize"}>
-              <div className="text-sm font-semibold text-ink">rukMoney AI</div>
+              <div className="text-sm font-semibold text-ink">Rukmani · AI assistant</div>
               {!minimized && (
                 <div className="text-[11px] text-ink-faint">
                   Live data + web search · {holdings.length} holding{holdings.length !== 1 ? "s" : ""}
@@ -405,7 +405,7 @@ export function ChatWidget() {
           <div ref={scrollRef} className="flex-1 overflow-y-auto px-3 py-3 space-y-3">
             {messages.length === 0 && (
               <div className="space-y-2">
-                <p className="text-center text-xs text-ink-faint pt-2">Ask anything about your portfolio</p>
+                <p className="text-center text-xs text-ink-faint pt-2">Hi, I&apos;m Rukmani — ask me anything about your portfolio</p>
                 {SUGGESTIONS.map((s) => (
                   <button key={s} onClick={() => send(s)}
                     className="w-full rounded-lg border border-hairline bg-surface px-3 py-2 text-left text-xs text-ink-dim hover:bg-surface-raised hover:text-ink transition-colors">
