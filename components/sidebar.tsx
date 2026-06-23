@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import useSWR from "swr";
 import {
   LayoutDashboard, Wallet, Eye, Search, Stethoscope, TrendingUp, Landmark,
@@ -118,6 +118,13 @@ function Footer() {
 
 export function Sidebar() {
   const [open, setOpen] = useState(false);
+
+  // The mobile bottom tab bar's "More" button opens this drawer via a global event.
+  useEffect(() => {
+    const openNav = () => setOpen(true);
+    window.addEventListener("open-nav", openNav);
+    return () => window.removeEventListener("open-nav", openNav);
+  }, []);
 
   return (
     <>

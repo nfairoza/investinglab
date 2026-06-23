@@ -339,7 +339,7 @@ export function ChatWidget() {
         onClick={() => setOpen((o) => !o)}
         className={`flex items-center justify-center rounded-full shadow-lg transition-all duration-200 hover:scale-110 active:scale-95
           ${open ? "bg-surface hover:bg-surface" : "bg-brand-600 hover:bg-brand-500"}`}
-        style={{ position: "fixed", bottom: "calc(20px + env(safe-area-inset-bottom))", right: "calc(20px + env(safe-area-inset-right))", left: "auto", zIndex: 50, width: 52, height: 52 }}
+        style={{ position: "fixed", bottom: isMobile ? "calc(76px + env(safe-area-inset-bottom))" : "calc(20px + env(safe-area-inset-bottom))", right: "calc(20px + env(safe-area-inset-right))", left: "auto", zIndex: 50, width: 52, height: 52 }}
         aria-label="Chat with Rukmani"
       >
         {open ? <X size={20} className="text-white" /> : <MessageCircle size={20} className="text-white" />}

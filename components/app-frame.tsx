@@ -9,6 +9,7 @@ import { SessionScope } from "./session-scope";
 import { AccountMenu } from "./account-menu";
 import { ThemeToggle } from "./theme-toggle";
 import { TopSearch } from "./top-search";
+import { MobileTabBar } from "./mobile-tab-bar";
 
 // Auth screens render with NO app chrome (no sidebar, chat, or command palette) —
 // just the page. Everything else gets the full shell.
@@ -34,11 +35,13 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
             <ThemeToggle compact />
             <AccountMenu />
           </header>
-          <main className="flex-1 px-5 py-6 md:px-10 md:py-8">
+          {/* pb on mobile leaves room for the fixed bottom tab bar. */}
+          <main className="flex-1 px-5 py-6 pb-24 md:px-10 md:py-8 md:pb-8">
             <PageTransition>{children}</PageTransition>
           </main>
         </div>
       </div>
+      <MobileTabBar />
       <ChatWidget />
       <CommandPalette />
     </>
