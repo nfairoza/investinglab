@@ -3,6 +3,7 @@ import { PredictionsTabs } from "@/components/predictions-tabs";
 export const metadata = { title: "Predictions" };
 
 export default function Page({ searchParams }: { searchParams: { symbol?: string } }) {
+  const hasSymbol = Boolean(searchParams?.symbol);
   const initial = (searchParams?.symbol ?? "AMD").toUpperCase();
   return (
     <div className="space-y-5">
@@ -14,7 +15,7 @@ export default function Page({ searchParams }: { searchParams: { symbol?: string
           deep prediction across 1 week, 1 month, and 1 year. AI opinions using live data + web search, not guarantees.
         </p>
       </div>
-      <PredictionsTabs initial={initial} />
+      <PredictionsTabs initial={initial} startOnTicker={hasSymbol} />
     </div>
   );
 }

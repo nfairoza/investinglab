@@ -123,9 +123,10 @@ export function PriceChart({ symbol }: { symbol: string }) {
                 labelStyle={{ color: ct.axis }}
                 formatter={(v: number) => [`$${v.toFixed(2)}`, "Close"]}
               />
-              {/* soft glow underlay (matches the dashboard Top-Assets sparkline) */}
-              <Area dataKey="close" stroke={stroke} strokeOpacity={0.35} strokeWidth={5} fill="none"
-                filter={`url(#grad-${symbol}-blur)`} isAnimationActive={false} dot={false} activeDot={false} />
+              {/* soft glow underlay (matches the dashboard Top-Assets sparkline).
+                  tooltipType="none" keeps it out of the tooltip so "Close" isn't doubled. */}
+              <Area dataKey="close" tooltipType="none" stroke={stroke} strokeOpacity={0.35} strokeWidth={5} fill="none"
+                filter={`url(#grad-${symbol}-blur)`} isAnimationActive={false} dot={false} activeDot={false} legendType="none" />
               {/* crisp line + gradient fill, glowing last point */}
               <Area dataKey="close" stroke={stroke} strokeWidth={2} fill={`url(#grad-${symbol})`}
                 dot={(p: any) => (p.index === points.length - 1

@@ -6,10 +6,10 @@ import { MarketOutlook } from "./market-outlook";
 import { PredictionWorkspace } from "./prediction-workspace";
 
 // Two views: a whole-market + portfolio outlook (buy/sell plan as a table), and
-// the single-ticker deep prediction. Defaults to the ticker view when arrived
-// via ?symbol= (e.g. clicking a ticker), else the market overview.
-export function PredictionsTabs({ initial }: { initial: string }) {
-  const [tab, setTab] = useState<"market" | "ticker">(initial && initial !== "AMD" ? "ticker" : "market");
+// the single-ticker deep prediction. Opens on the ticker tab when arrived via
+// ?symbol= (e.g. clicking a ticker in research), else the market overview.
+export function PredictionsTabs({ initial, startOnTicker = false }: { initial: string; startOnTicker?: boolean }) {
+  const [tab, setTab] = useState<"market" | "ticker">(startOnTicker ? "ticker" : "market");
 
   return (
     <div className="space-y-4">
