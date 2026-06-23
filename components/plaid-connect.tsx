@@ -3,7 +3,7 @@
 import { useCallback, useState } from "react";
 import useSWR from "swr";
 import { usePlaidLink } from "react-plaid-link";
-import { Landmark, Plus, Trash2 } from "lucide-react";
+import { Landmark, Plus, Trash2, ChevronDown } from "lucide-react";
 
 // Plaid Link locks page scroll while open (sets overflow/position on body) and
 // occasionally fails to restore it if the flow ends abruptly. Fully reset the
@@ -116,38 +116,49 @@ export function PlaidConnect() {
         <span className="text-ink">Money</span>.
       </p>
 
-      {/* Connected institutions + their accounts (status only) */}
+      {/* Connected institutions — collapsed by default; click to see accounts */}
       {linked.length > 0 && (
         <div className="space-y-2">
           {linked.map((it) => (
-            <div key={it.itemId} className="rounded-xl border border-hairline bg-surface">
-              <div className="flex items-center justify-between gap-3 px-4 py-3">
-                <div className="min-w-0">
-                  <div className="truncate text-sm font-medium text-ink">{it.institution}</div>
-                  <div className="text-[11px] text-ink-faint">{it.accountCount} account{it.accountCount !== 1 ? "s" : ""}</div>
-                </div>
-                <button onClick={() => disconnect(it.itemId)}
-                  className="inline-flex shrink-0 items-center gap-1 rounded-md border border-hairline px-2 py-1 text-[11px] text-ink-dim hover:bg-rose-500/10 hover:text-rose-400">
-                  <Trash2 size={12} /> Disconnect
-                </button>
-              </div>
-              {it.accounts.length > 0 && (
-                <ul className="divide-y divide-hairline border-t border-hairline">
-                  {it.accounts.map((a, i) => (
-                    <li key={i} className="flex items-center justify-between px-4 py-2 text-sm">
-                      <span className="truncate text-ink-dim">{a.name}{a.mask ? <span className="text-ink-faint"> ••{a.mask}</span> : null}</span>
-                      <span className="shrink-0 text-[11px] text-ink-faint">{TYPE_LABEL[a.type ?? "other"] ?? a.type}</span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
+            <InstitutionRow key={it.itemId} item={it} onDisconnect={() => disconnect(it.itemId)} />
           ))}
         </div>
       )}
 
       {/* Always available — connect another institution any time */}
       <LinkButton label={linked.length ? "Connect another institution" : "Connect an institution"} onLinked={mutate} />
+    </div>
+  );
+}
+
+// One institution: collapsed by default (name + count), expands its accounts on click.
+function InstitutionRow({ item, onDisconnect }: { item: StatusItem; onDisconnect: () => void }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="rounded-xl border border-hairline bg-surface">
+      <div className="flex items-center gap-2 px-4 py-3">
+        <button onClick={() => setOpen((o) => !o)} className="flex min-w-0 flex-1 items-center gap-2 text-left" aria-expanded={open}>
+          <ChevronDown size={15} className={`shrink-0 text-ink-faint transition-transform ${open ? "rotate-180" : ""}`} />
+          <span className="min-w-0">
+            <span className="block truncate text-sm font-medium text-ink">{item.institution}</span>
+            <span className="block text-[11px] text-ink-faint">{item.accountCount} account{item.accountCount !== 1 ? "s" : ""}</span>
+          </span>
+        </button>
+        <button onClick={onDisconnect}
+          className="inline-flex shrink-0 items-center gap-1 rounded-md border border-hairline px-2 py-1 text-[11px] text-ink-dim hover:bg-rose-500/10 hover:text-rose-400">
+          <Trash2 size={12} /> Disconnect
+        </button>
+      </div>
+      {open && item.accounts.length > 0 && (
+        <ul className="divide-y divide-hairline border-t border-hairline">
+          {item.accounts.map((a, i) => (
+            <li key={i} className="flex items-center justify-between px-4 py-2 text-sm">
+              <span className="truncate text-ink-dim">{a.name}{a.mask ? <span className="text-ink-faint"> ••{a.mask}</span> : null}</span>
+              <span className="shrink-0 text-[11px] text-ink-faint">{TYPE_LABEL[a.type ?? "other"] ?? a.type}</span>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
