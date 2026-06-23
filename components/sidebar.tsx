@@ -6,7 +6,7 @@ import { useState } from "react";
 import useSWR from "swr";
 import {
   LayoutDashboard, Wallet, Eye, Search, Stethoscope, TrendingUp, Landmark,
-  Bell, Trophy, NotebookPen, Grid3x3, Menu, X, Command, LogOut,
+  Bell, Trophy, NotebookPen, Grid3x3, Menu, X, Command,
 } from "lucide-react";
 import clsx from "clsx";
 import { ThemeToggle } from "./theme-toggle";
@@ -108,13 +108,7 @@ function Footer() {
         <span className="flex items-center gap-2"><Command size={13} /> Quick search</span>
         <kbd className="rounded border border-hairline px-1.5 py-0.5 text-[10px]">⌘K</kbd>
       </button>
-      {/* Sign out — posts to the auth signout route, clears the session. */}
-      <form action="/auth/signout" method="post">
-        <button type="submit"
-          className="flex w-full items-center gap-2 rounded-md border border-hairline px-3 py-2 text-xs text-ink-dim hover:bg-surface hover:text-ink">
-          <LogOut size={13} /> Sign out
-        </button>
-      </form>
+      {/* Sign out lives in the account menu (top-right) — not duplicated here. */}
       <div className="flex items-center justify-end">
         <p className="text-[10px] leading-tight text-ink-faint">Research only.<br />Not advice.</p>
       </div>
