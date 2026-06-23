@@ -6,7 +6,7 @@ import { useState, useEffect } from "react";
 import useSWR from "swr";
 import {
   LayoutDashboard, Wallet, Eye, Search, Stethoscope, TrendingUp, Landmark,
-  Bell, Trophy, NotebookPen, Grid3x3, Menu, X, Command,
+  Bell, Trophy, NotebookPen, Grid3x3, Menu, X,
 } from "lucide-react";
 import clsx from "clsx";
 import { ThemeToggle } from "./theme-toggle";
@@ -100,15 +100,8 @@ function Wordmark() {
 
 function Footer() {
   return (
-    <div className="mt-6 space-y-3 px-2">
-      <button
-        onClick={() => window.dispatchEvent(new KeyboardEvent("keydown", { key: "k", metaKey: true }))}
-        className="flex w-full items-center justify-between rounded-md border border-hairline px-3 py-2 text-xs text-ink-dim hover:bg-surface"
-      >
-        <span className="flex items-center gap-2"><Command size={13} /> Quick search</span>
-        <kbd className="rounded border border-hairline px-1.5 py-0.5 text-[10px]">⌘K</kbd>
-      </button>
-      {/* Sign out lives in the account menu (top-right) — not duplicated here. */}
+    <div className="mt-6 px-2">
+      {/* Search lives in the top bar; sign out in the account menu — not duplicated here. */}
       <div className="flex items-center justify-end">
         <p className="text-[10px] leading-tight text-ink-faint">Research only.<br />Not advice.</p>
       </div>

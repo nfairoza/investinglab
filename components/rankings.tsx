@@ -60,11 +60,11 @@ function RankRow({ s, i, horizon }: { s: StockScore; i: number; horizon: Horizon
   const today = s.changePct;
   return (
     <li className="rounded-lg border border-hairline bg-black/15 px-3 py-2 hover:bg-white/[0.03]">
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
         <span className="w-4 shrink-0 text-right text-xs text-ink-faint">{i + 1}</span>
-        <a href={`/research?symbol=${s.symbol}`} className="w-14 shrink-0 font-semibold text-brand-300 hover:underline">{s.symbol}</a>
+        <a href={`/research?symbol=${s.symbol}`} className="w-12 shrink-0 font-semibold text-brand-300 hover:underline">{s.symbol}</a>
         {/* today's REAL move */}
-        <span className={`w-20 shrink-0 text-xs ${today == null ? "text-ink-faint" : today >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+        <span className={`shrink-0 text-xs ${today == null ? "text-ink-faint" : today >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
           {pct(today)} <span className="text-ink-faint">today</span>
         </span>
         {/* directional outlook for THIS horizon */}
