@@ -23,7 +23,9 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
   return (
     <>
       <SessionScope />
-      <div className="relative flex min-h-screen">
+      {/* Column on mobile (top bar stacks above content), row on desktop (sidebar
+          beside content). */}
+      <div className="relative flex min-h-screen flex-col md:flex-row">
         <Sidebar />
         <div className="flex min-w-0 flex-1 flex-col">
           {/* Desktop top bar: search on the left, theme + account on the right. */}
