@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import useSWR from "swr";
-import { Shield, LogOut, Trash2, Check, KeyRound, Pencil, X, Mail, Phone, Globe, CalendarDays } from "lucide-react";
+import { Shield, Trash2, Check, KeyRound, Pencil, X, Mail, Phone, Globe, CalendarDays } from "lucide-react";
 import { changePassword } from "@/app/login/actions";
 
 interface Me {
@@ -250,22 +250,9 @@ export function AccountCard() {
         </div>
       )}
 
-      {/* ── Sign out (neutral, its own card) ── */}
-      <div className="rounded-2xl glass p-6">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <div className="text-sm font-semibold text-ink">Sign out</div>
-            <p className="text-[11px] text-ink-faint">Sign out of rukMoney on this device.</p>
-          </div>
-          <form action="/auth/signout" method="post">
-            <button type="submit" className="inline-flex items-center gap-1.5 rounded-lg border border-hairline px-4 py-1.5 text-sm text-ink-dim hover:bg-surface hover:text-ink">
-              <LogOut size={14} /> Sign out
-            </button>
-          </form>
-        </div>
-      </div>
+      {/* Sign out lives in the account menu (top-right) — not duplicated here. */}
 
-      {/* ── Danger zone — deliberately separated from sign out ── */}
+      {/* ── Danger zone ── */}
       <div className="rounded-2xl border border-rose-500/30 bg-rose-500/[0.04] p-6">
         <div className="text-sm font-semibold text-rose-300">Danger zone</div>
         <p className="mt-1 text-[11px] text-ink-faint">
