@@ -6,7 +6,7 @@ import { useState, useEffect } from "react";
 import useSWR from "swr";
 import {
   LayoutDashboard, Wallet, Eye, Search, Stethoscope, TrendingUp, Landmark,
-  Bell, Trophy, NotebookPen, Grid3x3, Menu, X, Receipt, PieChart, Scale,
+  Bell, Trophy, NotebookPen, Grid3x3, Menu, X, Receipt, PieChart, Scale, Sparkles,
 } from "lucide-react";
 import clsx from "clsx";
 import { ThemeToggle } from "./theme-toggle";
@@ -44,6 +44,7 @@ const GROUPS: { label: string; adminOnly?: boolean; items: { href: string; label
       { href: "/accounts", label: "Accounts", icon: Landmark },
       { href: "/transactions", label: "Transactions", icon: Receipt },
       { href: "/spending", label: "Spending", icon: PieChart },
+      { href: "/advisor", label: "AI Advisor", icon: Sparkles },
     ],
   },
   {
