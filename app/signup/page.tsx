@@ -15,7 +15,9 @@ export default function SignupPage({
       {searchParams?.error && <p className="auth-err">{searchParams.error}</p>}
 
       <form action={emailSignup} className="auth-form">
+        <label>Full name<input name="fullName" type="text" autoComplete="name" placeholder="Your name" required /></label>
         <label>Email<input name="email" type="email" autoComplete="email" placeholder="you@example.com" required /></label>
+        <label>Phone <span className="text-ink-faint">(optional)</span><input name="phone" type="tel" autoComplete="tel" placeholder="+1 …" /></label>
         <label>Password<input name="password" type="password" autoComplete="new-password" placeholder="At least 6 characters" minLength={6} required /></label>
         <AuthSubmit pendingText="Creating account…">Sign up</AuthSubmit>
       </form>

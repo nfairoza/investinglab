@@ -17,7 +17,8 @@ export async function GET() {
     email: user.email ?? null,
     createdAt: user.created_at ?? null,
     provider: (user.app_metadata?.provider as string) ?? "email",
-    avatarUrl: (user.user_metadata?.avatar_url as string) ?? null,
-    fullName: (user.user_metadata?.full_name as string) ?? null,
+    avatarUrl: (user.user_metadata?.avatar_url as string) ?? (user.user_metadata?.picture as string) ?? null,
+    fullName: (user.user_metadata?.full_name as string) ?? (user.user_metadata?.name as string) ?? null,
+    phone: (user.user_metadata?.phone as string) ?? user.phone ?? null,
   });
 }

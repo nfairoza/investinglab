@@ -19,10 +19,18 @@ export async function emailLogin(formData: FormData) {
 export async function emailSignup(formData: FormData) {
   const supabase = createClient();
   const origin = headers().get("origin");
+  const fullName = ((formData.get("fullName") as string) ?? "").trim();
+  const phone = ((formData.get("phone") as string) ?? "").trim();
+  if (!fullName) redirect("/signup?error=" + encodeURIComponent("Please enter your name."));
   const { error } = await supabase.auth.signUp({
     email: formData.get("email") as string,
     password: formData.get("password") as string,
-    options: { emailRedirectTo: `${origin}/auth/callback` },
+    // Store name + optional phone in user metadata so the profile is prefilled —
+    // mirrors what we already get automatically from social (Google) sign-ups.
+    options: {
+      emailRedirectTo: `${origin}/auth/callback`,
+      data: { full_name: fullName, ...(phone ? { phone } : {}) },
+    },
   });
   if (error) redirect("/signup?error=" + encodeURIComponent(error.message));
   redirect("/login?message=" + encodeURIComponent("Check your email to confirm your account."));
