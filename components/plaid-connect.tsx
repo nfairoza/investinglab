@@ -25,7 +25,7 @@ function restoreScroll() {
 }
 
 interface StatusAccount { name: string; mask: string | null; type: string | null; subtype: string | null }
-interface StatusItem { itemId: string; institution: string; accountCount: number; accounts: StatusAccount[] }
+interface StatusItem { itemId: string; institution: string; logo: string | null; color: string | null; accountCount: number; accounts: StatusAccount[] }
 interface Status { configured: boolean; items: StatusItem[] }
 
 const TYPE_LABEL: Record<string, string> = {
@@ -137,8 +137,9 @@ function InstitutionRow({ item, onDisconnect }: { item: StatusItem; onDisconnect
   return (
     <div className="rounded-xl border border-hairline bg-surface">
       <div className="flex items-center gap-2 px-4 py-3">
-        <button onClick={() => setOpen((o) => !o)} className="flex min-w-0 flex-1 items-center gap-2 text-left" aria-expanded={open}>
+        <button onClick={() => setOpen((o) => !o)} className="flex min-w-0 flex-1 items-center gap-2.5 text-left" aria-expanded={open}>
           <ChevronDown size={15} className={`shrink-0 text-ink-faint transition-transform ${open ? "rotate-180" : ""}`} />
+          <InstitutionLogo logo={item.logo} color={item.color} name={item.institution} />
           <span className="min-w-0">
             <span className="block truncate text-sm font-medium text-ink">{item.institution}</span>
             <span className="block text-[11px] text-ink-faint">{item.accountCount} account{item.accountCount !== 1 ? "s" : ""}</span>
@@ -160,5 +161,19 @@ function InstitutionRow({ item, onDisconnect }: { item: StatusItem; onDisconnect
         </ul>
       )}
     </div>
+  );
+}
+
+// Institution logo (Plaid base64 PNG) with a colored-initial fallback.
+function InstitutionLogo({ logo, color, name }: { logo: string | null; color: string | null; name: string }) {
+  if (logo) {
+    // eslint-disable-next-line @next/next/no-img-element
+    return <img src={logo} alt="" className="h-7 w-7 shrink-0 rounded-md border border-hairline object-contain bg-white p-0.5" />;
+  }
+  return (
+    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-xs font-semibold text-white"
+      style={{ background: color || "var(--accent)" }}>
+      {name.trim().charAt(0).toUpperCase()}
+    </span>
   );
 }

@@ -40,14 +40,21 @@ export async function POST(req: NextRequest) {
     const institutionId = accountsResp.data.item?.institution_id ?? null;
 
     let institutionName: string | null = null;
+    let institutionLogo: string | null = null;
+    let institutionColor: string | null = null;
     if (institutionId) {
       try {
         const inst = await plaid.institutionsGetById({
           institution_id: institutionId,
           country_codes: [CountryCode.Us],
+          options: { include_optional_metadata: true },
         });
         institutionName = inst.data.institution?.name ?? null;
-      } catch { /* name is best-effort */ }
+        // Plaid returns a base64 PNG (no data: prefix) + a brand hex color.
+        const logo = inst.data.institution?.logo;
+        institutionLogo = logo ? `data:image/png;base64,${logo}` : null;
+        institutionColor = inst.data.institution?.primary_color ?? null;
+      } catch { /* metadata is best-effort */ }
     }
 
     await ctx.supabase.from("plaid_items").upsert(
@@ -57,6 +64,8 @@ export async function POST(req: NextRequest) {
         access_token: accessToken,
         institution_id: institutionId,
         institution_name: institutionName,
+        institution_logo: institutionLogo,
+        institution_color: institutionColor,
         accounts,
         updated_at: new Date().toISOString(),
       },
