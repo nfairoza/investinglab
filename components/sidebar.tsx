@@ -128,8 +128,7 @@ function Footer() {
           <LogOut size={13} /> Sign out
         </button>
       </form>
-      <div className="flex items-center justify-between">
-        <ThemeToggle />
+      <div className="flex items-center justify-end">
         <p className="text-[10px] leading-tight text-ink-faint">Research only.<br />Not advice.</p>
       </div>
     </div>
@@ -145,6 +144,7 @@ export function Sidebar() {
       <div className="sticky top-0 z-40 flex items-center justify-between border-b border-hairline px-4 py-3 md:hidden" style={{ background: "var(--surface-solid)" }}>
         <Wordmark />
         <div className="flex items-center gap-2">
+          <ThemeToggle compact />
           <AccountMenu />
           <button onClick={() => setOpen(true)} aria-label="Open menu" className="rounded-md border border-hairline p-2 text-ink-dim hover:text-ink">
             <Menu size={18} />
