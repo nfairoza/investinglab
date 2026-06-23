@@ -351,7 +351,7 @@ export function ChatWidget() {
           <div className="flex items-center justify-between border-b border-hairline bg-white/[0.03] px-4 py-3"
             style={{ borderTopLeftRadius: size === "full" ? 16 : 16, borderTopRightRadius: size === "full" ? 0 : 16 }}>
             <button onClick={() => setMinimized((m) => !m)} className="flex-1 text-left" title={minimized ? "Expand" : "Minimize"}>
-              <div className="text-sm font-semibold text-ink">Noor Investing Lab</div>
+              <div className="text-sm font-semibold text-ink">rukMoney AI</div>
               {!minimized && (
                 <div className="text-[11px] text-ink-faint">
                   Live data + web search · {holdings.length} holding{holdings.length !== 1 ? "s" : ""}

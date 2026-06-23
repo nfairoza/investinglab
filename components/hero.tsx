@@ -42,8 +42,8 @@ export function Hero({
 
       <div className="relative px-7 py-12 md:px-10 md:py-16">
         <div className="text-xs uppercase tracking-[0.35em]" style={{ color: "var(--accent)" }}>{greeting}</div>
-        <h1 className="mt-2 font-display text-4xl font-semibold leading-tight md:text-5xl">
-          <span className="text-shimmer">Noor Investing Lab</span>
+        <h1 className="mt-2 font-display text-4xl font-bold leading-tight md:text-5xl">
+          <span className="text-ink">ruk</span><span className="text-shimmer">Money</span>
         </h1>
 
         {hasValue ? (

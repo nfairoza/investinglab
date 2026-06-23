@@ -183,13 +183,9 @@ export function Tabs<T extends string>({ tabs, value, onChange }: { tabs: { id: 
 }
 
 // ── Botanical line-art blossom (SVG motif, currentColor) ──────────────────────
+// rukMoney brand mark — the RM + growth-arrow monogram (teal→green) from the
+// logo set. Kept named "Blossom" so existing call sites need no change.
+// eslint-disable-next-line @next/next/no-img-element
 export function Blossom({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 48 48" fill="none" className={className} aria-hidden style={{ color: "var(--accent)" }}>
-      {[0, 72, 144, 216, 288].map((deg) => (
-        <ellipse key={deg} cx="24" cy="24" rx="4.5" ry="12" stroke="currentColor" strokeWidth="1.3" opacity="0.7" transform={`rotate(${deg} 24 24)`} />
-      ))}
-      <circle cx="24" cy="24" r="3.4" fill="currentColor" opacity="0.85" />
-    </svg>
-  );
+  return <img src="/brand/rm-icon.svg" alt="rukMoney" className={className} aria-hidden />;
 }

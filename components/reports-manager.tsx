@@ -68,7 +68,7 @@ export function ReportsManager() {
       const { default: jsPDF } = await import("jspdf");
       const autoTable = (await import("jspdf-autotable")).default;
       const doc = new jsPDF();
-      doc.setFontSize(18); doc.text("Noor Investing Lab — Portfolio Report", 14, 18);
+      doc.setFontSize(18); doc.text("rukMoney — Portfolio Report", 14, 18);
       doc.setFontSize(10); doc.setTextColor(120);
       doc.text(`Generated ${dateStr}`, 14, 25);
       doc.text(totalValueNote, 14, 30);
@@ -78,7 +78,7 @@ export function ReportsManager() {
         doc.setFontSize(13); doc.setTextColor(20); doc.text(d.label, 14, y);
         autoTable(doc, {
           head: [t.head], body: t.rows.length ? t.rows : [["No data", "", "", ""]],
-          startY: y + 3, styles: { fontSize: 9 }, headStyles: { fillColor: [139, 124, 246] },
+          startY: y + 3, styles: { fontSize: 9 }, headStyles: { fillColor: [22, 210, 126] },
         });
         // @ts-expect-error autotable adds lastAutoTable
         y = (doc.lastAutoTable?.finalY ?? y + 20) + 12;
@@ -96,7 +96,7 @@ export function ReportsManager() {
       const wb = XLSX.utils.book_new();
       // Summary sheet
       const summary = [
-        ["Noor Investing Lab — Portfolio Report"],
+        ["rukMoney — Portfolio Report"],
         ["Generated", dateStr],
         ["Holdings", holdings.length],
         ["Cash", cash?.amount ?? 0],

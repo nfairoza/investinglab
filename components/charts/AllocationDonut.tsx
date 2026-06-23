@@ -8,19 +8,19 @@ interface Slice {
   value: number; // portfolio weight 0–100
 }
 
-// Cohesive, on-brand palette: violet (accent) leads, then harmonized hues that
-// stay legible on both dark and light. No repeats among the first 10 so adjacent
-// slices are always distinguishable. Anything beyond falls back to a muted grey.
+// Cohesive, on-brand palette: rukMoney teal→green leads, then harmonized hues
+// that stay legible on both dark and light. No repeats among the first 10 so
+// adjacent slices are always distinguishable. Beyond that falls back to grey.
 const PALETTE = [
-  "#8B7CF6", // violet (brand)
-  "#34E0A1", // mint (positive)
+  "#16D27E", // brand green
+  "#0EA6C9", // brand cyan
+  "#11B4AE", // brand teal
+  "#34E0A1", // mint
   "#60A5FA", // sky
   "#F59E0B", // amber
   "#FB7185", // rose
-  "#22D3EE", // cyan
-  "#A78BFA", // light violet
   "#FBBF24", // gold
-  "#4ADE80", // green
+  "#22D3EE", // cyan
   "#F472B6", // pink
 ];
 const REST = "var(--neutral)";

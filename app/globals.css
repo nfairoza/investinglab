@@ -3,31 +3,36 @@
 @tailwind utilities;
 
 /* =============================================================================
-   NOOR INVESTING LAB — "Floral Tech Finance" design system
+   rukMoney — teal→green "growth" design system
    Semantic tokens defined for BOTH light and dark. Components reference the
    semantic vars (never hard-coded hex), so the whole UI re-themes by swapping
-   one class on <html>. Botanical garden + Bloomberg terminal discipline.
+   one class on <html>. Brand palette pulled from the rukMoney logo:
+   cyan #0EA6C9 → teal #11B4AE → #14CC8C → green #16D27E, mint #34E0A1,
+   deep navy #0B2138.
    ============================================================================= */
 
 :root {
   /* Fonts (loaded browser-side via <link> in layout.tsx — corp SSL blocks build-time fetch).
-     Display = characterful serif (headlines ONLY). Sans = crisp grotesk. Mono = tabular numbers. */
-  --font-display: "Fraunces", "Cormorant Garamond", Georgia, serif;
+     Display + UI = clean modern grotesk to match the rukMoney wordmark. Mono = tabular numbers. */
+  --font-display: "Sora", "Inter Tight", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --font-sans: "Inter Tight", "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --font-mono: "JetBrains Mono", "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 
-  /* Brand scale (violet) — shared; semantic --accent picks the tier per theme. */
-  --brand-50:  #f3f1ff;
-  --brand-100: #e9e5ff;
-  --brand-200: #d6cfff;
-  --brand-300: #b9acff;
-  --brand-400: #9a85fb;
-  --brand-500: #8b7cf6;
-  --brand-600: #7459e8;
-  --brand-700: #6244cf;
-  --brand-800: #5138a6;
-  --brand-900: #432f84;
-  --brand-950: #281c54;
+  /* Brand scale (rukMoney teal→green) — shared; semantic --accent picks the tier per theme. */
+  --brand-50:  #e7fbf3;
+  --brand-100: #c6f6e3;
+  --brand-200: #93edcd;
+  --brand-300: #5fe3b6;
+  --brand-400: #2fd3a0;
+  --brand-500: #16d27e;
+  --brand-600: #11b48e;
+  --brand-700: #0ea6c9;
+  --brand-800: #0c7a8f;
+  --brand-900: #0b4f5e;
+  --brand-950: #06303f;
+
+  /* The brand gradient (cyan → teal → green) used on logo marks, hero, CTAs. */
+  --brand-gradient: linear-gradient(120deg, #0EA6C9 0%, #11B4AE 38%, #14CC8C 70%, #16D27E 100%);
 
   /* radii + motion easing (shared) */
   --radius: 16px;
@@ -51,11 +56,11 @@ html.dark, :root {
 
   --hairline: rgba(255,255,255,0.08);
   --hairline-strong: rgba(255,255,255,0.14);
-  --hairline-gold: rgba(139,124,246,0.34); /* accent hairline (name kept for reuse) */
+  --hairline-gold: rgba(22,210,126,0.34); /* accent hairline (name kept for reuse) */
 
-  --accent: #8B7CF6;                     /* violet */
-  --accent-strong: #7459e8;
-  --accent-soft: rgba(139,124,246,0.14);
+  --accent: #16D27E;                     /* rukMoney green */
+  --accent-strong: #11B48E;              /* teal */
+  --accent-soft: rgba(22,210,126,0.14);
 
   --positive: #34E0A1;                   /* gains = emerald-mint */
   --positive-soft: rgba(52,224,161,0.13);
@@ -64,10 +69,10 @@ html.dark, :root {
   --neutral: #94A0AE;
   --hold-bar: #6B7686;                   /* analyst "Hold" segment — clearly grey on dark */
 
-  /* Active sidebar item: glowing violet gradient pill on dark. */
-  --nav-active: linear-gradient(100deg, #7459e8 0%, #8B7CF6 55%, #9a85fb 100%);
+  /* Active sidebar item: glowing teal→green gradient pill on dark. */
+  --nav-active: linear-gradient(100deg, #0EA6C9 0%, #11B4AE 50%, #16D27E 100%);
   --nav-active-fg: #ffffff;
-  --nav-active-glow: 0 8px 22px -8px rgba(139,124,246,0.65);
+  --nav-active-glow: 0 8px 22px -8px rgba(22,210,126,0.6);
 
   --glass-bg: rgba(255,255,255,0.032);
   --glass-border: rgba(255,255,255,0.08);
@@ -99,11 +104,11 @@ html.light {
 
   --hairline: rgba(15,23,42,0.10);
   --hairline-strong: rgba(15,23,42,0.16);
-  --hairline-gold: rgba(98,68,207,0.40); /* violet hairline */
+  --hairline-gold: rgba(14,122,143,0.40); /* teal hairline */
 
-  --accent: #6244CF;                     /* deep violet, legible on white */
-  --accent-strong: #5138a6;
-  --accent-soft: rgba(98,68,207,0.10);
+  --accent: #0C7A8F;                     /* deep teal, legible on white */
+  --accent-strong: #0b4f5e;
+  --accent-soft: rgba(14,122,143,0.10);
 
   --positive: #0E9E6E;                   /* gain green on white */
   --positive-soft: rgba(14,158,110,0.10);
@@ -112,10 +117,10 @@ html.light {
   --neutral: #475569;
   --hold-bar: #94A3B8;                   /* analyst "Hold" segment — clearly grey on white */
 
-  /* Active sidebar item: deeper violet→indigo gradient, white text, on light. */
-  --nav-active: linear-gradient(100deg, #6244CF 0%, #7459e8 60%, #8B7CF6 100%);
+  /* Active sidebar item: deep teal→green gradient, white text, on light. */
+  --nav-active: linear-gradient(100deg, #0C7A8F 0%, #11B4AE 55%, #14CC8C 100%);
   --nav-active-fg: #ffffff;
-  --nav-active-glow: 0 8px 20px -8px rgba(98,68,207,0.45);
+  --nav-active-glow: 0 8px 20px -8px rgba(14,122,143,0.45);
 
   --glass-bg: rgba(255,255,255,0.78);
   --glass-border: rgba(15,23,42,0.08);
@@ -211,12 +216,12 @@ html.light .hero-img { background-image: url("/images/hero-jasmine-light.jpg"); 
   box-shadow: var(--glass-inner), 0 22px 46px -22px rgba(0,0,0,0.5), 0 0 0 1px var(--accent-soft);
 }
 
-/* Primary gold button */
+/* Primary brand button (rukMoney teal→green gradient) */
 .btn-gold {
-  background: linear-gradient(135deg, var(--brand-300) 0%, var(--accent) 55%, var(--accent-strong) 100%);
-  color: #1a1408; font-weight: 600;
+  background: var(--brand-gradient);
+  color: #ffffff; font-weight: 600;
   border: 1px solid var(--hairline-gold);
-  box-shadow: 0 6px 18px -8px rgba(184,147,46,0.5);
+  box-shadow: 0 6px 18px -8px rgba(22,210,126,0.55);
 }
 .btn-gold:hover { filter: brightness(1.06); }
 .btn-gold:active { filter: brightness(0.97); }
@@ -309,8 +314,13 @@ a, button, input, select, textarea {
 .animate-scale-in   { animation: scaleIn 0.25s var(--ease-out) both; }
 .animate-hero-zoom  { animation: heroZoom 1.6s var(--ease-out) both; }
 
-/* Static gold wordmark — no animation (distracting on a finance app). */
-.text-shimmer { color: var(--accent); }
+/* rukMoney wordmark — teal→green gradient text (no animation; calm on a finance app). */
+.text-shimmer {
+  background: var(--brand-gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
 
 /* Active tab / range / segmented selector — shared gradient pill (matches the
    active sidebar item). Use for the selected option in any tab group so

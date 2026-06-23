@@ -4,11 +4,13 @@ import { AppFrame } from "@/components/app-frame";
 import { SwrProvider } from "@/components/swr-provider";
 
 // Fonts load browser-side via <link> (corp SSL blocks build-time next/font fetch).
-// Display serif = Fraunces (optical sizing); UI = Inter Tight; numbers = JetBrains Mono.
+// Display = Sora (modern grotesk, matches the rukMoney wordmark); UI = Inter Tight;
+// numbers = JetBrains Mono.
 
 export const metadata: Metadata = {
-  title: { default: "Noor Investing Lab", template: "%s · Noor Investing Lab" },
-  description: "A beautiful, beginner-friendly investing research dashboard — research and education, not financial advice.",
+  title: { default: "rukMoney", template: "%s · rukMoney" },
+  description: "rukMoney — your banking, spending, and brokerage portfolio, unified and predicted by AI. Research and education, not financial advice.",
+  metadataBase: new URL("https://rukmoney.com"),
 };
 
 export const viewport: Viewport = {
@@ -29,7 +31,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link
-          href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter+Tight:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter+Tight:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
           rel="stylesheet"
         />
       </head>

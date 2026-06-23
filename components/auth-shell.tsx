@@ -9,12 +9,12 @@ export function AuthShell({ children }: { children: React.ReactNode }) {
       {/* Left brand panel — marketing/identity */}
       <aside className="auth-aside">
         <div className="auth-brand">
-          <span className="flex h-10 w-10 items-center justify-center rounded-lg border" style={{ borderColor: "var(--hairline-gold)", background: "var(--accent-soft)" }}>
-            <Blossom className="h-6 w-6" />
-          </span>
+          <Blossom className="h-11 w-11" />
           <span className="leading-tight">
-            <span className="block font-display text-[20px] font-semibold tracking-tight" style={{ color: "var(--accent)" }}>Noor Investing</span>
-            <span className="block text-[10px] font-medium uppercase tracking-[0.32em] text-ink-faint">Lab</span>
+            <span className="block font-display text-[22px] font-bold tracking-tight">
+              <span style={{ color: "var(--text)" }}>ruk</span><span className="text-shimmer">Money</span>
+            </span>
+            <span className="block text-[10px] font-medium uppercase tracking-[0.32em] text-ink-faint">AI Wealth</span>
           </span>
         </div>
         <h2 className="auth-aside-head">Your banking, spending, and E&#8209;Trade portfolio. Unified and predicted by AI.</h2>
@@ -32,10 +32,10 @@ export function AuthShell({ children }: { children: React.ReactNode }) {
       {/* Right form card */}
       <div className="auth-card">
         <div className="auth-brand auth-brand-mobile">
-          <span className="flex h-9 w-9 items-center justify-center rounded-md border" style={{ borderColor: "var(--hairline-gold)", background: "var(--accent-soft)" }}>
-            <Blossom className="h-5 w-5" />
+          <Blossom className="h-9 w-9" />
+          <span className="font-display text-[18px] font-bold tracking-tight">
+            <span style={{ color: "var(--text)" }}>ruk</span><span className="text-shimmer">Money</span>
           </span>
-          <span className="font-display text-[17px] font-semibold tracking-tight" style={{ color: "var(--accent)" }}>Noor Investing Lab</span>
         </div>
         {children}
       </div>
