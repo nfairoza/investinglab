@@ -41,3 +41,38 @@ export async function writeAiCache(ctx: { supabase: SupabaseClient; userId: stri
     { onConflict: "user_id" },
   );
 }
+
+// ── Shared prediction cache ──────────────────────────────────────────────────
+// General single-ticker / mini predictions are market-only (input = symbol), so
+// the result is identical for every user. We cache it once and reuse it across
+// all users to save AI tokens. NOT user-scoped: any authenticated user reads and
+// any authenticated user may refresh. Reused for up to SHARED_PREDICTION_TTL_MS.
+export const SHARED_PREDICTION_TTL_MS = 2 * 60 * 60 * 1000; // 2 hours
+
+export async function readSharedPrediction(
+  ctx: { supabase: SupabaseClient },
+  symbol: string,
+): Promise<{ payload: any; generatedAt: string; ageMs: number; stale: boolean } | null> {
+  const { data } = await ctx.supabase
+    .from("shared_predictions")
+    .select("payload, generated_at")
+    .eq("symbol", symbol)
+    .maybeSingle();
+  if (!data?.generated_at) return null;
+  const ageMs = Date.now() - new Date(data.generated_at).getTime();
+  return { payload: data.payload, generatedAt: data.generated_at, ageMs, stale: ageMs > SHARED_PREDICTION_TTL_MS };
+}
+
+export async function writeSharedPrediction(
+  ctx: { supabase: SupabaseClient; userId: string },
+  symbol: string,
+  payload: any,
+  model?: string | null,
+): Promise<string> {
+  const generatedAt = new Date().toISOString();
+  await ctx.supabase.from("shared_predictions").upsert(
+    { symbol, payload, model: model ?? null, generated_at: generatedAt, generated_by: ctx.userId },
+    { onConflict: "symbol" },
+  );
+  return generatedAt;
+}

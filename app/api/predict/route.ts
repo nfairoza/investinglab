@@ -3,6 +3,7 @@ import { marketData } from "@/lib/providers";
 import { resolveApiKey } from "@/lib/ai/anthropic";
 import { geminiKey } from "@/lib/ai/gemini";
 import { routeText } from "@/lib/ai/router";
+import { getUserClient, readSharedPrediction, writeSharedPrediction } from "@/lib/supabase-data";
 
 export const dynamic = "force-dynamic";
 
@@ -90,17 +91,35 @@ Return JSON with this exact shape:
 }
 
 export async function POST(req: NextRequest) {
+  // Predictions are market-only and shared across users, but still require a
+  // logged-in session (the cache table is authenticated-only).
+  const ctx = await getUserClient();
+  if (!ctx) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+
+  const body = await req.json().catch(() => ({}));
+  const symbol = (body?.symbol as string | undefined)?.toUpperCase();
+  if (!symbol) return NextResponse.json({ error: "symbol required" }, { status: 400 });
+  const forceRefresh = body?.refresh === true;
+
+  // Serve the shared cache when it's fresh (<2h) unless an explicit refresh was
+  // requested. Market-only prediction → identical for every user → reuse it.
+  if (!forceRefresh) {
+    const cached = await readSharedPrediction(ctx, symbol);
+    if (cached && !cached.stale) {
+      return NextResponse.json({ ...cached.payload, cached: true, generatedAt: cached.generatedAt });
+    }
+  }
+
   const key = resolveApiKey();
   if (!key && !geminiKey()) {
+    // No AI key but a stale cache exists → still better than nothing.
+    const cached = await readSharedPrediction(ctx, symbol);
+    if (cached) return NextResponse.json({ ...cached.payload, cached: true, stale: true, generatedAt: cached.generatedAt });
     return NextResponse.json(
       { error: "no_key", message: "Add a Claude or Gemini API key in Connectors to use AI predictions." },
       { status: 400 },
     );
   }
-
-  const body = await req.json().catch(() => ({}));
-  const symbol = (body?.symbol as string | undefined)?.toUpperCase();
-  if (!symbol) return NextResponse.json({ error: "symbol required" }, { status: 400 });
 
   // Gather all the live data we can for context.
   const [quote, fin, profile, analyst, dcf] = await Promise.all([
@@ -142,7 +161,7 @@ export async function POST(req: NextRequest) {
     const prediction = parseLooseJson(jsonStr);
 
     const aiName = provider === "claude" ? "Claude" : "Gemini";
-    return NextResponse.json({
+    const payload = {
       symbol,
       prediction,
       dataSource: feedLive ? "live" : "demo",
@@ -151,8 +170,14 @@ export async function POST(req: NextRequest) {
         : `${aiName} web search (FMP feed unavailable)`,
       asOf: quote.asOf,
       model: usedModel,
-      generatedAt: new Date().toISOString(),
-    });
+    };
+
+    // Save to the shared cache so the next viewer (any user) reuses it for ~2h.
+    const generatedAt = await writeSharedPrediction(ctx, symbol, payload, usedModel).catch(
+      () => new Date().toISOString(),
+    );
+
+    return NextResponse.json({ ...payload, cached: false, generatedAt });
   } catch (e) {
     return NextResponse.json(
       { error: "generation_failed", message: e instanceof Error ? e.message : "Prediction failed" },

@@ -47,6 +47,17 @@ interface Result {
   asOf: string | null;
   model: string;
   generatedAt: string;
+  cached?: boolean;
+}
+
+// "3 minutes ago" style relative time for the cache indicator.
+function timeAgo(iso: string): string {
+  const ms = Date.now() - new Date(iso).getTime();
+  const m = Math.round(ms / 60000);
+  if (m < 1) return "just now";
+  if (m < 60) return `${m} min ago`;
+  const h = Math.round(m / 60);
+  return h === 1 ? "1 hour ago" : `${h} hours ago`;
 }
 
 const DIR_STYLE: Record<string, { cls: string; arrow: string; word: string }> = {
@@ -62,7 +73,7 @@ export function PredictionWorkspace({ initial = "AMD" }: { initial?: string }) {
   const [result, setResult] = usePersistedState<Result | null>("predictions-result", null);
   const [error, setError] = useState<string | null>(null);
 
-  async function run(sym?: string) {
+  async function run(sym?: string, refresh = false) {
     const symbol = (sym ?? draft).trim().toUpperCase();
     if (!symbol || busy) return;
     setDraft(symbol);
@@ -72,7 +83,7 @@ export function PredictionWorkspace({ initial = "AMD" }: { initial?: string }) {
       const r = await fetch("/api/predict", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ symbol }),
+        body: JSON.stringify({ symbol, refresh }),
       });
       const j = await r.json();
       if (!r.ok || j.error) {
@@ -96,6 +107,13 @@ export function PredictionWorkspace({ initial = "AMD" }: { initial?: string }) {
           className="btn-gold rounded-md px-4 py-2 text-sm disabled:opacity-50">
           {busy ? "Researching the web…" : "Predict"}
         </button>
+        {result && !busy && (
+          <button onClick={() => run(result.symbol, true)}
+            title="Force a fresh prediction (ignores the shared 2-hour cache)"
+            className="rounded-md border border-hairline px-3 py-2 text-sm text-ink-dim hover:bg-surface hover:text-ink">
+            Refresh
+          </button>
+        )}
       </div>
 
       {busy && <MotionLoader page="predictions" height={210} />}
@@ -114,6 +132,12 @@ export function PredictionWorkspace({ initial = "AMD" }: { initial?: string }) {
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-lg font-semibold text-ink">{result.symbol} — AI prediction</h2>
             <div className="flex items-center gap-2">
+              {result.cached && result.generatedAt && (
+                <span title="Shared market prediction, reused across users to save tokens. Refresh to regenerate."
+                  className="rounded-full border border-hairline bg-surface/40 px-2 py-0.5 text-[10px] text-ink-faint">
+                  cached · {timeAgo(result.generatedAt)}
+                </span>
+              )}
               <DataBadge source={result.dataSource} />
               <span className="text-[11px] text-ink-faint">{result.model}</span>
             </div>

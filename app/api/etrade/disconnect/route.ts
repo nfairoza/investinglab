@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
-import { clearAll } from "@/lib/etrade/token-store";
-import { getAdminClient } from "@/lib/supabase-data";
+import { getBrokerCtx, replaceBrokerConnection } from "@/lib/broker-store";
 
 export const dynamic = "force-dynamic";
 
 // POST /api/etrade/disconnect
-// Clears all E*TRADE tokens and cached account data from server memory.
+// Clears the CURRENT user's E*TRADE tokens and cached account data.
 export async function POST() {
-  if (!(await getAdminClient())) return NextResponse.json({ error: "forbidden" }, { status: 403 });
-  clearAll();
+  const ctx = await getBrokerCtx();
+  if (!ctx) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  await replaceBrokerConnection(ctx, "etrade", {}, null);
   return NextResponse.json({ ok: true });
 }

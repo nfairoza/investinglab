@@ -1,5 +1,4 @@
 import crypto from "crypto";
-import { getDb } from "@/lib/db";
 
 // =============================================================================
 // Robinhood UNOFFICIAL stocks/equity access (reverse-engineered private API).
@@ -9,74 +8,59 @@ import { getDb } from "@/lib/db";
 // terminate your account without warning. The user explicitly accepted this
 // risk. There is NO official Robinhood stocks API.
 //
-// Auth flow (robin_stocks-style):
-//   1. POST /oauth2/token/ with a persistent device_token.
-//   2. If MFA required, RH returns a challenge / verification_workflow; the user
-//      supplies the code, we resubmit.
-//   3. On success we get an access_token; store it (with the device_token) in the
-//      DB so it survives restarts. Tokens are local-only, never sent to GitHub.
+// This module is STATELESS: each function takes the caller's current RH state
+// (from the user's broker_connections row) and returns the updated state to
+// persist. This keeps per-user tokens isolated — no shared module-level store.
 // =============================================================================
 
 const BASE = "https://api.robinhood.com";
 const CLIENT_ID = "c82SH0WZOsabOXGP2sxqcj34FxkvfnWRZBKlBjFS"; // RH's public web client id
 
-interface RhStockState {
+export interface RhStockState {
   deviceToken: string;
   accessToken: string | null;
   refreshToken: string | null;
   connectedAt: string | null;
-  // Transient login state — persisted so it survives dev hot-reloads. Cleared on
-  // success or disconnect. Credentials are local-only (db.json is gitignored).
+  // Transient login state — persisted so it survives between requests. Cleared on
+  // success or disconnect.
   pending: { username: string; password: string } | null;
   challengeId: string | null; // set when RH uses the SMS/email "challenge" flow
 }
 
-function state(): RhStockState {
-  const db = getDb();
-  if (!(db.data as any).robinhood) {
-    (db.data as any).robinhood = {
-      deviceToken: crypto.randomUUID(),
-      accessToken: null,
-      refreshToken: null,
-      connectedAt: null,
-      pending: null,
-      challengeId: null,
-    };
-    db.write();
-  }
-  const s = (db.data as any).robinhood as Partial<RhStockState>;
-  // Backfill new fields for stores created before this version.
-  if (!("pending" in s)) { s.pending = null; s.challengeId = null; db.write(); }
-  return s as RhStockState;
-}
-
-function save(patch: Partial<RhStockState>) {
-  const db = getDb();
-  (db.data as any).robinhood = { ...state(), ...patch };
-  db.write();
-}
-
-export function rhStocksConnected(): boolean {
-  return Boolean(state().accessToken);
-}
-export function rhStocksConnectedAt(): string | null {
-  return state().connectedAt;
-}
-export function clearRhStocks(): void {
-  const db = getDb();
-  (db.data as any).robinhood = {
-    deviceToken: state().deviceToken, // keep the device token (RH trusts it)
+// Produce a fresh, empty RH state (device token persists across reconnects so RH
+// keeps trusting the device). randomUUID is allowed at request time in routes.
+export function newRhState(): RhStockState {
+  return {
+    deviceToken: crypto.randomUUID(),
     accessToken: null,
     refreshToken: null,
     connectedAt: null,
     pending: null,
     challengeId: null,
   };
-  db.write();
 }
 
-// Build the base password-grant payload. `challengeId` adds the header RH wants
-// once a challenge has been answered.
+// Normalize a partial blob from the DB into a full RhStockState (backfills a
+// device token for older/empty rows).
+export function normalizeRhState(raw: Partial<RhStockState> | undefined | null): RhStockState {
+  const base = newRhState();
+  if (!raw) return base;
+  return {
+    deviceToken: raw.deviceToken || base.deviceToken,
+    accessToken: raw.accessToken ?? null,
+    refreshToken: raw.refreshToken ?? null,
+    connectedAt: raw.connectedAt ?? null,
+    pending: raw.pending ?? null,
+    challengeId: raw.challengeId ?? null,
+  };
+}
+
+export function rhStocksConnected(s: RhStockState): boolean {
+  return Boolean(s.accessToken);
+}
+
+// Build the base password-grant payload. `mfaCode` is added for the authenticator
+// flow.
 function tokenBody(username: string, password: string, deviceToken: string, mfaCode?: string) {
   const body: any = {
     client_id: CLIENT_ID,
@@ -86,24 +70,26 @@ function tokenBody(username: string, password: string, deviceToken: string, mfaC
     username,
     password,
     device_token: deviceToken,
-    // Tell RH we can prompt for an SMS/email challenge (the flow that texts a code).
     challenge_type: "sms",
   };
   if (mfaCode) body.mfa_code = mfaCode;
   return body;
 }
 
-// Step 1: attempt login. Returns { ok } on success, or a signal that a
-// verification code is needed: { mfaRequired } (app/authenticator code) or
-// { challenge } (SMS/email code — RH has already sent it).
-export async function rhLogin(username: string, password: string): Promise<
+export type RhLoginResult =
   | { ok: true }
   | { mfaRequired: true }
   | { challenge: true }
   | { workflowId: string }
-  | { error: string }
-> {
-  const s = state();
+  | { error: string };
+
+// Step 1: attempt login. Returns BOTH the result signal and the next state to
+// persist (caller writes it to the user's broker row).
+export async function rhLogin(
+  s: RhStockState,
+  username: string,
+  password: string,
+): Promise<{ result: RhLoginResult; state: RhStockState }> {
   const res = await fetch(`${BASE}/oauth2/token/`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -113,35 +99,31 @@ export async function rhLogin(username: string, password: string): Promise<
   const j = await res.json().catch(() => ({}));
 
   if (j.access_token) {
-    save({ accessToken: j.access_token, refreshToken: j.refresh_token ?? null, connectedAt: new Date().toISOString(), pending: null, challengeId: null });
-    return { ok: true };
+    const state: RhStockState = { ...s, accessToken: j.access_token, refreshToken: j.refresh_token ?? null, connectedAt: new Date().toISOString(), pending: null, challengeId: null };
+    return { result: { ok: true }, state };
   }
-  // SMS/email challenge: RH returns a `challenge` object and has already texted
-  // a code. We must POST that code to /challenge/{id}/respond/ then retry.
   if (j.challenge?.id) {
-    save({ pending: { username, password }, challengeId: j.challenge.id });
-    return { challenge: true };
+    const state: RhStockState = { ...s, pending: { username, password }, challengeId: j.challenge.id };
+    return { result: { challenge: true }, state };
   }
   if (j.mfa_required) {
-    save({ pending: { username, password }, challengeId: null });
-    return { mfaRequired: true };
+    const state: RhStockState = { ...s, pending: { username, password }, challengeId: null };
+    return { result: { mfaRequired: true }, state };
   }
-  // Newer RH uses a verification "workflow" (device approval / app prompt)
   const workflowId = j.verification_workflow?.id;
   if (workflowId) {
-    save({ pending: { username, password }, challengeId: null });
-    return { workflowId };
+    const state: RhStockState = { ...s, pending: { username, password }, challengeId: null };
+    return { result: { workflowId }, state };
   }
-  return { error: j.detail || j.error_description || "Login failed" };
+  return { result: { error: j.detail || j.error_description || "Login failed" }, state: s };
 }
 
-// Step 2: submit the verification code. Handles BOTH flows:
-//   - challenge flow: POST code to /challenge/{id}/respond/, then retry the
-//     token request with the x-robinhood-challenge-response-id header.
-//   - mfa flow: resend the token request with mfa_code.
-export async function rhSubmitMfa(code: string): Promise<{ ok: boolean; error?: string }> {
-  const s = state();
-  if (!s.pending) return { ok: false, error: "No pending login — start again." };
+// Step 2: submit the verification code. Returns the result + next state.
+export async function rhSubmitMfa(
+  s: RhStockState,
+  code: string,
+): Promise<{ result: { ok: boolean; error?: string }; state: RhStockState }> {
+  if (!s.pending) return { result: { ok: false, error: "No pending login — start again." }, state: s };
   const { username, password } = s.pending;
 
   // --- Challenge (SMS/email) flow ---
@@ -154,9 +136,8 @@ export async function rhSubmitMfa(code: string): Promise<{ ok: boolean; error?: 
     });
     const cj = await cr.json().catch(() => ({}));
     if (cj.status !== "validated") {
-      return { ok: false, error: cj.detail || "Incorrect code — check the text and try again." };
+      return { result: { ok: false, error: cj.detail || "Incorrect code — check the text and try again." }, state: s };
     }
-    // Challenge validated → retry token with the challenge id in the header.
     const res = await fetch(`${BASE}/oauth2/token/`, {
       method: "POST",
       headers: {
@@ -168,10 +149,10 @@ export async function rhSubmitMfa(code: string): Promise<{ ok: boolean; error?: 
     });
     const j = await res.json().catch(() => ({}));
     if (j.access_token) {
-      save({ accessToken: j.access_token, refreshToken: j.refresh_token ?? null, connectedAt: new Date().toISOString(), pending: null, challengeId: null });
-      return { ok: true };
+      const state: RhStockState = { ...s, accessToken: j.access_token, refreshToken: j.refresh_token ?? null, connectedAt: new Date().toISOString(), pending: null, challengeId: null };
+      return { result: { ok: true }, state };
     }
-    return { ok: false, error: j.detail || "Login failed after challenge." };
+    return { result: { ok: false, error: j.detail || "Login failed after challenge." }, state: s };
   }
 
   // --- MFA (authenticator) flow ---
@@ -183,17 +164,15 @@ export async function rhSubmitMfa(code: string): Promise<{ ok: boolean; error?: 
   });
   const j = await res.json().catch(() => ({}));
   if (j.access_token) {
-    save({ accessToken: j.access_token, refreshToken: j.refresh_token ?? null, connectedAt: new Date().toISOString(), pending: null, challengeId: null });
-    return { ok: true };
+    const state: RhStockState = { ...s, accessToken: j.access_token, refreshToken: j.refresh_token ?? null, connectedAt: new Date().toISOString(), pending: null, challengeId: null };
+    return { result: { ok: true }, state };
   }
-  return { ok: false, error: j.detail || "Invalid code" };
+  return { result: { ok: false, error: j.detail || "Invalid code" }, state: s };
 }
 
-async function authedGet<T>(url: string): Promise<T> {
-  const s = state();
-  if (!s.accessToken) throw new Error("Not logged in to Robinhood");
+async function authedGet<T>(accessToken: string, url: string): Promise<T> {
   const res = await fetch(url, {
-    headers: { Authorization: `Bearer ${s.accessToken}` },
+    headers: { Authorization: `Bearer ${accessToken}` },
     cache: "no-store",
   });
   if (!res.ok) {
@@ -210,9 +189,11 @@ export interface RhStockPosition {
   avgCost: number;
 }
 
-// Fetch equity positions, resolving each instrument URL to its ticker symbol.
-export async function getStockPositions(): Promise<RhStockPosition[]> {
-  const data = await authedGet<any>(`${BASE}/positions/?nonzero=true`);
+// Fetch equity positions for the given access token, resolving each instrument
+// URL to its ticker symbol.
+export async function getStockPositions(accessToken: string): Promise<RhStockPosition[]> {
+  if (!accessToken) throw new Error("Not logged in to Robinhood");
+  const data = await authedGet<any>(accessToken, `${BASE}/positions/?nonzero=true`);
   const results: any[] = data?.results ?? [];
   const out: RhStockPosition[] = [];
   for (const p of results) {
@@ -220,7 +201,7 @@ export async function getStockPositions(): Promise<RhStockPosition[]> {
     if (!qty) continue;
     let symbol = "";
     try {
-      const inst = await authedGet<any>(p.instrument);
+      const inst = await authedGet<any>(accessToken, p.instrument);
       symbol = String(inst.symbol ?? "").toUpperCase();
     } catch { /* skip */ }
     if (!symbol) continue;

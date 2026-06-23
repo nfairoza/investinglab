@@ -6,7 +6,7 @@ import { useState } from "react";
 import useSWR from "swr";
 import {
   LayoutDashboard, Wallet, Eye, Search, Stethoscope, TrendingUp, Landmark,
-  Bell, BookOpen, Settings, Trophy, NotebookPen, Plug, Grid3x3, Menu, X, Command, LogOut, FileText,
+  Bell, BookOpen, Settings, Trophy, NotebookPen, Plug, Grid3x3, Menu, X, Command, LogOut, FileText, Link2,
 } from "lucide-react";
 import clsx from "clsx";
 import { ThemeToggle } from "./theme-toggle";
@@ -20,6 +20,7 @@ const GROUPS: { label: string; adminOnly?: boolean; items: { href: string; label
     items: [
       { href: "/", label: "Dashboard", icon: LayoutDashboard },
       { href: "/holdings", label: "Holdings", icon: Wallet },
+      { href: "/brokerage", label: "Connect brokerage", icon: Link2 },
       { href: "/watchlist", label: "Watchlist", icon: Eye },
       { href: "/journal", label: "Journal", icon: NotebookPen },
       { href: "/reports", label: "Reports", icon: FileText },

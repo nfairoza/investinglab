@@ -1,5 +1,4 @@
 import { buildAuthHeader, parseOAuthResponse } from "./oauth";
-import { getAccessTokens } from "./token-store";
 import { getConnectorValue } from "@/lib/connectors/runtime";
 
 // Sandbox uses apisb.etrade.com; production uses api.etrade.com.
@@ -104,9 +103,8 @@ export async function fetchAccessToken(
  * string (sorted alongside the oauth_* params), and that the base-string URL
  * EXCLUDE the query string. So we split the path here.
  */
-export async function etradeGet<T>(path: string): Promise<T> {
-  const tokens = getAccessTokens();
-  if (!tokens) throw new Error("Not authenticated — connect E*TRADE first");
+export async function etradeGet<T>(path: string, tokens: { token: string; secret: string }): Promise<T> {
+  if (!tokens?.token || !tokens?.secret) throw new Error("Not authenticated — connect E*TRADE first");
 
   const fullUrl = `${apiBase()}/v1${path}`;
   // Split base URL from query params for correct OAuth signing.

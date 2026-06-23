@@ -49,10 +49,6 @@ export function HoldingsManager() {
   const { data: allHoldings = [], mutate } = useSWR<Holding[]>("/api/holdings", fetchJson, {
     revalidateOnFocus: true,
   });
-  // Broker connections (E*TRADE/Robinhood) are admin-only for now, so only the
-  // admin auto-syncs or sees the broker refresh control.
-  const { data: me } = useSWR<{ isAdmin?: boolean }>("/api/me", fetchJson);
-  const isAdmin = !!me?.isAdmin;
 
   const [symbol, setSymbol] = useState("");
   const [shares, setShares] = useState("");
@@ -119,7 +115,7 @@ export function HoldingsManager() {
     if (!silent) setSyncMsg(null);
     try {
       const r = await fetch("/api/etrade/positions");
-      if (r.status === 401) { if (!silent) setSyncMsg("E*TRADE session expired — go to Connectors and reconnect."); return; }
+      if (r.status === 401) { if (!silent) setSyncMsg("E*TRADE session expired — go to Connect brokerage and reconnect."); return; }
       if (!r.ok) { if (!silent) { const j = await r.json().catch(() => ({})); setSyncMsg((j as any).error ?? "Sync failed."); } return; }
       const { holdings: synced, accountName, syncedAt, equityPositions } = await r.json() as {
         holdings: { symbol: string; shares: number; avgCost: number; note?: string }[];
@@ -145,7 +141,6 @@ export function HoldingsManager() {
   // Runs once per mount; silent so it won't show errors if the session lapsed.
   const autoSynced = useRef(false);
   useEffect(() => {
-    if (!isAdmin) return;
     if (autoSynced.current) return;
     autoSynced.current = true;
     (async () => {
@@ -157,7 +152,7 @@ export function HoldingsManager() {
       } catch { /* ignore — manual sync still available */ }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAdmin]);
+  }, []);
 
   async function syncFromRobinhood() {
     setSyncingRobinhood(true);
@@ -289,17 +284,15 @@ export function HoldingsManager() {
               )}
             </div>
             <div className="flex items-center gap-2">
-              {/* Subtle refresh — re-syncs connected brokers + live prices (admin-only for now) */}
-              {isAdmin && (
-                <button
-                  onClick={() => { syncFromEtrade(); syncFromRobinhood(); }}
-                  disabled={syncingEtrade || syncingRobinhood}
-                  title="Refresh from connected brokers (E*TRADE / Robinhood)"
-                  className="flex items-center gap-1 rounded-md border border-hairline px-2 py-1 text-[11px] text-ink-dim hover:bg-surface hover:text-ink disabled:opacity-50">
-                  <RefreshCw size={12} className={syncingEtrade || syncingRobinhood ? "animate-spin" : ""} />
-                  {syncingEtrade || syncingRobinhood ? "Syncing…" : "Refresh"}
-                </button>
-              )}
+              {/* Subtle refresh — re-syncs the user's own connected brokers + live prices */}
+              <button
+                onClick={() => { syncFromEtrade(); syncFromRobinhood(); }}
+                disabled={syncingEtrade || syncingRobinhood}
+                title="Refresh from your connected brokers (E*TRADE / Robinhood)"
+                className="flex items-center gap-1 rounded-md border border-hairline px-2 py-1 text-[11px] text-ink-dim hover:bg-surface hover:text-ink disabled:opacity-50">
+                <RefreshCw size={12} className={syncingEtrade || syncingRobinhood ? "animate-spin" : ""} />
+                {syncingEtrade || syncingRobinhood ? "Syncing…" : "Refresh"}
+              </button>
               {anySource && <DataBadge source={anySource} />}
               {/* Source filter — only shown when there's more than one source */}
               {presentSources.length > 1 && (

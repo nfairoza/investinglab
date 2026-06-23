@@ -26,6 +26,8 @@ interface Result {
   symbol: string;
   prediction: Prediction;
   model: string;
+  cached?: boolean;
+  generatedAt?: string;
 }
 
 const DIR: Record<string, { cls: string; chip: string; word: string; Icon: typeof TrendingUp }> = {

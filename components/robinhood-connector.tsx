@@ -35,10 +35,10 @@ export function RobinhoodConnector() {
     if (!apiKey.trim() || !privKey.trim()) return;
     setBusy(true); setMsg(null);
     try {
-      await fetch("/api/connectors/key", {
+      // Per-user crypto credentials — stored in this user's own broker row.
+      await fetch("/api/robinhood/crypto-keys", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ connectorId: "robinhood_crypto", values: {
-          ROBINHOOD_CRYPTO_API_KEY: apiKey.trim(), ROBINHOOD_CRYPTO_PRIVATE_KEY: privKey.trim() } }),
+        body: JSON.stringify({ apiKey: apiKey.trim(), privateKey: privKey.trim() }),
       });
       setApiKey(""); setPrivKey("");
       await refresh();

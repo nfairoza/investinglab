@@ -364,8 +364,8 @@ export function EtradeConnector() {
       )}
 
       <p className="text-[11px] text-ink-faint">
-        This app never sees your E*TRADE password. OAuth tokens are stored in server memory only and expire at midnight ET.
-        No trading, order placement, or account modification is possible through this connector.
+        This app never sees your E*TRADE password. OAuth tokens are stored privately in your own account
+        and expire at midnight ET. No trading, order placement, or account modification is possible through this connector.
       </p>
     </div>
   );

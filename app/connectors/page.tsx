@@ -1,8 +1,5 @@
 import { SettingsAI } from "@/components/settings-ai";
 import { Connectors, SectionHeading, ConnectorList } from "@/components/connectors";
-import { EtradeConnector } from "@/components/etrade-connector";
-import { RobinhoodConnector } from "@/components/robinhood-connector";
-import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { createClient } from "@/utils/supabase/server";
 import { isAdminUser } from "@/lib/supabase-data";
@@ -34,11 +31,10 @@ export default async function Page() {
 
       {/* ── Brokerage / portfolio ── */}
       <section className="space-y-3">
-        <SectionHeading title="Brokerage" subtitle="Connect a broker to sync your real positions into Holdings (read-only)." />
-        <Suspense>
-          <EtradeConnector />
-        </Suspense>
-        <RobinhoodConnector />
+        <SectionHeading title="Brokerage" subtitle="Brokerage connections are now per-user. Every user (including you) connects their own E*TRADE / Robinhood under Portfolio → Connect brokerage. The E*TRADE app credentials below identify this app to E*TRADE for everyone." />
+        <a href="/brokerage" className="inline-block rounded-md border border-hairline px-3 py-1.5 text-sm text-ink-dim hover:bg-surface hover:text-ink">
+          Go to Connect brokerage →
+        </a>
       </section>
 
       {/* ── Finance data + other (rendered by Connectors) ── */}

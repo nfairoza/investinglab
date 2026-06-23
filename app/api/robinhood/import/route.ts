@@ -1,39 +1,35 @@
 import { NextRequest, NextResponse } from "next/server";
-import { withDbWrite, newId, now, type Holding } from "@/lib/db";
-import { getAdminClient } from "@/lib/supabase-data";
+import { getUserClient } from "@/lib/supabase-data";
 
 export const dynamic = "force-dynamic";
 
 // POST /api/robinhood/import  { rows: [{ symbol, shares, avgCost }] }
 // Robinhood has no safe official API, so we import positions from a pasted/
-// uploaded CSV (Robinhood → Account → Reports & statements, or holdings export).
-// Replaces all robinhood-sourced rows; leaves manual + E*TRADE rows untouched.
+// uploaded CSV. Replaces all of the CURRENT user's robinhood-sourced rows;
+// leaves their manual + E*TRADE rows untouched.
 export async function POST(req: NextRequest) {
-  if (!(await getAdminClient())) return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  const ctx = await getUserClient();
+  if (!ctx) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const body = await req.json().catch(() => ({}));
   const rows = Array.isArray(body?.rows) ? body.rows : [];
   if (!rows.length) return NextResponse.json({ error: "No rows to import." }, { status: 400 });
 
-  const incoming: Holding[] = rows
+  const incoming = rows
     .map((r: any) => ({
-      id: newId(),
+      user_id: ctx.userId,
       symbol: String(r.symbol ?? "").toUpperCase().trim(),
       shares: Number(r.shares ?? 0),
-      avgCost: Number(r.avgCost ?? 0),
+      avg_cost: Number(r.avgCost ?? 0),
       note: "Imported from Robinhood",
-      source: "robinhood" as const,
-      createdAt: now(),
-      updatedAt: now(),
+      source: "robinhood",
+      updated_at: new Date().toISOString(),
     }))
-    .filter((h: Holding) => h.symbol && Number.isFinite(h.shares) && h.shares > 0);
+    .filter((h: any) => h.symbol && Number.isFinite(h.shares) && h.shares > 0);
 
   if (!incoming.length) return NextResponse.json({ error: "No valid rows (need symbol + shares)." }, { status: 400 });
 
-  const result = await withDbWrite((db) => {
-    const others = db.data.holdings.filter((h) => h.source !== "robinhood");
-    db.data.holdings = [...others, ...incoming];
-    return db.data.holdings;
-  });
+  await ctx.supabase.from("holdings").delete().eq("source", "robinhood");
+  await ctx.supabase.from("holdings").insert(incoming);
 
-  return NextResponse.json({ imported: incoming.length, holdings: result });
+  return NextResponse.json({ imported: incoming.length });
 }

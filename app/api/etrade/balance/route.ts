@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { etradeGet } from "@/lib/etrade/client";
-import { getSelectedAccountIdKey, getAccounts } from "@/lib/etrade/token-store";
-import { getAdminClient } from "@/lib/supabase-data";
+import type { EtradeAccount } from "@/lib/etrade/token-store";
+import { getBrokerCtx, readBrokerConnection } from "@/lib/broker-store";
 
 export const dynamic = "force-dynamic";
 
@@ -16,20 +16,27 @@ function firstNum(...vals: any[]): number | null {
 // GET /api/etrade/balance — fetch the selected account's available cash and
 // persist it as the app's cash (source: etrade). Read-only on E*TRADE's side.
 export async function GET() {
-  // Admin-only: the E*TRADE account is the admin's (shared tokens) until per-user
-  // migration. ctx is still the admin's own Supabase row for the cash upsert.
-  const ctx = await getAdminClient();
-  if (!ctx) return NextResponse.json({ error: "forbidden" }, { status: 403 });
-  const accountIdKey = getSelectedAccountIdKey();
+  // Per-user: reads the current user's E*TRADE tokens, writes to their own cash row.
+  const ctx = await getBrokerCtx();
+  if (!ctx) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  const conn = await readBrokerConnection(ctx, "etrade");
+  const tokens = conn.data.accessToken && conn.data.accessTokenSecret
+    ? { token: conn.data.accessToken, secret: conn.data.accessTokenSecret }
+    : null;
+  if (!tokens) {
+    return NextResponse.json({ error: "Not connected — connect E*TRADE first." }, { status: 400 });
+  }
+  const accountIdKey = conn.data.selectedAccountIdKey;
   if (!accountIdKey) {
     return NextResponse.json({ error: "No account selected — pick one in Connectors." }, { status: 400 });
   }
-  const account = getAccounts().find((a) => a.accountIdKey === accountIdKey);
+  const account = ((conn.data.accounts ?? []) as EtradeAccount[]).find((a) => a.accountIdKey === accountIdKey);
   const instType = account?.institutionType || "BROKERAGE";
 
   try {
     const data = await etradeGet<any>(
       `/accounts/${accountIdKey}/balance.json?instType=${instType}&realTimeNAV=true`,
+      tokens,
     );
     const computed = data?.BalanceResponse?.Computed ?? {};
     const rtv = computed?.RealTimeValues ?? {};
