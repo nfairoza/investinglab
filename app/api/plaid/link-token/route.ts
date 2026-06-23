@@ -23,7 +23,7 @@ export async function POST() {
     const resp = await getPlaid().linkTokenCreate({
       user: { client_user_id: ctx.userId },
       client_name: "rukMoney",
-      products: [Products.Transactions, Products.Investments],
+      products: [Products.Transactions, Products.Investments, Products.Liabilities],
       country_codes: [CountryCode.Us],
       language: "en",
       // Required for bank OAuth flows (Chase, etc.). Must exactly match an

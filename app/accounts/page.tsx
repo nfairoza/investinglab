@@ -1,4 +1,5 @@
 import { AccountsView } from "@/components/accounts-view";
+import { LiabilitiesView } from "@/components/liabilities-view";
 
 export const metadata = { title: "Accounts" };
 
@@ -10,6 +11,7 @@ export default function Page() {
         <p className="mt-1 text-sm text-ink-dim">Balances across your linked banks, cards, and brokerages.</p>
       </div>
       <AccountsView />
+      <LiabilitiesView />
     </div>
   );
 }
