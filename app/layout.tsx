@@ -7,10 +7,28 @@ import { SwrProvider } from "@/components/swr-provider";
 // Display = Sora (modern grotesk, matches the rukMoney wordmark); UI = Inter Tight;
 // numbers = JetBrains Mono.
 
+const DESCRIPTION =
+  "rukMoney — your banking, spending, and brokerage portfolio, unified and predicted by AI. Research and education, not financial advice.";
+
 export const metadata: Metadata = {
   title: { default: "rukMoney", template: "%s · rukMoney" },
-  description: "rukMoney — your banking, spending, and brokerage portfolio, unified and predicted by AI. Research and education, not financial advice.",
+  description: DESCRIPTION,
   metadataBase: new URL("https://rukmoney.com"),
+  applicationName: "rukMoney",
+  appleWebApp: { capable: true, title: "rukMoney", statusBarStyle: "black-translucent" },
+  openGraph: {
+    type: "website",
+    siteName: "rukMoney",
+    title: "rukMoney",
+    description: DESCRIPTION,
+    url: "https://rukmoney.com",
+    // opengraph-image.tsx supplies the image automatically.
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "rukMoney",
+    description: DESCRIPTION,
+  },
 };
 
 export const viewport: Viewport = {

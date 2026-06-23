@@ -34,7 +34,15 @@ export async function updateSession(request: NextRequest) {
     p.startsWith("/signup") ||
     p.startsWith("/forgot-password") ||
     p.startsWith("/reset-password") ||
-    p.startsWith("/auth");
+    p.startsWith("/auth") ||
+    // SEO / social crawler assets must be reachable without a session.
+    p === "/manifest.webmanifest" ||
+    p === "/opengraph-image" ||
+    p === "/twitter-image" ||
+    p === "/icon.svg" ||
+    p === "/apple-icon" ||
+    p === "/robots.txt" ||
+    p === "/sitemap.xml";
 
   if (!user && !isPublic) {
     const url = request.nextUrl.clone();
