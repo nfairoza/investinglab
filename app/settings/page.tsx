@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { CacheSettings } from "@/components/cache-settings";
 import { EtradeConnector } from "@/components/etrade-connector";
 import { RobinhoodConnector } from "@/components/robinhood-connector";
+import { PlaidConnect } from "@/components/plaid-connect";
 
 export const metadata = { title: "Settings" };
 
@@ -15,6 +16,17 @@ export default function Page() {
           live under the account menu (top-right) → Profile.
         </p>
       </div>
+
+      {/* ── Banking (Plaid) ── */}
+      <section className="space-y-3">
+        <div>
+          <h2 className="text-lg font-semibold text-ink">Banks &amp; cash</h2>
+          <p className="text-sm text-ink-dim">
+            Link your bank accounts to track balances, spending, and investments — read-only, private to you.
+          </p>
+        </div>
+        <PlaidConnect />
+      </section>
 
       {/* ── Brokerage (per-user connections) ── */}
       <section className="space-y-3">
