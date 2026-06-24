@@ -4,12 +4,19 @@ import { useMemo } from "react";
 import useSWR from "swr";
 import Link from "next/link";
 import { ArrowUp, ArrowDown, Plus, TrendingUp, Sparkles, Scale, ChevronRight } from "lucide-react";
+import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 
 const fetchJson = (u: string) => fetch(u).then((r) => r.json());
 const money = (n: number) => new Intl.NumberFormat(undefined, { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n);
+const COLORS = ["#16D27E", "#0EA6C9", "#11B4AE", "#34E0A1", "#60A5FA", "#F59E0B", "#FB7185", "#A78BFA", "#22D3EE"];
+const TYPE_LABEL: Record<string, string> = {
+  cash: "Cash", investment: "Investments", retirement: "Retirement", real_estate: "Real estate",
+  vehicle: "Vehicles", other_asset: "Other assets",
+};
 
 interface Me { fullName?: string | null; email?: string | null }
-interface NetWorth { netWorth: number; totalAssets: number; totalLiabilities: number; byType: Record<string, number>; changeAmount: number | null; changePct: number | null }
+interface TrendPt { month: string; netWorth: number; assets: number; liabilities: number }
+interface NetWorth { netWorth: number; totalAssets: number; totalLiabilities: number; byType: Record<string, number>; changeAmount: number | null; changePct: number | null; trend?: TrendPt[] }
 interface AdvisorStep { id: string; title: string; status: string; mathSummary: string; explanationInput: string }
 interface AdvisorResp { result?: { steps: AdvisorStep[]; surplus: { available: boolean; surplus: number; destination: string }; avgMonthlyExpenses: number | null; liquidCash: number } }
 interface Balances { totalCash: number; items: { accounts: { type: string; current: number | null }[] }[] }
@@ -85,6 +92,16 @@ export function Overview() {
   // Otherwise the welcome screen flashes on every refresh for connected users.
   const loaded = nw !== undefined && holdings !== undefined;
   const firstLoad = (nwLoading || holdingsLoading) && !loaded;
+  // Net-worth trend (last 12 months) + asset allocation by type, for charts.
+  const trend = useMemo(() => (nw?.trend ?? []).slice(-12), [nw]);
+  const allocation = useMemo(() => {
+    const bt = nw?.byType ?? {};
+    return Object.entries(bt)
+      .filter(([, v]) => v > 0) // assets only (liabilities are negative)
+      .map(([type, value]) => ({ name: TYPE_LABEL[type] ?? type, value }))
+      .sort((a, b) => b.value - a.value);
+  }, [nw]);
+
   const nothingConnected = loaded && (nw?.totalAssets ?? 0) === 0 && (nw?.totalLiabilities ?? 0) === 0 && inv.count === 0;
 
   if (firstLoad) {
@@ -138,7 +155,56 @@ export function Overview() {
           <span>Assets <span className="text-emerald-400">{money(nw?.totalAssets ?? 0)}</span></span>
           <span>Liabilities <span className="text-rose-400">{money(nw?.totalLiabilities ?? 0)}</span></span>
         </div>
+        {trend.length > 1 ? (
+          <div className="mt-3 h-28">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={trend} margin={{ top: 4, right: 2, bottom: 0, left: 0 }}>
+                <defs>
+                  <linearGradient id="ovNwGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#16D27E" stopOpacity={0.35} />
+                    <stop offset="100%" stopColor="#16D27E" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <XAxis dataKey="month" hide />
+                <YAxis hide domain={["auto", "auto"]} />
+                <Tooltip formatter={(v: number) => money(v)} labelFormatter={(l: string) => l}
+                  contentStyle={{ background: "var(--tooltip-bg)", border: "1px solid var(--hairline-strong)", borderRadius: 10, fontSize: 12, color: "var(--text)" }} />
+                <Area type="monotone" dataKey="netWorth" stroke="#16D27E" strokeWidth={2} fill="url(#ovNwGrad)" />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        ) : (
+          <p className="mt-3 text-[11px] text-ink-faint">Your net-worth trend builds month over month.</p>
+        )}
       </Card>
+
+      {/* Asset allocation — where your money sits (whole card → Net worth) */}
+      {allocation.length > 0 && (
+        <Card href="/networth" title="Asset allocation">
+          <div className="flex items-center gap-4">
+            <div className="h-32 w-32 shrink-0">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie data={allocation} dataKey="value" nameKey="name" innerRadius={38} outerRadius={62} paddingAngle={2}>
+                    {allocation.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} stroke="var(--bg)" />)}
+                  </Pie>
+                  <Tooltip formatter={(v: number) => money(v)}
+                    contentStyle={{ background: "var(--tooltip-bg)", border: "1px solid var(--hairline-strong)", borderRadius: 10, fontSize: 12, color: "var(--text)" }} />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+            <ul className="min-w-0 flex-1 space-y-1.5">
+              {allocation.slice(0, 5).map((a, i) => (
+                <li key={a.name} className="flex items-center gap-2 text-xs">
+                  <span className="h-2.5 w-2.5 shrink-0 rounded-sm" style={{ background: COLORS[i % COLORS.length] }} />
+                  <span className="flex-1 truncate text-ink-dim">{a.name}</span>
+                  <span className="shrink-0 font-medium text-ink">{money(a.value)}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </Card>
+      )}
 
       {/* Investments — hero (whole card → Invest dashboard) */}
       <Card href="/dashboard" title="Investments">
