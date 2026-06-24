@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import Link from "next/link";
 import useSWR from "swr";
-import { ArrowUp, ArrowDown, RefreshCw, Plus, ChevronDown, ChevronRight } from "lucide-react";
+import { ArrowUp, ArrowDown, RefreshCw, Plus, ChevronDown, ChevronRight, Lock } from "lucide-react";
 import { DataBadge, DataTimestamp } from "./data-state";
 import { TickerInput } from "./ticker-input";
 import { Sparkline } from "./charts/Sparkline";
@@ -14,6 +14,16 @@ async function fetchJson<T>(url: string): Promise<T> {
   const r = await fetch(url);
   if (!r.ok) throw new Error(`HTTP ${r.status}`);
   return r.json();
+}
+
+// Money formatter that reconciles with the % shown next to it. Small gains
+// rounded to whole dollars (e.g. $7.50 → "$8") stop matching their exact
+// percentage; show cents under $1,000 so the dollars and % agree, drop cents
+// above that where rounding noise is negligible.
+function money(n: number): string {
+  const abs = Math.abs(n);
+  const frac = abs < 1000 ? 2 : 0;
+  return abs.toLocaleString(undefined, { minimumFractionDigits: frac, maximumFractionDigits: frac });
 }
 
 async function fetchQuotes(symbols: string[]): Promise<Record<string, DataResult<Quote>>> {
@@ -360,41 +370,46 @@ export function HoldingsManager() {
                 {syncingEtrade ? "Syncing…" : "Refresh"}
               </button>
               {anySource && <DataBadge source={anySource} />}
-              {/* Source filter — chips for a few sources, dropdown when many.
-                  Sources are derived from connected institutions, so this scales
-                  to any number of connected banks/brokerages. */}
-              {presentSources.length > 1 && presentSources.length <= 3 && (
-                <div className="flex items-center gap-1 rounded-lg border border-hairline bg-surface p-0.5">
-                  {["all", ...presentSources].map((src) => {
-                    const label = src === "all" ? "All" : src === "etrade" ? "E*TRADE" : src === "manual" ? "Manual" : src;
-                    const active = sourceFilter === src;
-                    return (
-                      <button
-                        key={src}
-                        onClick={() => setSourceFilter(src as typeof sourceFilter)}
-                        className={`rounded-md px-2.5 py-1 text-xs transition-colors ${
-                          active ? "tab-active" : "text-ink-faint hover:text-ink-dim"
-                        }`}
-                      >
-                        {label}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-              {presentSources.length > 3 && (
-                <select
-                  value={sourceFilter}
-                  onChange={(e) => setSourceFilter(e.target.value as typeof sourceFilter)}
-                  className="rounded-lg border border-hairline px-2.5 py-1.5 text-xs text-ink focus:outline-none"
-                  style={{ background: "var(--surface-solid)", color: "var(--text)" }}
-                >
-                  {["all", ...presentSources].map((src) => (
-                    <option key={src} value={src}>
-                      {src === "all" ? "All sources" : src === "etrade" ? "E*TRADE" : src === "manual" ? "Manual" : src}
-                    </option>
-                  ))}
-                </select>
+              {/* Source filter — derived from connected institutions, so it
+                  scales to any number of banks/brokerages. On phones (and when
+                  there are many sources) it's a compact dropdown; on wider
+                  screens with a few sources it's a chip row. */}
+              {presentSources.length > 1 && (
+                <>
+                  {/* Chip row: only on sm+ AND when sources are few. */}
+                  {presentSources.length <= 3 && (
+                    <div className="hidden items-center gap-1 rounded-lg border border-hairline bg-surface p-0.5 sm:flex">
+                      {["all", ...presentSources].map((src) => {
+                        const label = src === "all" ? "All" : src === "etrade" ? "E*TRADE" : src === "manual" ? "Manual" : src;
+                        const active = sourceFilter === src;
+                        return (
+                          <button
+                            key={src}
+                            onClick={() => setSourceFilter(src as typeof sourceFilter)}
+                            className={`rounded-md px-2.5 py-1 text-xs transition-colors ${
+                              active ? "tab-active" : "text-ink-faint hover:text-ink-dim"
+                            }`}
+                          >
+                            {label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                  {/* Dropdown: always on phones; on sm+ only when many sources. */}
+                  <select
+                    value={sourceFilter}
+                    onChange={(e) => setSourceFilter(e.target.value as typeof sourceFilter)}
+                    className={`rounded-lg border border-hairline px-2.5 py-1.5 text-xs text-ink focus:outline-none ${presentSources.length <= 3 ? "sm:hidden" : ""}`}
+                    style={{ background: "var(--surface-solid)", color: "var(--text)" }}
+                  >
+                    {["all", ...presentSources].map((src) => (
+                      <option key={src} value={src}>
+                        {src === "all" ? "All sources" : src === "etrade" ? "E*TRADE" : src === "manual" ? "Manual" : src}
+                      </option>
+                    ))}
+                  </select>
+                </>
               )}
             </div>
           </div>
@@ -449,11 +464,11 @@ export function HoldingsManager() {
                         </td>
                         <td className="px-3 py-2 text-right text-ink-dim">{g.price != null ? `$${g.price.toFixed(2)}` : "—"}</td>
                         <td className={`px-3 py-2 text-right ${g.daysGain == null ? "text-ink-faint" : g.daysGain >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
-                          {g.daysGain == null ? "—" : `${g.daysGain >= 0 ? "▲" : "▼"} $${Math.abs(g.daysGain).toFixed(0)}${g.dayPct != null ? ` (${Math.abs(g.dayPct).toFixed(2)}%)` : ""}`}
+                          {g.daysGain == null ? "—" : `${g.daysGain >= 0 ? "▲" : "▼"} $${money(g.daysGain)}${g.dayPct != null ? ` (${Math.abs(g.dayPct).toFixed(2)}%)` : ""}`}
                         </td>
-                        <td className="px-3 py-2 text-right font-medium text-ink">{g.value != null ? `$${g.value.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : "—"}</td>
+                        <td className="px-3 py-2 text-right font-medium text-ink">{g.value != null ? `$${money(g.value)}` : "—"}</td>
                         <td className={`px-3 py-2 text-right ${g.totalGain == null ? "text-ink-faint" : tUp ? "text-emerald-400" : "text-rose-400"}`}>
-                          {g.totalGain == null ? "—" : `${tUp ? "▲" : "▼"} $${Math.abs(g.totalGain).toFixed(0)}${g.totalGainPct != null ? ` (${Math.abs(g.totalGainPct).toFixed(1)}%)` : ""}`}
+                          {g.totalGain == null ? "—" : `${tUp ? "▲" : "▼"} $${money(g.totalGain)}${g.totalGainPct != null ? ` (${Math.abs(g.totalGainPct).toFixed(1)}%)` : ""}`}
                         </td>
                         <td className="px-3 py-2 text-right text-ink-dim">{g.shares}</td>
                         <td className="px-3 py-2 text-right text-ink-dim">{g.avgCost != null ? `$${g.avgCost.toFixed(2)}` : "—"}</td>
@@ -548,11 +563,11 @@ function HoldingRow({ v, total, sparks, onRemove, child }: {
       <td className={`px-3 py-2 text-right ${daysGain == null ? "text-ink-faint" : dUp ? "text-emerald-400" : "text-rose-400"}`}>
         {daysGain == null
           ? (daysGainPct != null ? `${daysGainPct >= 0 ? "▲" : "▼"} ${Math.abs(daysGainPct).toFixed(2)}%` : "—")
-          : `${dUp ? "▲" : "▼"} $${Math.abs(daysGain).toFixed(0)}${daysGainPct != null ? ` (${Math.abs(daysGainPct).toFixed(2)}%)` : ""}`}
+          : `${dUp ? "▲" : "▼"} $${money(daysGain)}${daysGainPct != null ? ` (${Math.abs(daysGainPct).toFixed(2)}%)` : ""}`}
       </td>
-      <td className="px-3 py-2 text-right text-ink-dim">{value != null ? `$${value.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : "—"}</td>
+      <td className="px-3 py-2 text-right text-ink-dim">{value != null ? `$${money(value)}` : "—"}</td>
       <td className={`px-3 py-2 text-right ${totalGain == null || totalGainPct == null ? "text-ink-faint" : tUp ? "text-emerald-400" : "text-rose-400"}`}>
-        {totalGain == null || totalGainPct == null ? "—" : `${tUp ? "▲" : "▼"} $${Math.abs(totalGain).toFixed(0)} (${Math.abs(totalGainPct).toFixed(1)}%)`}
+        {totalGain == null || totalGainPct == null ? "—" : `${tUp ? "▲" : "▼"} $${money(totalGain)} (${Math.abs(totalGainPct).toFixed(1)}%)`}
       </td>
       <td className="px-3 py-2 text-right text-ink-dim">{h.shares}</td>
       <td className="px-3 py-2 text-right text-ink-dim">{h.avgCost > 0 ? `$${h.avgCost.toFixed(2)}` : "—"}</td>
@@ -562,7 +577,7 @@ function HoldingRow({ v, total, sparks, onRemove, child }: {
             and Plaid-linked rows are managed by the source, not removable here. */}
         {(h.source ?? "manual") === "manual" && !(h as any).readOnly
           ? <button onClick={() => onRemove(h.id)} className="text-xs text-ink-faint hover:text-rose-300">Remove</button>
-          : <span className="text-[10px] text-ink-faint">synced</span>}
+          : <Lock size={12} className="ml-auto text-ink-faint/50" aria-label="Synced from your broker — managed by the source" />}
       </td>
     </tr>
   );
