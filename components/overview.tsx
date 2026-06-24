@@ -28,10 +28,10 @@ function Card({ href, title, children, className = "" }: { href: string; title: 
 }
 
 export function Overview() {
-  const { data: nw } = useSWR<NetWorth>("/api/networth", fetchJson, { revalidateOnFocus: false });
-  const { data: bal } = useSWR<Balances>("/api/plaid/accounts", fetchJson, { revalidateOnFocus: false });
-  const { data: txnData } = useSWR<{ transactions: Txn[] }>("/api/plaid/transactions?sync=0", fetchJson, { revalidateOnFocus: false });
-  const { data: holdings } = useSWR<Holding[]>("/api/holdings", fetchJson, { revalidateOnFocus: false });
+  const { data: nw, isLoading: nwLoading } = useSWR<NetWorth>("/api/networth", fetchJson, { revalidateOnFocus: false, keepPreviousData: true });
+  const { data: bal } = useSWR<Balances>("/api/plaid/accounts", fetchJson, { revalidateOnFocus: false, keepPreviousData: true });
+  const { data: txnData } = useSWR<{ transactions: Txn[] }>("/api/plaid/transactions?sync=0", fetchJson, { revalidateOnFocus: false, keepPreviousData: true });
+  const { data: holdings, isLoading: holdingsLoading } = useSWR<Holding[]>("/api/holdings", fetchJson, { revalidateOnFocus: false, keepPreviousData: true });
 
   const inv = useMemo(() => {
     const list = holdings ?? [];
@@ -55,7 +55,21 @@ export function Overview() {
     return { income, expense, net: income - expense, top };
   }, [txnData]);
 
-  const nothingConnected = (nw?.totalAssets ?? 0) === 0 && (nw?.totalLiabilities ?? 0) === 0 && inv.count === 0;
+  // Only treat the account as empty once data has actually loaded at least once.
+  // Otherwise the welcome screen flashes on every refresh for connected users.
+  const loaded = nw !== undefined && holdings !== undefined;
+  const firstLoad = (nwLoading || holdingsLoading) && !loaded;
+  const nothingConnected = loaded && (nw?.totalAssets ?? 0) === 0 && (nw?.totalLiabilities ?? 0) === 0 && inv.count === 0;
+
+  if (firstLoad) {
+    return (
+      <div className="space-y-4">
+        <div className="h-32 animate-pulse rounded-2xl glass" />
+        <div className="h-28 animate-pulse rounded-2xl glass" />
+        <div className="h-24 animate-pulse rounded-2xl glass" />
+      </div>
+    );
+  }
 
   if (nothingConnected) {
     return (

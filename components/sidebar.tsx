@@ -104,7 +104,12 @@ export function Sidebar() {
     <>
       {/* Mobile top bar */}
       <div className="sticky top-0 z-40 flex items-center justify-between border-b border-hairline px-4 py-3 md:hidden" style={{ background: "var(--surface-solid)" }}>
-        <Wordmark />
+        <div className="flex min-w-0 items-center gap-2">
+          <button onClick={() => setOpen(true)} aria-label="Open menu" className="shrink-0 rounded-md border border-hairline p-2 text-ink-dim hover:text-ink">
+            <Menu size={18} />
+          </button>
+          <Wordmark />
+        </div>
         <div className="flex items-center gap-2">
           <button
             onClick={() => window.dispatchEvent(new KeyboardEvent("keydown", { key: "k", metaKey: true }))}
@@ -114,9 +119,6 @@ export function Sidebar() {
           </button>
           <ThemeToggle compact />
           <AccountMenu />
-          <button onClick={() => setOpen(true)} aria-label="Open menu" className="rounded-md border border-hairline p-2 text-ink-dim hover:text-ink">
-            <Menu size={18} />
-          </button>
         </div>
       </div>
 
