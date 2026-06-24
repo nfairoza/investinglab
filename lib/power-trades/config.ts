@@ -29,7 +29,11 @@ export function sourceRegistry(): SourceDef[] {
     { source: "sec_form_4",   label: "SEC Form 4 (EDGAR) — corporate insiders", built: true,  enabled: flag("POWER_TRADES_ENABLE_SEC_FORM4") },
     { source: "executive_oge",label: "Executive / OGE disclosures (partial · curated)", built: true,  enabled: flag("POWER_TRADES_ENABLE_EXECUTIVE") },
     { source: "fec",          label: "FEC (OpenFEC) — Influence Context (not trades)",        built: true,  enabled: flag("POWER_TRADES_ENABLE_FEC") },
-    { source: "opensecrets",  label: "OpenSecrets — Influence Context (not trades)",          built: true,  enabled: flag("POWER_TRADES_ENABLE_OPENSECRETS") },
+    // OpenSecrets discontinued its public API on 2025-04-15. The adapter is kept
+    // but permanently disabled (built:false) so it can never be flag-enabled
+    // against a dead endpoint. A commercial data agreement would be required to
+    // revive it (commercial@opensecrets.org).
+    { source: "opensecrets",  label: "OpenSecrets — public API discontinued (2025-04-15)",    built: false, enabled: false },
   ];
 }
 

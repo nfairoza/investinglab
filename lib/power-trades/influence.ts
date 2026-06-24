@@ -1,35 +1,30 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { powerServiceClient, isSourceActive, fecKey, openSecretsKey } from "./config";
+import { powerServiceClient, isSourceActive, fecKey } from "./config";
 
 // =============================================================================
-// Power Trades — Influence Context (FEC + OpenSecrets). NOT TRADES.
+// Power Trades — Influence Context (FEC). NOT TRADES.
 //
-// Campaign finance + lobbying are money/influence context, never buy/sell rows.
-// They land in power_influence_records (separate table) and a separate UI.
+// Campaign finance is money/influence context, never buy/sell rows. It lands in
+// power_influence_records (separate table) and a separate UI.
 //
 // HARD RULE (no hallucination): only documented provider endpoints + fields are
 // used. Anything unverifiable → an honest error/empty state, never fabricated.
 //
-// PRIVACY: we use AGGREGATION endpoints (by employer / by state / industry
-// summaries), NOT individual itemized donor rows — so we never store or display
-// individual donor street addresses. OpenSecrets data is attributed per its
-// CC BY-NC-SA license. Both sources are non-commercial.
+// PRIVACY: we use AGGREGATION endpoints (by employer / by state), NOT individual
+// itemized donor rows — so we never store or display individual donor street
+// addresses. FEC contributor lists are non-commercial use only.
 //
-// Verified endpoints:
-//   FEC (api.open.fec.gov, api.data.gov key):
-//     /v1/candidates/search                         → resolve a name → candidate_id + committees
-//     /v1/schedules/schedule_a/by_employer/         → top employers of donors to a committee
-//     /v1/schedules/schedule_a/by_state/            → donor totals by state
-//   OpenSecrets (opensecrets.org/api/, free key, 200 calls/day):
-//     ?method=getLegislators&id=<state>             → resolve a member → CID
-//     ?method=candIndustry&cid=<cid>&cycle=<yr>     → top industries contributing
-//     ?method=candContrib&cid=<cid>&cycle=<yr>      → top contributing orgs
+// Verified endpoints — FEC (api.open.fec.gov, api.data.gov key):
+//   /v1/candidates/search                  → resolve a name → candidate_id + committees
+//   /v1/schedules/schedule_a/by_employer/  → top employers of donors to a committee
+//   /v1/schedules/schedule_a/by_state/     → donor totals by state
+//
+// OpenSecrets discontinued its PUBLIC API on 2025-04-15 (see syncOpenSecrets);
+// no lobbying source is available.
 // =============================================================================
 
 const FEC_BASE = "https://api.open.fec.gov/v1";
-const OS_BASE = "https://www.opensecrets.org/api/";
 const PARSER_VERSION = "pt-influence-1";
-const OS_ATTRIBUTION = "Source: OpenSecrets (CC BY-NC-SA)";
 
 type SyncResult = { ingested: number; normalized: number; errors: number; note?: string };
 
@@ -171,100 +166,13 @@ export async function syncFec(): Promise<SyncResult> {
 
 // ── OpenSecrets ──────────────────────────────────────────────────────────────
 
-async function osJson(method: string, params: Record<string, string>): Promise<any> {
-  const key = openSecretsKey();
-  if (!key) throw new Error("OPENSECRETS_API_KEY not configured");
-  const qs = new URLSearchParams({ method, output: "json", apikey: key, ...params }).toString();
-  const r = await fetch(`${OS_BASE}?${qs}`, { cache: "no-store" });
-  if (!r.ok) throw new Error(`OpenSecrets HTTP ${r.status}`);
-  return r.json();
-}
-
-function osCandUrl(cid: string): string {
-  return `https://www.opensecrets.org/members-of-congress/summary?cid=${cid}`;
-}
-
+// OpenSecrets discontinued its PUBLIC API on 2025-04-15 — there is no live
+// endpoint to call. This is a permanent, honest no-op: it never fabricates data
+// and never marks the source enabled. Reviving lobbying context would require a
+// commercial data agreement (commercial@opensecrets.org), at which point a new
+// adapter should be written against whatever that agreement provides.
 export async function syncOpenSecrets(): Promise<SyncResult> {
-  const sb = powerServiceClient();
-  if (!sb) return { ingested: 0, normalized: 0, errors: 1, note: "Supabase service client not configured" };
-  if (!isSourceActive("opensecrets")) return { ingested: 0, normalized: 0, errors: 0, note: "opensecrets disabled" };
-  if (!openSecretsKey()) return { ingested: 0, normalized: 0, errors: 1, note: "OPENSECRETS_API_KEY not configured" };
-
-  const { data: run } = await sb.from("power_source_sync_runs").insert({ source: "opensecrets" }).select("id").maybeSingle();
-  const runId = run?.id as string | undefined;
-  let ingested = 0, errors = 0;
-  const rows: InfluenceRow[] = [];
-  // OpenSecrets is 200 calls/day — resolve CIDs by STATE once (cached per state)
-  // and only enrich a couple of officials per run to stay well under the cap.
-  const cidCacheByState = new Map<string, any[]>();
-
-  try {
-    for (const off of SEED_OFFICIALS.slice(0, 2)) {
-      try {
-        let legislators = cidCacheByState.get(off.state);
-        if (!legislators) {
-          const leg = await osJson("getLegislators", { id: off.state });
-          legislators = leg?.response?.legislator ?? [];
-          cidCacheByState.set(off.state, legislators!);
-        }
-        const last = off.name.split(" ").slice(-1)[0].toLowerCase();
-        const match = (legislators ?? []).find((l: any) => String(l["@attributes"]?.lastname ?? "").toLowerCase() === last);
-        const cid = match?.["@attributes"]?.cid;
-        if (!cid) continue;
-        const personId = await linkPersonId(sb, off.name);
-        if (personId) {
-          const { data: p } = await sb.from("power_people").select("identifiers").eq("id", personId).maybeSingle();
-          await sb.from("power_people").update({ identifiers: { ...(p?.identifiers ?? {}), opensecretsId: cid }, updated_at: new Date().toISOString() }).eq("id", personId);
-        }
-
-        const cycle = "2024";
-        // Top industries (lobbying/influence context).
-        ingested++;
-        const ind = await osJson("candIndustry", { cid, cycle });
-        for (const i of ind?.response?.industries?.industry ?? []) {
-          const a = i["@attributes"] ?? {};
-          const amt = num(a.total);
-          rows.push({
-            source: "opensecrets", record_type: "lobbying",
-            source_url: osCandUrl(cid), provider_record_id: `${cid}:ind:${a.industry_code ?? a.industry_name ?? ""}`,
-            dedupe_key: `os:ind:${cid}:${String(a.industry_name ?? a.industry_code ?? "").toLowerCase()}:${cycle}`,
-            person_id: personId, subject_name: off.name, counterparty_name: a.industry_name ?? null,
-            city: null, state: off.state, employer: null, occupation: null,
-            amount: amt, amount_label: moneyLabel(amt), cycle_or_year: cycle,
-            issue_or_industry: a.industry_name ?? null, attribution: OS_ATTRIBUTION, parser_version: PARSER_VERSION,
-          });
-        }
-        // Top contributing organizations.
-        const contrib = await osJson("candContrib", { cid, cycle });
-        for (const o of contrib?.response?.contributors?.contributor ?? []) {
-          const a = o["@attributes"] ?? {};
-          const amt = num(a.total);
-          rows.push({
-            source: "opensecrets", record_type: "campaign_contribution",
-            source_url: osCandUrl(cid), provider_record_id: `${cid}:org:${a.org_name ?? ""}`,
-            dedupe_key: `os:org:${cid}:${String(a.org_name ?? "").toLowerCase()}:${cycle}`,
-            person_id: personId, subject_name: off.name, counterparty_name: a.org_name ?? null,
-            city: null, state: null, employer: a.org_name ?? null, occupation: null,
-            amount: amt, amount_label: moneyLabel(amt), cycle_or_year: cycle,
-            issue_or_industry: null, attribution: OS_ATTRIBUTION, parser_version: PARSER_VERSION,
-          });
-        }
-      } catch (e) {
-        errors++;
-      }
-    }
-
-    const unique = dedupe(rows);
-    if (unique.length) await sb.from("power_influence_records").upsert(unique, { onConflict: "dedupe_key" });
-    await sb.from("power_sources").upsert({ source: "opensecrets", label: "OpenSecrets — Influence Context (not trades)", enabled: true, last_sync_at: new Date().toISOString(), last_error: null, updated_at: new Date().toISOString() }, { onConflict: "source" });
-    if (runId) await sb.from("power_source_sync_runs").update({ finished_at: new Date().toISOString(), rows_ingested: ingested, rows_normalized: unique.length, errors }).eq("id", runId);
-    return { ingested, normalized: unique.length, errors, note: OS_ATTRIBUTION };
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : "opensecrets sync failed";
-    await sb.from("power_sources").upsert({ source: "opensecrets", label: "OpenSecrets — Influence Context (not trades)", enabled: true, last_error: msg, updated_at: new Date().toISOString() }, { onConflict: "source" }).then(() => {}, () => {});
-    if (runId) await sb.from("power_source_sync_runs").update({ finished_at: new Date().toISOString(), rows_ingested: ingested, errors: errors + 1, note: msg }).eq("id", runId);
-    return { ingested, normalized: 0, errors: errors + 1, note: msg };
-  }
+  return { ingested: 0, normalized: 0, errors: 0, note: "OpenSecrets public API discontinued 2025-04-15 — no data source available" };
 }
 
 function dedupe(rows: InfluenceRow[]): InfluenceRow[] {

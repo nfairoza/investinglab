@@ -75,10 +75,10 @@ export function SourceDiagnostics() {
 
       {data?.influence && (
         <div className="rounded-2xl glass p-5">
-          <div className="text-sm font-semibold text-ink">Influence Context coverage <span className="rounded-full border border-sky-500/30 px-2 py-0.5 text-[10px] text-sky-300">FEC + OpenSecrets · not trades</span></div>
+          <div className="text-sm font-semibold text-ink">Influence Context coverage <span className="rounded-full border border-sky-500/30 px-2 py-0.5 text-[10px] text-sky-300">FEC · not trades</span></div>
           <div className="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-5">
             <Stat label="FEC key" value={data.influence.fecKeyConfigured ? "configured" : "missing"} tone={data.influence.fecKeyConfigured ? "ok" : "bad"} />
-            <Stat label="OpenSecrets key" value={data.influence.openSecretsKeyConfigured ? "configured" : "missing"} tone={data.influence.openSecretsKeyConfigured ? "ok" : "bad"} />
+            <Stat label="OpenSecrets" value="API ended" tone="warn" />
             <Stat label="FEC records" value={String(data.influence.fecRecords)} />
             <Stat label="OpenSecrets records" value={String(data.influence.openSecretsRecords)} />
             <Stat label="Missing source link" value={String(data.influence.recordsWithoutSource)} tone={data.influence.recordsWithoutSource > 0 ? "bad" : undefined} />

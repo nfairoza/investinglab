@@ -33,10 +33,10 @@ export function InfluenceContext() {
     <div className="space-y-4">
       {/* Required banner — explicitly NOT trades. */}
       <div className="rounded-lg border border-sky-500/30 bg-sky-500/5 p-3 text-[13px] text-sky-200">
-        Influence Context shows campaign finance (FEC) and lobbying (OpenSecrets) data — money and
-        influence, <span className="font-semibold">NOT stock trades</span>. Figures are reported to
-        public agencies and may lag. Individual donor addresses are intentionally excluded.
-        Source: FEC, OpenSecrets (CC BY-NC-SA).
+        Influence Context shows campaign-finance (FEC) data — money and influence,
+        <span className="font-semibold"> NOT stock trades</span>. Figures are reported to public
+        agencies and may lag. Individual donor addresses are intentionally excluded. Source: FEC.
+        <span className="mt-1 block text-[11px] text-sky-300/80">OpenSecrets (lobbying) discontinued its public API on 2025-04-15, so lobbying context is not currently available.</span>
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
@@ -46,10 +46,10 @@ export function InfluenceContext() {
             className="w-full bg-transparent text-sm text-ink placeholder:text-ink-faint focus:outline-none" />
         </div>
         <div className="flex items-center gap-1.5">
-          {["all", "fec", "opensecrets"].map((s) => (
+          {["all", "fec"].map((s) => (
             <button key={s} onClick={() => setSource(s)}
               className={`rounded-md border px-2.5 py-1 text-xs font-medium ${s === source ? "tab-active" : "border-hairline text-ink-dim hover:bg-surface"}`}>
-              {s === "all" ? "All" : s === "fec" ? "FEC" : "OpenSecrets"}
+              {s === "all" ? "All" : "FEC"}
             </button>
           ))}
         </div>
