@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import useSWR from "swr";
 import Link from "next/link";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
@@ -35,6 +36,19 @@ export function NetWorthView() {
   const { data: manual, mutate: mutateManual } = useSWR<{ items: ManualItem[] }>("/api/manual-items", fetchJson, { revalidateOnFocus: false });
   const [range, setRange] = useState(12);
   const [showAdd, setShowAdd] = useState(false);
+  // Deep-link from the Add sheet: /networth?add=vehicle opens the form with a
+  // preset type so each manual asset/liability has its own entry point.
+  const searchParams = useSearchParams();
+  const addType = searchParams.get("add");
+  const addRef = useRef<HTMLDivElement>(null);
+  const handledAdd = useRef(false);
+  useEffect(() => {
+    if (addType && !handledAdd.current) {
+      handledAdd.current = true;
+      setShowAdd(true);
+      setTimeout(() => addRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }), 150);
+    }
+  }, [addType]);
 
   const trend = useMemo(() => {
     const t = data?.trend ?? [];
@@ -177,15 +191,16 @@ export function NetWorthView() {
       </div>
 
       {/* Accounts + manual items */}
-      <div className="rounded-2xl glass p-5">
+      <div ref={addRef} className="rounded-2xl glass p-5">
         <div className="flex items-center justify-between">
           <div className="text-sm font-semibold text-ink">All accounts &amp; items</div>
           <button onClick={() => setShowAdd((s) => !s)} className="inline-flex items-center gap-1 rounded-md border border-hairline px-2.5 py-1 text-[11px] text-ink-dim hover:bg-surface hover:text-ink">
             <Plus size={12} /> Add manual item
           </button>
         </div>
+        <p className="mt-1 text-[11px] text-ink-faint">Manual items (house, car, private loans) are tracked separately and never mixed into your connected-account balances.</p>
 
-        {showAdd && <AddManualForm onAdded={async () => { setShowAdd(false); await Promise.all([mutateManual(), mutate()]); }} />}
+        {showAdd && <AddManualForm initialType={addType} onAdded={async () => { setShowAdd(false); await Promise.all([mutateManual(), mutate()]); }} />}
 
         <ul className="mt-3 divide-y divide-hairline">
           {(data?.items ?? []).filter((i) => i.source !== "manual").map((it, i) => (
@@ -216,10 +231,12 @@ export function NetWorthView() {
   );
 }
 
-function AddManualForm({ onAdded }: { onAdded: () => void }) {
+function AddManualForm({ onAdded, initialType }: { onAdded: () => void; initialType?: string | null }) {
+  const presetIsLiability = initialType ? LIABILITY_TYPES.includes(initialType) : false;
+  const presetValid = initialType && (ASSET_TYPES.includes(initialType) || LIABILITY_TYPES.includes(initialType));
   const [name, setName] = useState("");
-  const [kind, setKind] = useState<"asset" | "liability">("asset");
-  const [type, setType] = useState("real_estate");
+  const [kind, setKind] = useState<"asset" | "liability">(presetIsLiability ? "liability" : "asset");
+  const [type, setType] = useState(presetValid ? initialType! : "real_estate");
   const [value, setValue] = useState("");
   const [busy, setBusy] = useState(false);
 

@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { NetWorthView } from "@/components/networth-view";
 
 export const metadata = { title: "Net worth" };
@@ -9,7 +10,9 @@ export default function Page() {
         <h1 className="font-display text-2xl font-bold text-ink md:text-3xl">Net worth</h1>
         <p className="mt-1 text-sm text-ink-dim">Everything you own and owe, in one place.</p>
       </div>
-      <NetWorthView />
+      <Suspense fallback={<div className="h-64 animate-pulse rounded-2xl bg-surface-raised" />}>
+        <NetWorthView />
+      </Suspense>
     </div>
   );
 }

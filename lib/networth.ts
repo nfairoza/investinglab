@@ -71,6 +71,15 @@ export async function computeNetWorth(ctx: { supabase: SupabaseClient; userId: s
   // plain accounts pass doesn't double-count the same card/loan.
   const liabilityAccountIds = new Set<string>();
 
+  // The holdings table (E*TRADE sync + manual, live-priced per security) is the
+  // authoritative source for TAXABLE brokerage value. If it has rows, we skip
+  // Plaid *investment*-type account balances so a brokerage linked both ways
+  // (E*TRADE API + Plaid) isn't counted twice. Retirement subtypes classify as
+  // "retirement" (not "investment"), so 401k/IRA balances are unaffected.
+  const { count: holdingsCount } = await ctx.supabase
+    .from("holdings").select("id", { count: "exact", head: true });
+  const haveHoldings = (holdingsCount ?? 0) > 0;
+
   if (plaidConfigured()) {
     const { data: plaidItems } = await ctx.supabase.from("plaid_items").select("institution_name, access_token");
     const plaid = getPlaid();
@@ -107,8 +116,9 @@ export async function computeNetWorth(ctx: { supabase: SupabaseClient; userId: s
             if (liabilityAccountIds.has(a.account_id)) continue; // already counted via Liabilities
             items.push({ source: "plaid", label, type, kind, amount: Math.abs(Number(cur)), liquid: false });
           } else {
-            // Investment balances: use holdings value when available is more accurate,
-            // but accountsBalanceGet current is fine as the account-level total.
+            // Skip taxable brokerage balances if the holdings table already
+            // covers them (avoids double-counting E*TRADE linked both ways).
+            if (type === "investment" && haveHoldings) { excluded.push(`${label} (counted via holdings)`); continue; }
             items.push({ source: "plaid", label, type, kind, amount: Number(cur), liquid: liquidityOf(type) });
           }
         }
