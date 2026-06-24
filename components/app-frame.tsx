@@ -12,6 +12,7 @@ import { TopSearch } from "./top-search";
 import { MobileTabBar } from "./mobile-tab-bar";
 import { SectionSubnav } from "./section-subnav";
 import { AddSheet } from "./add-sheet";
+import { SwipeSections } from "./swipe-sections";
 
 // Auth screens render with NO app chrome (no sidebar, chat, or command palette) —
 // just the page. Everything else gets the full shell.
@@ -41,7 +42,7 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
           <SectionSubnav />
           {/* pb on mobile leaves room for the fixed bottom tab bar. */}
           <main className="flex-1 px-5 py-6 pb-24 md:px-10 md:py-8 md:pb-8">
-            <PageTransition>{children}</PageTransition>
+            <SwipeSections><PageTransition>{children}</PageTransition></SwipeSections>
           </main>
         </div>
       </div>
