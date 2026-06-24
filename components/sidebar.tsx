@@ -147,10 +147,17 @@ export function Sidebar() {
         </div>
       )}
 
-      {/* Desktop sidebar — hidden (not overlaid) when collapsed, so content
-          reflows to full width with no blur. Reopen via the top-bar button. */}
-      {!collapsed && (
-        <aside className="glass sticky top-0 hidden h-screen w-64 shrink-0 overflow-y-auto rounded-none border-y-0 border-l-0 p-4 md:block">
+      {/* Desktop sidebar — stays mounted and animates its WIDTH (not unmount), so
+          collapse/expand glides instead of snapping. Content reflows with no
+          blur/overlay. Inner wrapper is fixed-width so text doesn't squish as the
+          rail narrows; overflow-hidden clips it during the slide. */}
+      <aside
+        className={clsx(
+          "sticky top-0 hidden h-screen shrink-0 overflow-hidden rounded-none border-y-0 border-l-0 transition-[width] duration-300 ease-in-out md:block",
+          collapsed ? "w-0 border-r-0" : "glass w-64",
+        )}
+      >
+        <div className="w-64 overflow-y-auto p-4" style={{ height: "100vh" }}>
           <div className="flex items-start justify-between pb-7 pt-2">
             <Wordmark />
             <button
@@ -162,12 +169,12 @@ export function Sidebar() {
               <PanelLeftClose size={16} />
             </button>
           </div>
-          {/* Auto-collapse the sidebar when a nav item is clicked, so the page
-              gets full width immediately. Reopen via the top-bar wordmark. */}
+          {/* Auto-collapse when a nav item is clicked, so the page gets full
+              width. Reopen via the top-bar wordmark. */}
           <NavList onNavigate={() => setCollapsed(true)} />
           <Footer />
-        </aside>
-      )}
+        </div>
+      </aside>
     </>
   );
 }
