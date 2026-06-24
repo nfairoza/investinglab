@@ -197,6 +197,14 @@ RULES:
 }
 
 // POST /api/chat
+// Build a user-safe error message. Non-admins NEVER see the provider name, HTTP
+// status, or raw API body (guardrails) — just a calm fallback. Admins get the
+// real detail for debugging.
+function aiErrorMessage(isAdmin: boolean, rawDetail: string): string {
+  if (isAdmin) return rawDetail;
+  return "Rukmani is temporarily unavailable. Please try again in a moment, or contact your administrator if it persists.";
+}
+
 // Streams Claude's response using Anthropic's SSE format.
 // Body: { messages: ChatMessage[], context: ChatContext }
 export async function POST(req: NextRequest) {
@@ -262,13 +270,13 @@ export async function POST(req: NextRequest) {
       // Non-OK (auth/4xx) — fall through to Gemini if available, else report.
       if (!geminiKey()) {
         const detail = await upstream.text().catch(() => "");
-        return NextResponse.json({ error: "anthropic_error", message: `API error ${upstream.status}: ${detail.slice(0, 200)}` }, { status: 502 });
+        return NextResponse.json({ error: "anthropic_error", message: aiErrorMessage(ctx.isAdmin ?? false, `API error ${upstream.status}: ${detail.slice(0, 200)}`) }, { status: 502 });
       }
     } catch {
       // Network failure reaching Anthropic — fall back to Gemini below.
       if (!geminiKey()) {
         return NextResponse.json(
-          { error: "no_provider", message: "Claude is unreachable from this network and no Gemini key is set." },
+          { error: "no_provider", message: aiErrorMessage(ctx.isAdmin ?? false, "Claude is unreachable from this network and no Gemini key is set.") },
           { status: 502 },
         );
       }
@@ -295,13 +303,13 @@ export async function POST(req: NextRequest) {
       });
     }
     const detail = await upstream.text().catch(() => "");
-    return NextResponse.json({ error: "anthropic_error", message: `API error ${upstream.status}: ${detail.slice(0, 200)}` }, { status: 502 });
+    return NextResponse.json({ error: "anthropic_error", message: aiErrorMessage(ctx.isAdmin ?? false, `API error ${upstream.status}: ${detail.slice(0, 200)}`) }, { status: 502 });
   }
 
   const gem = await streamGemini({ system, messages: recent, webSearch: true, model: plan.geminiModel });
   if (!gem.ok || !gem.body) {
     const detail = await gem.text().catch(() => "");
-    return NextResponse.json({ error: "gemini_error", message: `Gemini error ${gem.status}: ${detail.slice(0, 200)}` }, { status: 502 });
+    return NextResponse.json({ error: "ai_error", message: aiErrorMessage(ctx.isAdmin ?? false, `Gemini error ${gem.status}: ${detail.slice(0, 200)}`) }, { status: 502 });
   }
 
   const reader = gem.body.getReader();

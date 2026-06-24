@@ -37,17 +37,14 @@ export function MarginChart({ symbol, financials }: { symbol: string; financials
           <div className="text-sm font-semibold text-ink">{symbol} — Margins trend</div>
           <div className="text-xs text-ink-faint mt-0.5">Keeping more of each dollar over time?</div>
         </div>
-        {data && <DataBadge source={data.source} />}
+        {data && rows.length > 0 && <DataBadge source={data.source} />}
       </div>
 
       {isLoading && !data && <div className="mt-4 h-48 animate-pulse rounded bg-surface-raised" />}
 
       {!isLoading && !rows.length && (
-        <div className="mt-4 flex h-48 items-center justify-center rounded-lg border border-hairline text-sm text-ink-faint">
-          <div className="text-center">
-            <DataBadge source="unavailable" />
-            <p className="mt-2">Margin data unavailable.</p>
-          </div>
+        <div className="mt-4 flex h-48 items-center justify-center rounded-lg border border-hairline px-4 text-sm text-ink-faint">
+          <p className="text-center">No margin data for {symbol} — normal for ETFs and funds, which don&apos;t report company margins.</p>
         </div>
       )}
 

@@ -43,17 +43,14 @@ export function RevenueEarningsChart({ symbol, financials }: { symbol: string; f
           <div className="text-sm font-semibold text-ink">{symbol} — Revenue & net income</div>
           <div className="text-xs text-ink-faint mt-0.5">Is the business actually growing?</div>
         </div>
-        {data && <DataBadge source={data.source} />}
+        {data && rows.length > 0 && <DataBadge source={data.source} />}
       </div>
 
       {isLoading && !data && <div className="mt-4 h-48 animate-pulse rounded bg-surface-raised" />}
 
       {!isLoading && !rows.length && (
-        <div className="mt-4 flex h-48 items-center justify-center rounded-lg border border-hairline text-sm text-ink-faint">
-          <div className="text-center">
-            <DataBadge source="unavailable" />
-            <p className="mt-2">Financial data unavailable.</p>
-          </div>
+        <div className="mt-4 flex h-48 items-center justify-center rounded-lg border border-hairline px-4 text-sm text-ink-faint">
+          <p className="text-center">No company income statement for {symbol} — this is normal for ETFs, funds, and some instruments that don&apos;t report revenue or earnings.</p>
         </div>
       )}
 

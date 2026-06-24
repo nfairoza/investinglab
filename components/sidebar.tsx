@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
 import useSWR from "swr";
-import { Menu, X, Search, PanelLeftClose } from "lucide-react";
+import { Menu, X, Search } from "lucide-react";
 import clsx from "clsx";
 import { ThemeToggle } from "./theme-toggle";
 import { Blossom } from "./ui/primitives";
@@ -158,17 +158,7 @@ export function Sidebar() {
         )}
       >
         <div className="w-64 overflow-y-auto p-4" style={{ height: "100vh" }}>
-          <div className="flex items-start justify-between pb-7 pt-2">
-            <Wordmark />
-            <button
-              onClick={() => setCollapsed(true)}
-              aria-label="Hide sidebar"
-              title="Hide sidebar"
-              className="mt-1 shrink-0 rounded-md p-1.5 text-ink-faint hover:bg-surface hover:text-ink"
-            >
-              <PanelLeftClose size={16} />
-            </button>
-          </div>
+          <div className="pb-7 pt-2"><Wordmark /></div>
           {/* Auto-collapse when a nav item is clicked, so the page gets full
               width. Reopen via the top-bar wordmark. */}
           <NavList onNavigate={() => setCollapsed(true)} />
