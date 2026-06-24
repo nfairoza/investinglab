@@ -8,9 +8,12 @@ export default function Page() {
       <div>
         <h1 className="font-display text-3xl font-semibold text-ink">Power Trades</h1>
         <p className="mt-1 max-w-3xl text-sm text-ink-dim">
-          Public disclosures of trades by people with power and access — starting with Congress.
-          The <span className="text-brand-300">Alpha Feed</span> scores filings for conviction;
-          other sources (SEC Form 4, Executive, FEC, OpenSecrets) are coming.
+          Public disclosures of trades and influence records for powerful people — members of
+          Congress, executive-branch officials, corporate insiders (SEC Form 4), and major
+          donors/lobbyists as influence context. The <span className="text-brand-300">Alpha Feed</span> scores
+          filings for conviction; the <span className="text-brand-300">People Directory</span> lets you look up
+          anyone and see honestly what coverage exists. Each source is enabled independently — see
+          Source Coverage.
         </p>
       </div>
 

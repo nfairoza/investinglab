@@ -268,14 +268,14 @@ export function CongressAlphaFeed() {
             {topMembers.length > 0 && (
               <div className="rounded-xl glass p-4">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-sm font-semibold text-ink"><Users size={15} className="text-brand-400" /> Politicians</div>
+                  <div className="flex items-center gap-2 text-sm font-semibold text-ink"><Users size={15} className="text-brand-400" /> People in current feed</div>
                   {member && (
                     <button onClick={() => setMember(null)} className="inline-flex items-center gap-1 rounded border border-hairline px-1.5 py-0.5 text-[11px] text-ink-dim hover:text-ink">
                       <X size={11} /> Clear
                     </button>
                   )}
                 </div>
-                <p className="mt-0.5 text-[11px] text-ink-faint">Tap a name to filter the feed to their trades.</p>
+                <p className="mt-0.5 text-[11px] text-ink-faint">Showing people with parsed records in the currently enabled sources. Tap a name to filter the feed. For the full roster, open the People Directory.</p>
                 <div className="mt-2 flex flex-wrap gap-1.5">
                   {topMembers.map(([name, count]) => (
                     <button key={name} onClick={() => setMember(member === name ? null : name)}

@@ -9,6 +9,8 @@ interface Person {
   id: string; canonical_name: string; category: string; party: string | null; state: string | null;
   office: string | null; latest_disclosure_date: string | null;
   trade_count_30d: number; trade_count_90d: number; trade_count_1y: number; trade_count_all: number;
+  in_current_feed?: boolean; empty_reason?: string | null; source_enabled?: boolean;
+  covered_by_source?: string | null; is_known_seed?: boolean;
 }
 const fetchJson = (u: string) => fetch(u).then((r) => r.json());
 
@@ -40,7 +42,7 @@ export function PeopleDirectory() {
           <Users size={22} className="mx-auto text-ink-faint" />
           <p className="mt-2">
             {q.trim()
-              ? <>No one named “{q}” is in the directory yet. They may not appear until a sync has run, or the active source (FMP congressional) may not cover them. Many lobbyists, donors, advisors, and celebrities have no personal trade disclosure at all.</>
+              ? <>No match for “{q}”. This directory covers Congress, executive-branch officials, corporate insiders (SEC Form 4), and major donors/lobbyists as influence context. A person may be missing if their source category isn&apos;t enabled, they have no public filing requirement, or the filing hasn&apos;t been parsed yet.</>
               : "No people loaded yet. An admin needs to run a sync to populate the directory."}
           </p>
         </div>
@@ -61,11 +63,19 @@ export function PeopleDirectory() {
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
-              {rows.map((p) => (
-                <tr key={p.id} className="hover:bg-surface">
+              {rows.map((p) => {
+                const inFeed = p.in_current_feed ?? p.trade_count_all > 0;
+                return (
+                <tr key={p.id} className="align-top hover:bg-surface">
                   <td className="px-3 py-2">
-                    <Link href={`/power-trades?person=${encodeURIComponent(p.canonical_name)}`} className="font-medium text-brand-300 hover:underline">{p.canonical_name}</Link>
+                    <div className="flex items-center gap-1.5">
+                      <Link href={`/power-trades?person=${encodeURIComponent(p.canonical_name)}`} className="font-medium text-brand-300 hover:underline">{p.canonical_name}</Link>
+                      {inFeed
+                        ? <span className="rounded-full border border-emerald-500/40 px-1.5 py-0.5 text-[9px] text-emerald-300">in feed</span>
+                        : <span className="rounded-full border border-hairline px-1.5 py-0.5 text-[9px] text-ink-faint">no records</span>}
+                    </div>
                     {p.office && <span className="block text-[11px] text-ink-faint">{p.office}{p.state ? ` · ${p.state}` : ""}</span>}
+                    {!inFeed && p.empty_reason && <span className="mt-0.5 block max-w-md text-[11px] text-ink-faint">{p.empty_reason}</span>}
                   </td>
                   <td className="px-3 py-2 text-xs text-ink-dim">{p.category.replace("_", " ")}</td>
                   <td className="px-3 py-2 text-right text-ink-dim">{p.trade_count_30d}</td>
@@ -74,7 +84,8 @@ export function PeopleDirectory() {
                   <td className="px-3 py-2 text-right font-medium text-ink">{p.trade_count_all}</td>
                   <td className="px-3 py-2 text-[11px] text-ink-faint">{p.latest_disclosure_date ?? "—"}</td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>
