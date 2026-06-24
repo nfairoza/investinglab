@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
   Sparkles, RefreshCw, MessageCircle, CheckCircle2, Clock, AlertTriangle,
   HelpCircle, ArrowRight, ShieldQuestion, TrendingUp, Wallet, PiggyBank,
 } from "lucide-react";
 import { AiThinking } from "./ai-thinking";
+import { useIsAdmin } from "./use-is-admin";
 
 // ── Types mirror lib/advisor/engine.ts ───────────────────────────────────────
 type StepStatus = "done" | "in_progress" | "attention" | "missing_data";
@@ -31,7 +32,7 @@ interface AdvisorResult {
   surplus: SurplusRouting; spending: SpendingInsights; hasAnyData: boolean; dataSources: string[];
 }
 interface Narration { headline: string; summary: string; stepNarration: Record<string, string>; surplusNote: string; spendingNote: string }
-interface ApiResp { result: AdvisorResult; narration: Narration | null; model: string | null; error?: string; message?: string }
+interface ApiResp { result: AdvisorResult; narration: Narration | null; model: string | null; generatedAt?: string | null; cached?: boolean; error?: string; message?: string }
 
 const money = (n: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n);
 
@@ -48,17 +49,40 @@ function fmtTime(iso: string) {
 }
 
 export function AdvisorView() {
+  const isAdmin = useIsAdmin();
   const [data, setData] = useState<ApiResp | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const loadedOnce = useRef(false);
 
+  // Auto-load on mount via GET (no click): serves the cached daily review and
+  // auto-generates it when warranted (first time, or significant change in
+  // daytime within the 3/day cap). Users never click "review".
+  useEffect(() => {
+    if (loadedOnce.current) return;
+    loadedOnce.current = true;
+    (async () => {
+      setBusy(true); setError(null);
+      try {
+        const r = await fetch("/api/advisor");
+        const j: ApiResp = await r.json();
+        if (!r.ok || j.error) {
+          if (j.error === "no_data" || j.error === "unauthorized") { setError(j.message ?? "Connect an account to get started."); return; }
+        }
+        setData(j);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Request failed");
+      } finally { setBusy(false); }
+    })();
+  }, []);
+
+  // Explicit refresh (admin-only button) — forces a fresh narration.
   async function run() {
     setBusy(true); setError(null);
     try {
-      const r = await fetch("/api/advisor", { method: "POST" });
+      const r = await fetch(`/api/advisor${isAdmin ? "?force=1" : ""}`, { method: "POST" });
       const j: ApiResp = await r.json();
       if (!r.ok || j.error) {
-        // no_data still returns a result we can show as an empty-state nudge
         if (j.error === "no_data") { setError(j.message ?? "Connect an account to get started."); return; }
         setError(j.message ?? "Couldn't generate your review."); return;
       }
@@ -68,30 +92,27 @@ export function AdvisorView() {
     } finally { setBusy(false); }
   }
 
-  if (!data && !busy) {
+  if (busy && !data) return <div className="rounded-2xl glass p-6"><AiThinking /></div>;
+
+  // Genuinely no data to work with (nothing connected).
+  if (!data || (!data.result?.hasAnyData && !data.narration)) {
     return (
       <div className="rounded-2xl glass p-6 text-center">
         <Sparkles className="mx-auto text-brand-400" size={28} />
-        <h2 className="mt-2 text-lg font-semibold text-ink">Get your financial order of operations</h2>
+        <h2 className="mt-2 text-lg font-semibold text-ink">Connect an account to get your plan</h2>
         <p className="mx-auto mt-1 max-w-md text-sm text-ink-dim">
           Rukmani checks your emergency fund, high-interest debt, surplus, and spending against the
-          classic money priorities — then explains what to focus on first. Every number is computed
-          from your real accounts.
+          classic money priorities — then explains what to focus on first. Connect a bank or add a
+          holding and your review appears here automatically.
         </p>
-        <button onClick={run} className="btn-gold mx-auto mt-4 inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm">
-          <Sparkles size={15} /> Review my finances
+        <button onClick={() => window.dispatchEvent(new Event("open-add"))} className="btn-gold mx-auto mt-4 inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm">
+          <Sparkles size={15} /> Connect an account
         </button>
-        {error && (
-          <p className="mt-3 text-xs text-rose-400">
-            {error} {error.toLowerCase().includes("connect") && <Link href="/settings" className="underline">Go to Settings</Link>}
-          </p>
-        )}
+        {error && <p className="mt-3 text-xs text-rose-400">{error} <Link href="/settings" className="underline">Settings</Link></p>}
         <Disclaimer />
       </div>
     );
   }
-
-  if (busy && !data) return <div className="rounded-2xl glass p-6"><AiThinking /></div>;
 
   const { result, narration, model } = data!;
   const nextStep = result.steps.find((s) => s.status === "attention") ?? result.steps.find((s) => s.status === "in_progress");
@@ -118,13 +139,16 @@ export function AdvisorView() {
           <Stat label="Liabilities" value={money(result.totalLiabilities)} />
         </div>
         <div className="mt-3 flex flex-wrap items-center gap-2">
-          <button onClick={run} disabled={busy} className="inline-flex items-center gap-1.5 rounded-md border border-hairline px-2.5 py-1 text-[11px] text-ink-dim hover:bg-surface hover:text-ink disabled:opacity-50">
-            <RefreshCw size={12} className={busy ? "animate-spin" : ""} /> Refresh
-          </button>
+          {/* Refresh is admin-only — users get an auto, cached daily review. */}
+          {isAdmin && (
+            <button onClick={run} disabled={busy} className="inline-flex items-center gap-1.5 rounded-md border border-hairline px-2.5 py-1 text-[11px] text-ink-dim hover:bg-surface hover:text-ink disabled:opacity-50">
+              <RefreshCw size={12} className={busy ? "animate-spin" : ""} /> Refresh
+            </button>
+          )}
           <button onClick={() => window.dispatchEvent(new Event("open-chat"))} className="inline-flex items-center gap-1.5 rounded-md border border-hairline px-2.5 py-1 text-[11px] text-ink-dim hover:bg-surface hover:text-ink">
             <MessageCircle size={12} /> Ask a follow-up
           </button>
-          <span className="text-[10px] text-ink-faint">Data as of {fmtTime(result.generatedAt)}</span>
+          {data!.generatedAt && <span className="text-[10px] text-ink-faint">Reviewed {fmtTime(data!.generatedAt)}</span>}
         </div>
       </div>
 

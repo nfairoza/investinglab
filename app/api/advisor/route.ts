@@ -1,11 +1,38 @@
-import { NextResponse } from "next/server";
-import { getUserClient } from "@/lib/supabase-data";
+import { NextRequest, NextResponse } from "next/server";
+import { getUserClient, readAiCache, writeAiCache } from "@/lib/supabase-data";
 import { resolveApiKey } from "@/lib/ai/anthropic";
 import { geminiKey } from "@/lib/ai/gemini";
 import { routeText } from "@/lib/ai/router";
 import { computeAdvisor, type AdvisorResult } from "@/lib/advisor/engine";
 
 export const dynamic = "force-dynamic";
+
+const CACHE_KEY = "advisor";
+const DAY_MS = 24 * 60 * 60 * 1000;
+const MAX_RUNS_PER_DAY = 3;
+
+// Daytime guard: don't auto-refresh while people are asleep. Local server hours;
+// treat 7:00–22:00 as "awake hours".
+function isDaytime(d = new Date()): boolean {
+  const h = d.getHours();
+  return h >= 7 && h < 22;
+}
+
+// A signature of the inputs that materially change advice. If this changes vs
+// the cached run, a refresh is warranted (within the daily cap).
+function advisorSignature(r: AdvisorResult): string {
+  return [
+    Math.round(r.netWorth), Math.round(r.totalLiabilities), Math.round(r.liquidCash),
+    Math.round(r.avgMonthlyExpenses ?? 0),
+    r.surplus.available ? Math.round(r.surplus.surplus) : "na",
+    r.steps.map((s) => `${s.id}:${s.status}`).join(","),
+  ].join("|");
+}
+
+function sameDay(a: string | number | Date, b = new Date()): boolean {
+  const d = new Date(a);
+  return d.getFullYear() === b.getFullYear() && d.getMonth() === b.getMonth() && d.getDate() === b.getDate();
+}
 
 // Rukmani narrates ONLY the computed facts. She must not invent numbers, APRs,
 // percentages, rankings, or recommend specific securities/trades. If a step is
@@ -53,49 +80,89 @@ Return JSON exactly:
 }`;
 }
 
-// GET — computed advisor result ONLY (no AI tokens). Used by the Overview
-// compact insight card and any cheap polling. Never calls the AI provider.
+// Run the AI narration for a computed result (spends tokens). Returns narration
+// + model, or nulls on failure (computed cards still render).
+async function narrate(result: AdvisorResult): Promise<{ narration: any; model: string | null }> {
+  if (!resolveApiKey() && !geminiKey()) return { narration: null, model: null };
+  try {
+    const { text, model } = await routeText({ task: "chat-analysis", system: SYSTEM, user: buildPrompt(result), maxTokens: 1800 });
+    const cleaned = text.replace(/```json|```/g, "").trim();
+    const start = cleaned.indexOf("{"); const end = cleaned.lastIndexOf("}");
+    const narration = JSON.parse(start !== -1 && end !== -1 ? cleaned.slice(start, end + 1) : cleaned);
+    return { narration, model };
+  } catch {
+    return { narration: null, model: null };
+  }
+}
+
+// GET — the user-facing path. Returns the cached daily review WITHOUT spending
+// tokens, and AUTO-GENERATES the review when warranted so users never have to
+// click "review": (a) no cache yet, or (b) the inputs materially changed AND
+// it's daytime AND we're under the 3-runs/day cap. Always recomputes the exact
+// numbers (free); only the AI narration is rate-limited.
 export async function GET() {
   const ctx = await getUserClient();
   if (!ctx) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+
   const result = await computeAdvisor(ctx);
-  return NextResponse.json({ result, narration: null, model: null });
-}
+  const cached = await readAiCache(ctx, CACHE_KEY);
+  const c = cached?.data as any;
+  const sig = advisorSignature(result);
 
-export async function POST() {
-  const ctx = await getUserClient();
-  if (!ctx) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  // Reset the daily run counter when the calendar day rolls over.
+  const runsToday = c && c.lastRunAt && sameDay(c.lastRunAt) ? (c.runsToday ?? 0) : 0;
 
-  // 1) Deterministic compute — ALL numbers here, never from the AI.
-  const result = await computeAdvisor(ctx);
+  let narration = c?.narration ?? null;
+  let model = c?.model ?? null;
+  let generatedAt = cached?.generatedAt ?? null;
 
-  if (!result.hasAnyData) {
-    return NextResponse.json({
-      error: "no_data",
-      message: "Connect a bank or add holdings so Rukmani can review your finances.",
-      result,
-    }, { status: 400 });
-  }
+  const needsFirst = !c?.narration && result.hasAnyData;
+  const changed = c?.signature && c.signature !== sig;
+  const canAutoRun = needsFirst || (changed && isDaytime() && runsToday < MAX_RUNS_PER_DAY);
 
-  // 2) Optional AI narration. If no key or AI fails, return computed cards alone.
-  let narration: any = null;
-  let model: string | null = null;
-  if (resolveApiKey() || geminiKey()) {
-    try {
-      const { text, model: m } = await routeText({
-        task: "chat-analysis",
-        system: SYSTEM,
-        user: buildPrompt(result),
-        maxTokens: 1800,
-      });
-      const cleaned = text.replace(/```json|```/g, "").trim();
-      const start = cleaned.indexOf("{"); const end = cleaned.lastIndexOf("}");
-      narration = JSON.parse(start !== -1 && end !== -1 ? cleaned.slice(start, end + 1) : cleaned);
-      model = m;
-    } catch {
-      narration = null; // graceful: computed cards still render
+  if (canAutoRun && result.hasAnyData) {
+    const out = await narrate(result);
+    if (out.narration) {
+      narration = out.narration; model = out.model; generatedAt = new Date().toISOString();
+      await writeAiCache(ctx, CACHE_KEY, {
+        generatedAt,
+        data: { narration, model, signature: sig, lastRunAt: generatedAt, runsToday: runsToday + 1 },
+      }).catch(() => {});
     }
   }
 
-  return NextResponse.json({ result, narration, model });
+  return NextResponse.json({ result, narration, model, generatedAt, cached: !canAutoRun });
+}
+
+// POST — explicit refresh. Admin-only force ignores the cap; for everyone else
+// it respects the same daytime + 3/day cap as the auto path.
+export async function POST(req: NextRequest) {
+  const ctx = await getUserClient();
+  if (!ctx) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+
+  const result = await computeAdvisor(ctx);
+  if (!result.hasAnyData) {
+    return NextResponse.json({ error: "no_data", message: "Connect a bank or add holdings so Rukmani can review your finances.", result }, { status: 400 });
+  }
+
+  const cached = await readAiCache(ctx, CACHE_KEY);
+  const c = cached?.data as any;
+  const sig = advisorSignature(result);
+  const runsToday = c && c.lastRunAt && sameDay(c.lastRunAt) ? (c.runsToday ?? 0) : 0;
+  const force = req.nextUrl.searchParams.get("force") === "1" && ctx.isAdmin;
+
+  // Non-admins can't exceed the cap; if capped, return the cached review.
+  if (!force && runsToday >= MAX_RUNS_PER_DAY && c?.narration) {
+    return NextResponse.json({ result, narration: c.narration, model: c.model, generatedAt: cached!.generatedAt, cached: true, capped: true });
+  }
+
+  const out = await narrate(result);
+  const generatedAt = new Date().toISOString();
+  if (out.narration) {
+    await writeAiCache(ctx, CACHE_KEY, {
+      generatedAt,
+      data: { narration: out.narration, model: out.model, signature: sig, lastRunAt: generatedAt, runsToday: force ? runsToday : runsToday + 1 },
+    }).catch(() => {});
+  }
+  return NextResponse.json({ result, narration: out.narration, model: out.model, generatedAt, cached: false });
 }
