@@ -4,7 +4,8 @@ import { useMemo, useState } from "react";
 import useSWR from "swr";
 import Link from "next/link";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
-import { Landmark, ChevronDown, Receipt, PieChart as PieIcon, Scale, Sparkles, Scissors, ArrowRight, Eye, RefreshCw } from "lucide-react";
+import { Landmark, ChevronDown, Receipt, PieChart as PieIcon, Scale, Sparkles, Scissors, ArrowRight, Eye, RefreshCw, Repeat, PiggyBank } from "lucide-react";
+import { GradientStat } from "./dashboard-extras";
 
 interface Account { account_id: string; name: string; mask: string | null; type: string; subtype: string | null; current: number | null; available: number | null; currency: string }
 interface Item { itemId: string; institution: string; accounts: Account[]; error?: string }
@@ -12,6 +13,11 @@ interface Balances { items: Item[]; totalCash: number; configured?: boolean }
 interface Txn { id: string; date: string; amount: number; category: string; isTransfer: boolean; excluded: boolean }
 interface NetWorth { netWorth: number; totalAssets: number; totalLiabilities: number }
 interface Analysis { summary: string; cut: string[]; redirect: string[]; watch: string[] }
+interface AdvisorResp { result?: {
+  liquidCash: number; avgMonthlyExpenses: number | null;
+  surplus: { available: boolean; surplus: number; destination: string };
+  spending: { available: boolean; recurring: { merchant: string; amount: number; months: number }[] };
+} }
 
 const fetchJson = (u: string) => fetch(u).then((r) => r.json());
 const money = (n: number | null, c = "USD") => n == null ? "—" : new Intl.NumberFormat(undefined, { style: "currency", currency: c, maximumFractionDigits: 0 }).format(n);
@@ -21,6 +27,8 @@ export function MoneyDashboard() {
   const { data: bal, isLoading: balLoading, mutate: mutateBal } = useSWR<Balances>("/api/plaid/accounts", fetchJson, { revalidateOnFocus: false, keepPreviousData: true });
   const { data: txnData } = useSWR<{ transactions: Txn[]; configured?: boolean }>("/api/plaid/transactions?sync=0", fetchJson, { revalidateOnFocus: false, keepPreviousData: true });
   const { data: nw } = useSWR<NetWorth>("/api/networth", fetchJson, { revalidateOnFocus: false, keepPreviousData: true });
+  // Computed advisor (GET = no AI tokens): runway, surplus routing, recurring bills.
+  const { data: advisor } = useSWR<AdvisorResp>("/api/advisor", fetchJson, { revalidateOnFocus: false, keepPreviousData: true });
 
   const items = bal?.items ?? [];
   const hasAccounts = items.some((i) => i.accounts.length > 0);
@@ -39,6 +47,14 @@ export function MoneyDashboard() {
     const catList = [...cats.entries()].map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
     return { income, expense, net: income - expense, cats: catList };
   }, [txnData]);
+
+  // Savings rate this month + cash runway (months of expenses covered by cash).
+  const savingsRate = spend.income > 0 ? Math.round((spend.net / spend.income) * 100) : null;
+  const adv = advisor?.result;
+  const runway = adv?.avgMonthlyExpenses && adv.avgMonthlyExpenses > 0
+    ? adv.liquidCash / adv.avgMonthlyExpenses : null;
+  const recurring = adv?.spending?.recurring ?? [];
+  const recurringTotal = recurring.reduce((s, r) => s + r.amount, 0);
 
   if (bal?.configured === false) {
     return <Empty>Bank connections aren&apos;t available yet.</Empty>;
@@ -72,11 +88,15 @@ export function MoneyDashboard() {
         {items.map((it) => it.accounts.length > 0 && <InstitutionCard key={it.itemId} item={it} />)}
       </div>
 
-      {/* Income vs expenses */}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <Stat label="Income this month" value={money(spend.income)} tone="emerald" big />
-        <Stat label="Spent this month" value={money(spend.expense)} tone="rose" big />
-        <Stat label="Net" value={money(spend.net)} tone={spend.net >= 0 ? "emerald" : "rose"} big />
+      {/* This month at a glance — same gradient-stat language as the Invest dashboard */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <GradientStat label="Income" tone="emerald" value={money(spend.income)} sub="this month" />
+        <GradientStat label="Spent" tone="rose" value={money(spend.expense)} sub="this month" />
+        <GradientStat label="Saved" tone={spend.net >= 0 ? "emerald" : "rose"}
+          value={money(spend.net)} sub={savingsRate != null ? `${savingsRate}% savings rate` : "this month"} />
+        <GradientStat label="Cash runway" tone="violet"
+          value={runway != null ? `${runway.toFixed(1)} mo` : "—"}
+          sub={runway != null ? "of expenses in cash" : "link a bank"} />
       </div>
 
       {/* Spending by category */}
@@ -109,6 +129,36 @@ export function MoneyDashboard() {
           </div>
         </div>
       )}
+
+      {/* Surplus routing hint + recurring bills — what a person actually wants to know */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        {adv?.surplus?.available && adv.surplus.surplus > 0 && (
+          <div className="rounded-2xl glass p-5">
+            <div className="flex items-center gap-2 text-sm font-semibold text-ink"><PiggyBank size={16} className="text-brand-400" /> Spare cash this month</div>
+            <div className="mt-2 text-2xl font-bold text-ink">{money(adv.surplus.surplus)}</div>
+            <div className="mt-1 inline-flex items-center gap-1.5 rounded-lg border border-brand-500/30 bg-brand-500/10 px-3 py-1 text-sm text-brand-200">
+              <ArrowRight size={14} /> Best next move: {adv.surplus.destination}
+            </div>
+            <Link href="/advisor" className="mt-3 block text-xs text-brand-300 hover:underline">See your full plan →</Link>
+          </div>
+        )}
+        {recurring.length > 0 && (
+          <div className="rounded-2xl glass p-5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-sm font-semibold text-ink"><Repeat size={16} className="text-brand-400" /> Recurring bills</div>
+              <span className="text-xs text-ink-faint">~{money(recurringTotal)}/mo</span>
+            </div>
+            <ul className="mt-3 divide-y divide-hairline">
+              {recurring.slice(0, 5).map((r) => (
+                <li key={r.merchant} className="flex items-center justify-between py-1.5 text-sm">
+                  <span className="truncate text-ink-dim">{r.merchant}<span className="text-ink-faint"> · {r.months} mo</span></span>
+                  <span className="shrink-0 font-medium text-ink">{money(r.amount)}/mo</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
 
       {/* AI spending analysis */}
       <MoneyAnalysis />
