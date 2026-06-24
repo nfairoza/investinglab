@@ -3,14 +3,14 @@
 import { useState } from "react";
 import useSWR from "swr";
 import Link from "next/link";
-import { Search, Users } from "lucide-react";
+import { Search, Users, ExternalLink } from "lucide-react";
 
 interface Person {
   id: string; canonical_name: string; category: string; party: string | null; state: string | null;
   office: string | null; latest_disclosure_date: string | null;
   trade_count_30d: number; trade_count_90d: number; trade_count_1y: number; trade_count_all: number;
   in_current_feed?: boolean; empty_reason?: string | null; source_enabled?: boolean;
-  covered_by_source?: string | null; is_known_seed?: boolean;
+  covered_by_source?: string | null; is_known_seed?: boolean; oge_url?: string | null;
 }
 const fetchJson = (u: string) => fetch(u).then((r) => r.json());
 
@@ -76,6 +76,11 @@ export function PeopleDirectory() {
                     </div>
                     {p.office && <span className="block text-[11px] text-ink-faint">{p.office}{p.state ? ` · ${p.state}` : ""}</span>}
                     {!inFeed && p.empty_reason && <span className="mt-0.5 block max-w-md text-[11px] text-ink-faint">{p.empty_reason}</span>}
+                    {p.oge_url && (
+                      <a href={p.oge_url} target="_blank" rel="noreferrer" className="mt-0.5 inline-flex items-center gap-1 text-[11px] text-brand-400 hover:underline">
+                        OGE disclosure <ExternalLink size={10} />
+                      </a>
+                    )}
                   </td>
                   <td className="px-3 py-2 text-xs text-ink-dim">{p.category.replace("_", " ")}</td>
                   <td className="px-3 py-2 text-right text-ink-dim">{p.trade_count_30d}</td>

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getUserClient } from "@/lib/supabase-data";
 import { powerServiceClient, isSourceActive } from "@/lib/power-trades/config";
 import { matchKnownPeople, KNOWN_PEOPLE, type KnownPerson } from "@/lib/power-trades/known-people";
+import { matchExecutiveOfficials, ogeLinkFor, OGE_PUBLIC_SEARCH } from "@/lib/power-trades/executive";
 import type { PowerTradeSource } from "@/lib/power-trades/types";
 
 export const dynamic = "force-dynamic";
@@ -28,8 +29,12 @@ function emptyReason(p: KnownPerson): string {
 }
 
 // Shape a known person into the same row shape the directory renders, with zero
-// counts (NEVER fabricated) + an honest reason + source-coverage flags.
+// counts (NEVER fabricated) + an honest reason + source-coverage flags. For
+// executive officials we attach a verified OGE link (deep link if confirmed,
+// else OGE's public search) so users can read the real source.
 function synthRow(p: KnownPerson) {
+  const exec = p.category === "executive" ? matchExecutiveOfficials(p.canonicalName)[0] : undefined;
+  const ogeUrl = p.category === "executive" ? (exec ? ogeLinkFor(exec) : OGE_PUBLIC_SEARCH) : null;
   return {
     id: `known:${p.canonicalName.toLowerCase().replace(/\s+/g, "-")}`,
     canonical_name: p.canonicalName,
@@ -41,6 +46,7 @@ function synthRow(p: KnownPerson) {
     source_coverage: [] as PowerTradeSource[],
     covered_by_source: p.coveredBySource,
     source_enabled: isSourceActive(p.coveredBySource),
+    oge_url: ogeUrl,
     latest_disclosure_date: null,
     trade_count_30d: 0, trade_count_90d: 0, trade_count_1y: 0, trade_count_all: 0,
     in_current_feed: false,
@@ -72,7 +78,7 @@ export async function GET(req: NextRequest) {
   const { data, error } = await query;
   if (error) return NextResponse.json({ rows: [], error: error.message }, { status: 500 });
 
-  const dbRows = (data ?? []).map((r: any) => ({ ...r, in_current_feed: (r.trade_count_all ?? 0) > 0, is_known_seed: false }));
+  const dbRows = (data ?? []).map((r: any) => ({ ...r, oge_url: r.identifiers?.ogeUrl ?? null, in_current_feed: (r.trade_count_all ?? 0) > 0, is_known_seed: false }));
   const dbNames = new Set(dbRows.map((r: any) => String(r.canonical_name).toLowerCase()));
 
   // Seed people to merge in: search matches when querying, else the whole roster

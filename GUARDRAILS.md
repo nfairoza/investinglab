@@ -48,6 +48,7 @@ how the app is *built, operated, paid for, or secured* is **admin-only**.
 | Admin Portal (errors log, etc.) | Admin-only operational tooling. Server-gated: `app/admin/layout.tsx` redirects non-admins. | `app/admin/*`, `app/api/admin/errors` (getAdminClient), error capture via `lib/error-log.ts` |
 | Power Trades Source Diagnostics | Admin-only (provider, FMP key status, sync runs, unmapped names, raw payloads). | `/api/power-trades/diagnostics` + `/api/power-trades/sync` (getAdminClient); diagnostics tab gated by `useIsAdmin` |
 | Power Trades sync (incl. SEC Form 4) | Admin-only / scheduled. SEC Form 4 (EDGAR) is built but off until `POWER_TRADES_ENABLE_SEC_FORM4=true` + `SEC_USER_AGENT` (descriptive UA w/ contact, per SEC fair-access) are set. Unparseable filings are recorded `parse_status='failed'`, never fabricated. | `lib/power-trades/sec-form4.ts`, `lib/power-trades/config.ts` (registry), `/api/power-trades/sync` |
+| Power Trades executive manual entry | Admin-only. Executive/OGE is partial·curated: a curated officials directory (links to real OGE pages) + admin manual entry of 278-T transactions, each REQUIRING a valid `oge.gov` source URL. Family-member names + addresses are rejected (OGE privacy design). No fabricated records; no bulk PDF scrape. Off until `POWER_TRADES_ENABLE_EXECUTIVE=true`. | `lib/power-trades/executive.ts`, `/api/power-trades/manual-record` (getAdminClient), `components/power-trades/manual-executive-entry.tsx` |
 
 ## AI cost-control caching (applies to all users)
 

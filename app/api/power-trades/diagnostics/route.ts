@@ -36,6 +36,12 @@ export async function GET() {
   const { count: totalTrades } = await sb.from("power_trade_records").select("id", { count: "exact", head: true });
   const { count: totalPeople } = await sb.from("power_people").select("id", { count: "exact", head: true });
 
+  // Executive coverage: curated officials + records, and how many carry a source link.
+  const { count: execOfficials } = await sb.from("power_people").select("id", { count: "exact", head: true }).eq("category", "executive");
+  const { count: execRecords } = await sb.from("power_trade_records").select("id", { count: "exact", head: true }).eq("source", "executive_oge");
+  const { count: execNoSource } = await sb.from("power_trade_records").select("id", { count: "exact", head: true }).eq("source", "executive_oge").is("source_url", null);
+  const { data: execRun } = await sb.from("power_source_sync_runs").select("finished_at").eq("source", "executive_oge").order("started_at", { ascending: false }).limit(1).maybeSingle();
+
   return NextResponse.json({
     provider: process.env.POWER_TRADES_PROVIDER || "fmp",
     fmpKeyConfigured: Boolean(fmpKey()),
@@ -46,6 +52,13 @@ export async function GET() {
     missingTicker: noTicker.count ?? 0,
     parserFailures: rawFailed.count ?? 0,
     topUnmapped,
+    executive: {
+      officials: execOfficials ?? 0,
+      records: execRecords ?? 0,
+      recordsWithSource: (execRecords ?? 0) - (execNoSource ?? 0),
+      recordsWithoutSource: execNoSource ?? 0,
+      lastUpdate: execRun?.finished_at ?? null,
+    },
     sources: srcStatus ?? [],
     runs: runs ?? [],
   });

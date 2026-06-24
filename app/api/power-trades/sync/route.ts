@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAdminClient } from "@/lib/supabase-data";
 import { syncFmpCongress } from "@/lib/power-trades/sync";
 import { syncSecForm4 } from "@/lib/power-trades/sec-form4";
+import { syncExecutiveDirectory } from "@/lib/power-trades/executive";
 import { isSourceActive } from "@/lib/power-trades/config";
 
 export const dynamic = "force-dynamic";
@@ -28,6 +29,13 @@ export async function POST(req: NextRequest) {
       ? await syncSecForm4()
       : { ingested: 0, normalized: 0, errors: 0, note: "sec_form_4 disabled (set POWER_TRADES_ENABLE_SEC_FORM4=true + SEC_USER_AGENT)" };
     results.sec_form_4 = r;
+    ingested += r.ingested; normalized += r.normalized; errors += r.errors;
+  }
+  if (!which || which === "executive_oge") {
+    const r = isSourceActive("executive_oge")
+      ? await syncExecutiveDirectory()
+      : { ingested: 0, normalized: 0, errors: 0, note: "executive_oge disabled (set POWER_TRADES_ENABLE_EXECUTIVE=true)" };
+    results.executive_oge = r;
     ingested += r.ingested; normalized += r.normalized; errors += r.errors;
   }
 

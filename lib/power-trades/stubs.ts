@@ -32,8 +32,9 @@ export const quiverStub = notBuilt("quiver", "TODO: verify Quiver API terms + en
 // Phase 2 — BUILT. SEC Form 4 (EDGAR) corporate insiders now lives in
 // lib/power-trades/sec-form4.ts (syncSecForm4). No stub here anymore.
 
-// Phase 3. Executive/OGE disclosures are non-structured PDFs — partial coverage.
-export const executiveStub = notBuilt("executive_oge", "TODO: OGE disclosures are PDF; no clean API — partial only");
+// Phase 3 — BUILT (partial · curated). Executive / OGE disclosures now live in
+// lib/power-trades/executive.ts (syncExecutiveDirectory + addManualExecutiveRecord).
+// No bulk PDF parsing; curated directory + admin manual entry with verified links.
 
 // Phase 4. OpenFEC REQUIRES an api.data.gov key (FEC_API_KEY). Influence context
 // only — never render as trades. No individual street addresses.
@@ -42,4 +43,4 @@ export const fecStub = notBuilt("fec", "TODO: OpenFEC needs api.data.gov key; ve
 // Phase 4. OpenSecrets lobbying/donor/revolving-door — influence context only.
 export const openSecretsStub = notBuilt("opensecrets", "TODO: verify OpenSecrets endpoints; influence context only");
 
-export const stubAdapters: StubAdapter[] = [quiverStub, executiveStub, fecStub, openSecretsStub];
+export const stubAdapters: StubAdapter[] = [quiverStub, fecStub, openSecretsStub];

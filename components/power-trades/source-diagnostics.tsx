@@ -3,6 +3,7 @@
 import { useState } from "react";
 import useSWR from "swr";
 import { RefreshCw, ShieldCheck } from "lucide-react";
+import { ManualExecutiveEntry } from "./manual-executive-entry";
 
 interface Diag {
   provider: string; fmpKeyConfigured: boolean;
@@ -11,6 +12,7 @@ interface Diag {
   rowsBySource: Record<string, number>;
   chambers: Record<string, number>;
   missingTicker: number; parserFailures: number;
+  executive?: { officials: number; records: number; recordsWithSource: number; recordsWithoutSource: number; lastUpdate: string | null };
   topUnmapped: { name: string; count: number }[];
   sources: { source: string; last_sync_at: string | null; last_error: string | null }[];
   runs: { id: string; source: string; started_at: string; finished_at: string | null; rows_ingested: number; rows_normalized: number; errors: number; note: string | null }[];
@@ -53,6 +55,24 @@ export function SourceDiagnostics() {
         </button>
       </div>
       {syncMsg && <div className="rounded-lg border border-hairline bg-surface p-2.5 text-xs text-ink-dim">{syncMsg}</div>}
+
+      {data?.executive && (
+        <div className="rounded-2xl glass p-5">
+          <div className="text-sm font-semibold text-ink">Executive / OGE coverage <span className="rounded-full border border-hairline px-2 py-0.5 text-[10px] text-ink-faint">partial · curated</span></div>
+          <div className="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <Stat label="Officials curated" value={String(data.executive.officials)} />
+            <Stat label="Records" value={String(data.executive.records)} />
+            <Stat label="With source link" value={String(data.executive.recordsWithSource)} tone="ok" />
+            <Stat label="Missing source" value={String(data.executive.recordsWithoutSource)} tone={data.executive.recordsWithoutSource > 0 ? "bad" : undefined} />
+          </div>
+          <p className="mt-2 text-[11px] text-ink-faint">
+            Last update: {data.executive.lastUpdate ? new Date(data.executive.lastUpdate).toLocaleString() : "never"}.
+            Every executive record must carry a verified oge.gov source link; entries without one are rejected.
+          </p>
+        </div>
+      )}
+
+      <ManualExecutiveEntry onAdded={() => mutate()} />
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Stat label="Provider" value={data?.provider ?? "—"} />

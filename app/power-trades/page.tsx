@@ -26,6 +26,14 @@ export default function Page() {
         those people, trade data does not exist.
       </div>
 
+      {/* Executive-branch coverage disclosure — required wording. */}
+      <div className="rounded-lg border border-hairline bg-surface p-3 text-[13px] text-ink-dim">
+        Executive-branch coverage is partial and curated from public OGE disclosures (Form 278e /
+        278-T), which are released as documents, not a live feed. For complete records, use the{" "}
+        <a href="https://www.oge.gov/" target="_blank" rel="noreferrer" className="text-brand-400 hover:underline">OGE public disclosure search</a>.
+        Family-member and address details are intentionally excluded.
+      </div>
+
       <PowerTradesTabs />
 
       <p className="text-[11px] text-ink-faint">
