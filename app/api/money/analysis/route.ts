@@ -28,6 +28,7 @@ function buildPrompt(advisor: Awaited<ReturnType<typeof computeAdvisor>>, insigh
   const efStep = advisor.steps.find((x) => x.id === "emergency_fund");
   const billChanges = insights.billChanges.map((b) => `${b.merchant} ${b.direction === "up" ? "hiked" : "dropped"} from $${b.previousAmount} to $${b.newAmount} (${b.deltaPct > 0 ? "+" : ""}${b.deltaPct}%) after ${b.stableMonths} steady months`).join("; ");
   const anomalies = insights.categoryAnomalies.map((a) => a.isNew ? `${a.category} new this month $${a.thisMonth}` : `${a.category} $${a.thisMonth} vs usual ~$${a.typicalMonth} (${a.deltaPct > 0 ? "+" : ""}${a.deltaPct}%)`).join("; ");
+  const incomeChanges = insights.incomeChanges.map((c) => c.kind === "stopped" ? `${c.source} deposit (~$${c.previousAmount}) STOPPED, last seen ${c.lastSeen}` : `${c.source} income ${c.kind} from $${c.previousAmount} to $${c.newAmount} (${c.deltaPct > 0 ? "+" : ""}${c.deltaPct}%)`).join("; ");
   return `MONEY PICTURE (all numbers pre-computed):
 Cash on hand: ${advisor.liquidCash}. Avg monthly expenses: ${advisor.avgMonthlyExpenses ?? "unknown"}.
 This month — income ${s.monthIncome}, expenses ${s.monthExpenses}, net ${s.net}.
@@ -37,6 +38,7 @@ Recurring bills/subscriptions: ${s.recurring.map((r) => `${r.merchant} $${r.amou
 Notable changes vs last month: ${s.movers.map((m) => `${m.category} ${m.deltaPct > 0 ? "+" : ""}${m.deltaPct}%`).join(", ") || "none"}.
 Recurring-bill price changes (stable then stepped): ${billChanges || "none detected"}.
 Category anomalies (this month vs your own typical): ${anomalies || "none detected"}.
+Income changes (recurring deposits): ${incomeChanges || "none detected"}.
 Emergency fund: ${efStep?.mathSummary || efStep?.status || "unknown"}.
 Debt: ${debtStep?.computedFacts.map((f) => `${f.label} ${f.value}`).join(", ") || "no debt linked"}. ${debtStep?.mathSummary || ""}
 Surplus routing: ${advisor.surplus.available ? `${advisor.surplus.surplus} → ${advisor.surplus.destination} (${advisor.surplus.rationale})` : "unavailable"}.

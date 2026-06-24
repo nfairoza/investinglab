@@ -2,12 +2,13 @@
 
 import useSWR from "swr";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
-import { TrendingUp, TrendingDown, Sparkles, AlertTriangle, ArrowUpRight, ArrowDownRight, Repeat } from "lucide-react";
+import { TrendingUp, TrendingDown, Sparkles, AlertTriangle, ArrowUpRight, ArrowDownRight, Repeat, Wallet, CircleSlash } from "lucide-react";
 
 interface CategoryAnomaly { category: string; thisMonth: number; typicalMonth: number; deltaPct: number; deltaAmount: number; isNew: boolean; direction: "up" | "down" }
 interface BillChange { merchant: string; previousAmount: number; newAmount: number; deltaPct: number; deltaAmount: number; stableMonths: number; changedOn: string; direction: "up" | "down" }
 interface BillTrend { merchant: string; points: { month: string; amount: number }[]; latest: number; min: number; max: number; avg: number }
-interface Insights { available: boolean; monthsOfData: number; categoryAnomalies: CategoryAnomaly[]; billChanges: BillChange[]; billTrends: BillTrend[] }
+interface IncomeChange { source: string; kind: "raised" | "lowered" | "stopped"; previousAmount: number; newAmount: number; deltaPct: number; deltaAmount: number; stableMonths: number; lastSeen: string }
+interface Insights { available: boolean; monthsOfData: number; categoryAnomalies: CategoryAnomaly[]; billChanges: BillChange[]; billTrends: BillTrend[]; incomeChanges: IncomeChange[] }
 
 const fetchJson = (u: string) => fetch(u).then((r) => r.json());
 const money = (n: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n);
@@ -24,21 +25,23 @@ export function MoneyInsights({ compact = false }: { compact?: boolean }) {
   const { data } = useSWR<Insights>("/api/money/insights", fetchJson, { revalidateOnFocus: false });
   if (!data || !data.available) return null;
 
-  const { categoryAnomalies, billChanges, billTrends, monthsOfData } = data;
-  const hasAny = categoryAnomalies.length || billChanges.length || billTrends.length;
+  const { categoryAnomalies, billChanges, billTrends, incomeChanges = [], monthsOfData } = data;
+  const hasAny = categoryAnomalies.length || billChanges.length || billTrends.length || incomeChanges.length;
   if (!hasAny) return null;
 
-  // Compact: just the single most notable item (Overview).
+  // Compact: the single most notable item, income changes first (Overview).
   if (compact) {
+    const topIncome = incomeChanges[0];
     const topBill = billChanges[0];
     const topCat = categoryAnomalies[0];
-    if (!topBill && !topCat) return null;
+    if (!topIncome && !topBill && !topCat) return null;
     return (
       <div className="rounded-2xl glass p-5">
-        <div className="flex items-center gap-2 text-sm font-semibold text-ink"><Sparkles size={16} className="text-brand-400" /> Spotted in your spending</div>
+        <div className="flex items-center gap-2 text-sm font-semibold text-ink"><Sparkles size={16} className="text-brand-400" /> Spotted in your money</div>
         <div className="mt-3 space-y-2">
+          {topIncome && <IncomeChangeRow c={topIncome} />}
           {topBill && <BillChangeRow b={topBill} />}
-          {topCat && <AnomalyRow a={topCat} />}
+          {!topIncome && topCat && <AnomalyRow a={topCat} />}
         </div>
       </div>
     );
@@ -46,6 +49,16 @@ export function MoneyInsights({ compact = false }: { compact?: boolean }) {
 
   return (
     <div className="space-y-4">
+      {/* Income changes — paycheck/deposit raised, lowered, or stopped */}
+      {incomeChanges.length > 0 && (
+        <div className="rounded-2xl glass p-5">
+          <div className="flex items-center gap-2 text-sm font-semibold text-ink"><Wallet size={16} className="text-brand-400" /> Income changes</div>
+          <p className="mt-0.5 text-xs text-ink-faint">Regular deposits that changed amount or stopped.</p>
+          <div className="mt-3 space-y-2">
+            {incomeChanges.map((c) => <IncomeChangeRow key={c.source} c={c} />)}
+          </div>
+        </div>
+      )}
       {/* Recurring-bill price changes */}
       {billChanges.length > 0 && (
         <div className="rounded-2xl glass p-5">
@@ -103,6 +116,38 @@ function BillChangeRow({ b }: { b: BillChange }) {
         </div>
       </div>
       <span className={`shrink-0 text-sm font-semibold ${up ? "text-rose-400" : "text-emerald-400"}`}>{up ? "+" : "−"}{money2(Math.abs(b.deltaAmount))}/mo</span>
+    </button>
+  );
+}
+
+function IncomeChangeRow({ c }: { c: IncomeChange }) {
+  const stopped = c.kind === "stopped";
+  const up = c.kind === "raised";
+  const cls = stopped ? "border-amber-500/40 bg-amber-500/10 text-amber-300"
+    : up ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300"
+    : "border-rose-500/40 bg-rose-500/10 text-rose-300";
+  const label = stopped ? "stopped" : up ? `+${c.deltaPct}%` : `${c.deltaPct}%`;
+  return (
+    <button onClick={() => window.dispatchEvent(new CustomEvent("ask-rukmani", { detail: { prompt: stopped
+        ? `A regular deposit from ${c.source} (about ${money2(c.previousAmount)}) hasn't come in since ${c.lastSeen}. What might that mean and what should I check?`
+        : `My income from ${c.source} ${up ? "went up" : "went down"} from ${money2(c.previousAmount)} to ${money2(c.newAmount)} (${c.deltaPct > 0 ? "+" : ""}${c.deltaPct}%). How should I think about this change?` } }))}
+      className="flex w-full items-center justify-between gap-3 rounded-lg border border-hairline bg-surface p-3 text-left transition-colors hover:brightness-110">
+      <div className="min-w-0">
+        <div className="flex items-center gap-1.5 text-sm font-medium text-ink">
+          {c.source}
+          <span className={`inline-flex items-center gap-0.5 rounded-full border px-1.5 py-0.5 text-[10px] ${cls}`}>
+            {stopped ? <CircleSlash size={10} /> : up ? <ArrowUpRight size={10} /> : <ArrowDownRight size={10} />} {label}
+          </span>
+        </div>
+        <div className="text-[11px] text-ink-faint">
+          {stopped
+            ? <>was {money2(c.previousAmount)} · last seen {c.lastSeen}</>
+            : <>{money2(c.previousAmount)} → <span className="text-ink-dim">{money2(c.newAmount)}</span> · steady {c.stableMonths} mo before</>}
+        </div>
+      </div>
+      <span className={`shrink-0 text-sm font-semibold ${stopped ? "text-amber-400" : up ? "text-emerald-400" : "text-rose-400"}`}>
+        {stopped ? "paused" : `${up ? "+" : "−"}${money2(Math.abs(c.deltaAmount))}/mo`}
+      </span>
     </button>
   );
 }

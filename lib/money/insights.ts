@@ -49,12 +49,26 @@ export interface BillTrend {
   avg: number;
 }
 
+// A recurring income source (paycheck / regular deposit) that changed amount or
+// appears to have stopped.
+export interface IncomeChange {
+  source: string;                 // payer/merchant name
+  kind: "raised" | "lowered" | "stopped";
+  previousAmount: number;         // the steady deposit before the change
+  newAmount: number;              // latest deposit (0 if stopped)
+  deltaPct: number;
+  deltaAmount: number;
+  stableMonths: number;           // how many months it was steady before
+  lastSeen: string;               // YYYY-MM of the last deposit
+}
+
 export interface MoneyInsights {
   available: boolean;
   monthsOfData: number;
   categoryAnomalies: CategoryAnomaly[];
   billChanges: BillChange[];
   billTrends: BillTrend[];
+  incomeChanges: IncomeChange[];
 }
 
 const monthKey = (iso: string) => iso.slice(0, 7);
@@ -81,15 +95,17 @@ export async function computeMoneyInsights(ctx: { supabase: SupabaseClient }): P
     .select("amount, plaid_category, merchant, name, date, removed")
     .gte("date", since.toISOString().slice(0, 10));
 
-  const txns = ((data ?? []) as TxnRow[]).filter((t) => !t.removed && Number(t.amount) > 0); // expenses only
-  if (txns.length === 0) {
-    return { available: false, monthsOfData: 0, categoryAnomalies: [], billChanges: [], billTrends: [] };
+  const live = ((data ?? []) as TxnRow[]).filter((t) => !t.removed);
+  const txns = live.filter((t) => Number(t.amount) > 0);  // expenses
+  const income = live.filter((t) => Number(t.amount) < 0); // deposits (Plaid: negative = money in)
+  if (txns.length === 0 && income.length === 0) {
+    return { available: false, monthsOfData: 0, categoryAnomalies: [], billChanges: [], billTrends: [], incomeChanges: [] };
   }
 
   const months = prevMonthKeys(13);
   const thisMonth = months[months.length - 1];
   const priorMonths = months.slice(0, -1);
-  const observedMonths = new Set(txns.map((t) => monthKey(t.date)));
+  const observedMonths = new Set(live.map((t) => monthKey(t.date)));
   const monthsOfData = [...observedMonths].length;
 
   // ── 1. Category anomalies: this month vs trailing average of prior months ──
@@ -198,11 +214,75 @@ export async function computeMoneyInsights(ctx: { supabase: SupabaseClient }): P
   billChanges.sort((a, b) => Math.abs(b.deltaAmount) - Math.abs(a.deltaAmount));
   billTrends.sort((a, b) => (b.max - b.min) - (a.max - a.min));
 
+  // ── Income changes: recurring deposits that changed amount or stopped ──
+  // Group deposits by source (merchant/name), per month using the largest single
+  // deposit that month (a paycheck), so two paychecks don't look like a raise.
+  const incomeBySource = new Map<string, Map<string, number>>();
+  for (const t of income) {
+    const src = (t.merchant ?? t.name ?? "").trim();
+    if (!src) continue;
+    const mk = monthKey(t.date);
+    const amt = Math.abs(Number(t.amount));
+    const byM = incomeBySource.get(src) ?? new Map<string, number>();
+    byM.set(mk, Math.max(byM.get(mk) ?? 0, amt)); // largest deposit that month
+    incomeBySource.set(src, byM);
+  }
+
+  const incomeChanges: IncomeChange[] = [];
+  for (const [source, byMonth] of incomeBySource) {
+    const monthsHit = [...byMonth.keys()].sort();
+    // Recurring income = present in >= 3 distinct months and a meaningful sum
+    // (avoid flagging tiny one-off refunds).
+    if (monthsHit.length < 3) continue;
+    const seriesAmts = monthsHit.map((mk) => byMonth.get(mk)!);
+    const typical = seriesAmts.reduce((s, v) => s + v, 0) / seriesAmts.length;
+    if (typical < 200) continue; // ignore small incidental deposits
+
+    const lastSeen = monthsHit[monthsHit.length - 1];
+    const lastIdx = months.indexOf(lastSeen);
+    const thisIdx = months.length - 1;
+
+    // STOPPED: a steady source that hasn't deposited for the last 1-2 months.
+    if (lastIdx >= 0 && thisIdx - lastIdx >= 1) {
+      const priorAmt = byMonth.get(monthsHit[monthsHit.length - 1])!;
+      incomeChanges.push({
+        source, kind: "stopped", previousAmount: round(priorAmt), newAmount: 0,
+        deltaPct: -100, deltaAmount: round(-priorAmt), stableMonths: monthsHit.length, lastSeen,
+      });
+      continue;
+    }
+
+    // RAISED / LOWERED: steady for >= 2 months then a step in the latest deposit.
+    const prior = seriesAmts.slice(0, -1);
+    const latestAmt = seriesAmts[seriesAmts.length - 1];
+    if (prior.length >= 2) {
+      const priorAmt = prior[prior.length - 1];
+      let stable = 0;
+      for (let i = prior.length - 1; i >= 0; i--) {
+        if (Math.abs(prior[i] - priorAmt) <= Math.max(1, priorAmt * 0.02)) stable++;
+        else break;
+      }
+      const deltaAmount = latestAmt - priorAmt;
+      const deltaPct = priorAmt > 0 ? (deltaAmount / priorAmt) * 100 : 0;
+      // Real step: stable >= 2 months, change >= 3% AND >= $50.
+      if (stable >= 2 && Math.abs(deltaPct) >= 3 && Math.abs(deltaAmount) >= 50) {
+        incomeChanges.push({
+          source, kind: deltaAmount >= 0 ? "raised" : "lowered",
+          previousAmount: round(priorAmt), newAmount: round(latestAmt),
+          deltaPct: +deltaPct.toFixed(0), deltaAmount: round(deltaAmount), stableMonths: stable, lastSeen,
+        });
+      }
+    }
+  }
+  // Stopped income first (most actionable), then biggest swings.
+  incomeChanges.sort((a, b) => (a.kind === "stopped" ? -1 : 0) - (b.kind === "stopped" ? -1 : 0) || Math.abs(b.deltaAmount) - Math.abs(a.deltaAmount));
+
   return {
     available: true,
     monthsOfData,
     categoryAnomalies: categoryAnomalies.slice(0, 6),
     billChanges: billChanges.slice(0, 6),
     billTrends: billTrends.slice(0, 4),
+    incomeChanges: incomeChanges.slice(0, 4),
   };
 }
