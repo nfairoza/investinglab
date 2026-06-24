@@ -522,9 +522,11 @@ function HoldingRow({ v, total, sparks, onRemove, child }: {
       <td className="px-3 py-2 text-right text-ink-dim">{h.avgCost > 0 ? `$${h.avgCost.toFixed(2)}` : "—"}</td>
       <td className="px-3 py-2 text-right text-ink-dim">{weight != null ? `${weight.toFixed(1)}%` : "—"}</td>
       <td className="px-3 py-2 text-right">
-        {(h as any).readOnly
-          ? <span className="text-[10px] text-ink-faint">linked</span>
-          : <button onClick={() => onRemove(h.id)} className="text-xs text-ink-faint hover:text-rose-300">Remove</button>}
+        {/* Only MANUALLY-added holdings can be removed. Synced rows (E*TRADE)
+            and Plaid-linked rows are managed by the source, not removable here. */}
+        {(h.source ?? "manual") === "manual" && !(h as any).readOnly
+          ? <button onClick={() => onRemove(h.id)} className="text-xs text-ink-faint hover:text-rose-300">Remove</button>
+          : <span className="text-[10px] text-ink-faint">synced</span>}
       </td>
     </tr>
   );
