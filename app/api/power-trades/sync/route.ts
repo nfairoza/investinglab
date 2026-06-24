@@ -3,6 +3,7 @@ import { getAdminClient } from "@/lib/supabase-data";
 import { syncFmpCongress } from "@/lib/power-trades/sync";
 import { syncSecForm4 } from "@/lib/power-trades/sec-form4";
 import { syncExecutiveDirectory } from "@/lib/power-trades/executive";
+import { syncFec, syncOpenSecrets } from "@/lib/power-trades/influence";
 import { isSourceActive } from "@/lib/power-trades/config";
 
 export const dynamic = "force-dynamic";
@@ -36,6 +37,20 @@ export async function POST(req: NextRequest) {
       ? await syncExecutiveDirectory()
       : { ingested: 0, normalized: 0, errors: 0, note: "executive_oge disabled (set POWER_TRADES_ENABLE_EXECUTIVE=true)" };
     results.executive_oge = r;
+    ingested += r.ingested; normalized += r.normalized; errors += r.errors;
+  }
+  if (!which || which === "fec") {
+    const r = isSourceActive("fec")
+      ? await syncFec()
+      : { ingested: 0, normalized: 0, errors: 0, note: "fec disabled (set POWER_TRADES_ENABLE_FEC=true + FEC_API_KEY)" };
+    results.fec = r;
+    ingested += r.ingested; normalized += r.normalized; errors += r.errors;
+  }
+  if (!which || which === "opensecrets") {
+    const r = isSourceActive("opensecrets")
+      ? await syncOpenSecrets()
+      : { ingested: 0, normalized: 0, errors: 0, note: "opensecrets disabled (set POWER_TRADES_ENABLE_OPENSECRETS=true + OPENSECRETS_API_KEY)" };
+    results.opensecrets = r;
     ingested += r.ingested; normalized += r.normalized; errors += r.errors;
   }
 

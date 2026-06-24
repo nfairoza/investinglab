@@ -36,11 +36,8 @@ export const quiverStub = notBuilt("quiver", "TODO: verify Quiver API terms + en
 // lib/power-trades/executive.ts (syncExecutiveDirectory + addManualExecutiveRecord).
 // No bulk PDF parsing; curated directory + admin manual entry with verified links.
 
-// Phase 4. OpenFEC REQUIRES an api.data.gov key (FEC_API_KEY). Influence context
-// only — never render as trades. No individual street addresses.
-export const fecStub = notBuilt("fec", "TODO: OpenFEC needs api.data.gov key; verify endpoints; influence context only, no addresses");
+// Phase 4 — BUILT (influence context, NOT trades). FEC (OpenFEC) + OpenSecrets
+// now live in lib/power-trades/influence.ts (syncFec + syncOpenSecrets), writing
+// to power_influence_records (separate from trades). No stubs here anymore.
 
-// Phase 4. OpenSecrets lobbying/donor/revolving-door — influence context only.
-export const openSecretsStub = notBuilt("opensecrets", "TODO: verify OpenSecrets endpoints; influence context only");
-
-export const stubAdapters: StubAdapter[] = [quiverStub, fecStub, openSecretsStub];
+export const stubAdapters: StubAdapter[] = [quiverStub];

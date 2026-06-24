@@ -48,8 +48,13 @@ export function SourceCoverage() {
           real OGE documents, plus admin manual entry of 278-T transactions with required source links) — enable with
           <span className="text-ink-dim"> POWER_TRADES_ENABLE_EXECUTIVE</span>. It is not comprehensive; use the
           <a href="https://www.oge.gov/" target="_blank" rel="noreferrer" className="text-brand-400 hover:underline"> OGE public disclosure search</a> for full lookups.
-          FEC and OpenSecrets are planned; Quiver is an optional future add. FEC/OpenSecrets are
-          <span className="text-ink-dim"> influence context</span> — never rendered as trades.
+          FEC + OpenSecrets are built as <span className="text-ink-dim">influence context (not trades)</span> — campaign
+          finance and lobbying money, shown only in the Influence Context tab, never in the Alpha Feed and never scored.
+          Enable with <span className="text-ink-dim">POWER_TRADES_ENABLE_FEC</span> +
+          <span className="text-ink-dim"> FEC_API_KEY</span> and
+          <span className="text-ink-dim"> POWER_TRADES_ENABLE_OPENSECRETS</span> +
+          <span className="text-ink-dim"> OPENSECRETS_API_KEY</span>. No individual donor addresses; OpenSecrets is
+          CC BY-NC-SA and both sources are non-commercial. Quiver is an optional future add.
         </p>
       </div>
     </div>

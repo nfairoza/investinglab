@@ -75,6 +75,44 @@ export interface PowerPerson {
   tradeCountAll: number;
 }
 
+// ----- Influence context (FEC + OpenSecrets) — NOT trades ------------------
+// Campaign-finance + lobbying money/influence data. A SEPARATE type from
+// PowerTradeRecord: never rendered in the Alpha Feed, never styled as buy/sell,
+// never scored. Privacy: no individual street addresses. OpenSecrets requires
+// attribution (CC BY-NC-SA); both sources are non-commercial.
+
+export type InfluenceSource = "fec" | "opensecrets";
+
+export type InfluenceRecordType =
+  | "campaign_contribution"  // aggregated donor context (org/employer/state level)
+  | "committee_summary"      // a candidate's committee financial summary
+  | "lobbying"               // lobbying by issue/industry
+  | "pac"                    // PAC activity
+  | "revolving_door";        // revolving-door note
+
+export interface PowerInfluenceRecord {
+  id: string;
+  source: InfluenceSource;
+  recordType: InfluenceRecordType;
+  sourceUrl: string;                 // required — link to the FEC/OpenSecrets record
+  providerRecordId?: string | null;
+  dedupeKey: string;
+  personId?: string | null;          // FK → power_people this contextualizes
+  subjectName: string;               // candidate / committee / org / firm
+  counterpartyName?: string | null;  // donor org / client / registrant (NO addresses)
+  city?: string | null;
+  state?: string | null;
+  employer?: string | null;
+  occupation?: string | null;
+  amount?: number | null;
+  amountLabel?: string | null;
+  cycleOrYear?: string | null;
+  periodStart?: string | null;
+  periodEnd?: string | null;
+  issueOrIndustry?: string | null;
+  attribution?: string | null;       // e.g. "Source: OpenSecrets"
+}
+
 export interface PowerSourceStatus {
   source: PowerTradeSource;
   label: string;

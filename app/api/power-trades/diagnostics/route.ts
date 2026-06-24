@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAdminClient } from "@/lib/supabase-data";
-import { sourceRegistry, powerServiceClient, fmpKey } from "@/lib/power-trades/config";
+import { sourceRegistry, powerServiceClient, fmpKey, fecKey, openSecretsKey } from "@/lib/power-trades/config";
 
 export const dynamic = "force-dynamic";
 
@@ -42,6 +42,11 @@ export async function GET() {
   const { count: execNoSource } = await sb.from("power_trade_records").select("id", { count: "exact", head: true }).eq("source", "executive_oge").is("source_url", null);
   const { data: execRun } = await sb.from("power_source_sync_runs").select("finished_at").eq("source", "executive_oge").order("started_at", { ascending: false }).limit(1).maybeSingle();
 
+  // Influence context (FEC + OpenSecrets) — separate table, never trades.
+  const { count: fecRecords } = await sb.from("power_influence_records").select("id", { count: "exact", head: true }).eq("source", "fec");
+  const { count: osRecords } = await sb.from("power_influence_records").select("id", { count: "exact", head: true }).eq("source", "opensecrets");
+  const { count: influenceNoSource } = await sb.from("power_influence_records").select("id", { count: "exact", head: true }).is("source_url", null);
+
   return NextResponse.json({
     provider: process.env.POWER_TRADES_PROVIDER || "fmp",
     fmpKeyConfigured: Boolean(fmpKey()),
@@ -58,6 +63,13 @@ export async function GET() {
       recordsWithSource: (execRecords ?? 0) - (execNoSource ?? 0),
       recordsWithoutSource: execNoSource ?? 0,
       lastUpdate: execRun?.finished_at ?? null,
+    },
+    influence: {
+      fecKeyConfigured: Boolean(fecKey()),
+      openSecretsKeyConfigured: Boolean(openSecretsKey()),
+      fecRecords: fecRecords ?? 0,
+      openSecretsRecords: osRecords ?? 0,
+      recordsWithoutSource: influenceNoSource ?? 0,
     },
     sources: srcStatus ?? [],
     runs: runs ?? [],

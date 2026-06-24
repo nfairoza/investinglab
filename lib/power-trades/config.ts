@@ -28,8 +28,8 @@ export function sourceRegistry(): SourceDef[] {
     { source: "quiver",       label: "Quiver (politician/insider) — optional", built: false, enabled: flag("POWER_TRADES_ENABLE_QUIVER") },
     { source: "sec_form_4",   label: "SEC Form 4 (EDGAR) — corporate insiders", built: true,  enabled: flag("POWER_TRADES_ENABLE_SEC_FORM4") },
     { source: "executive_oge",label: "Executive / OGE disclosures (partial · curated)", built: true,  enabled: flag("POWER_TRADES_ENABLE_EXECUTIVE") },
-    { source: "fec",          label: "FEC (OpenFEC) — Influence Context",        built: false, enabled: flag("POWER_TRADES_ENABLE_FEC") },
-    { source: "opensecrets",  label: "OpenSecrets — Influence Context",          built: false, enabled: flag("POWER_TRADES_ENABLE_OPENSECRETS") },
+    { source: "fec",          label: "FEC (OpenFEC) — Influence Context (not trades)",        built: true,  enabled: flag("POWER_TRADES_ENABLE_FEC") },
+    { source: "opensecrets",  label: "OpenSecrets — Influence Context (not trades)",          built: true,  enabled: flag("POWER_TRADES_ENABLE_OPENSECRETS") },
   ];
 }
 
@@ -51,4 +51,13 @@ export function powerServiceClient(): SupabaseClient | null {
 // The FMP key used by the rest of the app (market + congress data).
 export function fmpKey(): string {
   return process.env.FMP_API_KEY || process.env.MARKET_DATA_API_KEY || "";
+}
+
+// Influence-context keys (server-side only; never NEXT_PUBLIC_).
+// FEC: api.data.gov key (also works for Congress.gov). OpenSecrets: free key.
+export function fecKey(): string {
+  return process.env.FEC_API_KEY || "";
+}
+export function openSecretsKey(): string {
+  return process.env.OPENSECRETS_API_KEY || "";
 }

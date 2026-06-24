@@ -13,6 +13,7 @@ interface Diag {
   chambers: Record<string, number>;
   missingTicker: number; parserFailures: number;
   executive?: { officials: number; records: number; recordsWithSource: number; recordsWithoutSource: number; lastUpdate: string | null };
+  influence?: { fecKeyConfigured: boolean; openSecretsKeyConfigured: boolean; fecRecords: number; openSecretsRecords: number; recordsWithoutSource: number };
   topUnmapped: { name: string; count: number }[];
   sources: { source: string; last_sync_at: string | null; last_error: string | null }[];
   runs: { id: string; source: string; started_at: string; finished_at: string | null; rows_ingested: number; rows_normalized: number; errors: number; note: string | null }[];
@@ -68,6 +69,23 @@ export function SourceDiagnostics() {
           <p className="mt-2 text-[11px] text-ink-faint">
             Last update: {data.executive.lastUpdate ? new Date(data.executive.lastUpdate).toLocaleString() : "never"}.
             Every executive record must carry a verified oge.gov source link; entries without one are rejected.
+          </p>
+        </div>
+      )}
+
+      {data?.influence && (
+        <div className="rounded-2xl glass p-5">
+          <div className="text-sm font-semibold text-ink">Influence Context coverage <span className="rounded-full border border-sky-500/30 px-2 py-0.5 text-[10px] text-sky-300">FEC + OpenSecrets · not trades</span></div>
+          <div className="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-5">
+            <Stat label="FEC key" value={data.influence.fecKeyConfigured ? "configured" : "missing"} tone={data.influence.fecKeyConfigured ? "ok" : "bad"} />
+            <Stat label="OpenSecrets key" value={data.influence.openSecretsKeyConfigured ? "configured" : "missing"} tone={data.influence.openSecretsKeyConfigured ? "ok" : "bad"} />
+            <Stat label="FEC records" value={String(data.influence.fecRecords)} />
+            <Stat label="OpenSecrets records" value={String(data.influence.openSecretsRecords)} />
+            <Stat label="Missing source link" value={String(data.influence.recordsWithoutSource)} tone={data.influence.recordsWithoutSource > 0 ? "bad" : undefined} />
+          </div>
+          <p className="mt-2 text-[11px] text-ink-faint">
+            Campaign-finance + lobbying context, stored separately from trades. Every record carries a source
+            link; no individual donor addresses. OpenSecrets is CC BY-NC-SA; both sources are non-commercial.
           </p>
         </div>
       )}
