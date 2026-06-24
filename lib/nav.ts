@@ -30,7 +30,7 @@ export const SECTIONS: NavSection[] = [
       { href: "/map", label: "Stock Map", icon: Grid3x3 },
       { href: "/predictions", label: "Predictions", icon: TrendingUp },
       { href: "/portfolio-doctor", label: "Portfolio Doctor", icon: Stethoscope },
-      { href: "/congress", label: "Congress", icon: Landmark },
+      { href: "/power-trades", label: "Power Trades", icon: Landmark },
       { href: "/watchlist", label: "Watchlist", icon: Eye },
       { href: "/journal", label: "Journal", icon: NotebookPen },
     ],
