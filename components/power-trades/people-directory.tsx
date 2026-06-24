@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import useSWR from "swr";
-import Link from "next/link";
 import { Search, Users, ExternalLink } from "lucide-react";
+import { PersonDetail } from "./person-detail";
 
 interface Person {
   id: string; canonical_name: string; category: string; party: string | null; state: string | null;
@@ -19,6 +19,7 @@ const CATS = ["all", "congress", "executive", "corporate_insider", "lobbyist", "
 export function PeopleDirectory() {
   const [q, setQ] = useState("");
   const [category, setCategory] = useState("all");
+  const [selected, setSelected] = useState<string | null>(null);
   const qs = new URLSearchParams({ q, category, limit: "150" }).toString();
   const { data, isLoading } = useSWR<{ rows: Person[] }>(`/api/power-trades/people?${qs}`, fetchJson, { revalidateOnFocus: false, keepPreviousData: true });
   const rows = data?.rows ?? [];
@@ -48,6 +49,8 @@ export function PeopleDirectory() {
         </div>
       )}
 
+      {selected && <PersonDetail name={selected} onClose={() => setSelected(null)} />}
+
       {rows.length > 0 && (
         <div className="overflow-x-auto rounded-2xl border border-hairline">
           <table className="w-full text-left text-sm">
@@ -69,7 +72,7 @@ export function PeopleDirectory() {
                 <tr key={p.id} className="align-top hover:bg-surface">
                   <td className="px-3 py-2">
                     <div className="flex items-center gap-1.5">
-                      <Link href={`/power-trades?person=${encodeURIComponent(p.canonical_name)}`} className="font-medium text-brand-300 hover:underline">{p.canonical_name}</Link>
+                      <button onClick={() => setSelected(selected === p.canonical_name ? null : p.canonical_name)} className="font-medium text-brand-300 hover:underline">{p.canonical_name}</button>
                       {inFeed
                         ? <span className="rounded-full border border-emerald-500/40 px-1.5 py-0.5 text-[9px] text-emerald-300">in feed</span>
                         : <span className="rounded-full border border-hairline px-1.5 py-0.5 text-[9px] text-ink-faint">no records</span>}
