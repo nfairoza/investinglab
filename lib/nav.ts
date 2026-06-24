@@ -41,8 +41,7 @@ export const SECTIONS: NavSection[] = [
     href: "/money",
     icon: Coins,
     items: [
-      { href: "/money", label: "Overview", icon: Coins },
-      { href: "/networth", label: "Net worth", icon: Scale },
+      { href: "/money", label: "Dashboard", icon: Coins },
       { href: "/accounts", label: "Accounts", icon: Landmark },
       { href: "/transactions", label: "Transactions", icon: Receipt },
       { href: "/spending", label: "Spending", icon: PieChart },

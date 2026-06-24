@@ -31,8 +31,13 @@ export function MoneyDashboard() {
   // Computed advisor (GET = no AI tokens): runway, surplus routing, recurring bills.
   const { data: advisor } = useSWR<AdvisorResp>("/api/advisor", fetchJson, { revalidateOnFocus: false, keepPreviousData: true });
 
-  const items = bal?.items ?? [];
-  const hasAccounts = items.some((i) => i.accounts.length > 0);
+  // Money shows BANKING accounts only (cash, credit, loans). Brokerage /
+  // investment accounts live in the Invest section. Filter each institution to
+  // its banking accounts and drop institutions left with none.
+  const items = (bal?.items ?? [])
+    .map((it) => ({ ...it, accounts: it.accounts.filter((a) => a.type === "depository" || a.type === "credit" || a.type === "loan") }))
+    .filter((it) => it.accounts.length > 0);
+  const hasAccounts = items.length > 0;
 
   const spend = useMemo(() => {
     const list = txnData?.transactions ?? [];

@@ -19,8 +19,12 @@ const TYPE_LABEL: Record<string, string> = {
 export function AccountsView() {
   const { data, isLoading, mutate } = useSWR<Balances>("/api/plaid/accounts", fetchJson, { revalidateOnFocus: false });
 
-  const items = data?.items ?? [];
-  const hasAny = items.some((i) => i.accounts.length > 0);
+  // Money → banking accounts only (cash, credit, loans). Brokerage/investment
+  // accounts are shown in the Invest section, not here.
+  const items = (data?.items ?? [])
+    .map((it) => ({ ...it, accounts: it.accounts.filter((a) => a.type === "depository" || a.type === "credit" || a.type === "loan") }))
+    .filter((it) => it.accounts.length > 0);
+  const hasAny = items.length > 0;
 
   // Net assets vs debts.
   let assets = 0, debts = 0;
