@@ -285,12 +285,19 @@ export function HoldingsManager() {
     return [...map.entries()].map(([symbol, rows]) => {
       const shares = rows.reduce((s, v) => s + v.h.shares, 0);
       const value = rows.reduce((s, v) => s + (v.value ?? 0), 0) || null;
-      const daysGain = rows.some((v) => v.daysGain != null) ? rows.reduce((s, v) => s + (v.daysGain ?? 0), 0) : null;
+      // Day's gain: prefer each row's $ figure; otherwise derive from its live
+      // % × value, so a group of Plaid rows (no $ snapshot) still totals.
+      const dayParts = rows.map((v) => v.daysGain ?? (v.daysGainPct != null && v.value != null ? (v.daysGainPct / 100) * v.value : null));
+      const daysGain = dayParts.some((d) => d != null) ? dayParts.reduce((s: number, d) => s + (d ?? 0), 0) : null;
       const totalGain = rows.some((v) => v.totalGain != null) ? rows.reduce((s, v) => s + (v.totalGain ?? 0), 0) : null;
       const cost = rows.reduce((s, v) => s + v.h.avgCost * v.h.shares, 0);
       const totalGainPct = totalGain != null && cost > 0 ? (totalGain / cost) * 100 : null;
+      // Weighted-average cost across accounts (skip rows with no cost basis).
+      const costShares = rows.filter((v) => v.h.avgCost > 0).reduce((s, v) => s + v.h.shares, 0);
+      const avgCost = costShares > 0 ? rows.filter((v) => v.h.avgCost > 0).reduce((s, v) => s + v.h.avgCost * v.h.shares, 0) / costShares : null;
+      const dayPct = daysGain != null && value != null && value - daysGain !== 0 ? (daysGain / (value - daysGain)) * 100 : null;
       const price = rows.find((v) => v.price != null)?.price ?? null;
-      return { symbol, rows, shares, value, daysGain, totalGain, totalGainPct, price };
+      return { symbol, rows, shares, value, daysGain, dayPct, totalGain, totalGainPct, avgCost, price };
     });
   }, [sortedValued]);
 
@@ -426,14 +433,14 @@ export function HoldingsManager() {
                         </td>
                         <td className="px-3 py-2 text-right text-ink-dim">{g.price != null ? `$${g.price.toFixed(2)}` : "—"}</td>
                         <td className={`px-3 py-2 text-right ${g.daysGain == null ? "text-ink-faint" : g.daysGain >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
-                          {g.daysGain == null ? "—" : `${g.daysGain >= 0 ? "▲" : "▼"} $${Math.abs(g.daysGain).toFixed(0)}`}
+                          {g.daysGain == null ? "—" : `${g.daysGain >= 0 ? "▲" : "▼"} $${Math.abs(g.daysGain).toFixed(0)}${g.dayPct != null ? ` (${Math.abs(g.dayPct).toFixed(2)}%)` : ""}`}
                         </td>
                         <td className="px-3 py-2 text-right font-medium text-ink">{g.value != null ? `$${g.value.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : "—"}</td>
                         <td className={`px-3 py-2 text-right ${g.totalGain == null ? "text-ink-faint" : tUp ? "text-emerald-400" : "text-rose-400"}`}>
                           {g.totalGain == null ? "—" : `${tUp ? "▲" : "▼"} $${Math.abs(g.totalGain).toFixed(0)}${g.totalGainPct != null ? ` (${Math.abs(g.totalGainPct).toFixed(1)}%)` : ""}`}
                         </td>
                         <td className="px-3 py-2 text-right text-ink-dim">{g.shares}</td>
-                        <td className="px-3 py-2 text-right text-ink-faint">—</td>
+                        <td className="px-3 py-2 text-right text-ink-dim">{g.avgCost != null ? `$${g.avgCost.toFixed(2)}` : "—"}</td>
                         <td className="px-3 py-2 text-right text-ink-dim">{weight != null ? `${weight.toFixed(1)}%` : "—"}</td>
                         <td className="px-3 py-2 text-right">
                           <span className="inline-flex items-center justify-end text-ink-faint" title={open ? "Hide accounts" : "Show accounts"}>
