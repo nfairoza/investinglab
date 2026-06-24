@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import Link from "next/link";
 import useSWR from "swr";
 import { ArrowUp, ArrowDown, RefreshCw, Plus, ChevronDown } from "lucide-react";
@@ -45,10 +45,15 @@ async function fetchSparks(symbols: string[]): Promise<Record<string, { v: numbe
   return Object.fromEntries(entries);
 }
 
+interface PlaidHolding { symbol: string; name: string | null; quantity: number; price: number | null; value: number | null; costBasis: number | null; currency: string; institution: string }
+
 export function HoldingsManager() {
-  const { data: allHoldings = [], mutate } = useSWR<Holding[]>("/api/holdings", fetchJson, {
+  const { data: dbHoldings = [], mutate } = useSWR<Holding[]>("/api/holdings", fetchJson, {
     revalidateOnFocus: true,
   });
+  // Line-by-line holdings from Plaid-linked brokerages (Robinhood, Fidelity,
+  // etc.), merged into the same unified table, tagged by institution.
+  const { data: plaidInv } = useSWR<{ holdings: PlaidHolding[] }>("/api/plaid/investments", fetchJson, { revalidateOnFocus: false });
 
   const [symbol, setSymbol] = useState("");
   const [shares, setShares] = useState("");
@@ -56,10 +61,27 @@ export function HoldingsManager() {
   const [note, setNote] = useState("");
   const [syncingEtrade, setSyncingEtrade] = useState(false);
   const [syncMsg, setSyncMsg] = useState<string | null>(null);
-  const [sourceFilter, setSourceFilter] = useState<"all" | "manual" | "etrade">("all");
+  const [sourceFilter, setSourceFilter] = useState<string>("all");
   // Manual entry is secondary (most holdings come from E*TRADE/Plaid sync), so
   // the form is collapsed behind a toggle rather than dominating the top.
   const [showAdd, setShowAdd] = useState(false);
+
+  // Merge DB holdings (manual + E*TRADE) with Plaid brokerage holdings into one
+  // unified list. Plaid rows are read-only and carry their own price/value.
+  const allHoldings: Holding[] = useMemo(() => {
+    const plaidRows: Holding[] = (plaidInv?.holdings ?? [])
+      .filter((p) => p.symbol && p.symbol !== "—")
+      .map((p) => ({
+        id: `plaid:${p.institution}:${p.symbol}`,
+        symbol: String(p.symbol).toUpperCase(),
+        shares: Number(p.quantity) || 0,
+        avgCost: p.costBasis != null && p.quantity ? Number(p.costBasis) / Number(p.quantity) : 0,
+        source: p.institution, // institution name acts as the source/account tag
+        marketValue: p.value ?? undefined,
+        readOnly: true,
+      }) as unknown as Holding);
+    return [...dbHoldings, ...plaidRows];
+  }, [dbHoldings, plaidInv]);
 
   // Which sources actually exist in the data (for showing only relevant chips).
   const presentSources = Array.from(new Set(allHoldings.map((h) => h.source ?? "manual")));
@@ -264,8 +286,8 @@ export function HoldingsManager() {
               {/* Source filter — only shown when there's more than one source */}
               {presentSources.length > 1 && (
                 <div className="flex items-center gap-1 rounded-lg border border-hairline bg-surface p-0.5">
-                  {(["all", ...presentSources] as const).map((src) => {
-                    const label = src === "all" ? "All" : src === "etrade" ? "E*TRADE" : "Manual";
+                  {["all", ...presentSources].map((src) => {
+                    const label = src === "all" ? "All" : src === "etrade" ? "E*TRADE" : src === "manual" ? "Manual" : src;
                     const active = sourceFilter === src;
                     return (
                       <button
@@ -317,6 +339,7 @@ export function HoldingsManager() {
                       <td className="px-3 py-2 font-medium">
                         <Link href={`/holdings/${h.symbol}`} className="text-brand-400 hover:underline">{h.symbol}</Link>
                         {h.source === "etrade" && <span className="ml-1 text-[10px] text-ink-faint">E*T</span>}
+                        {(h as any).readOnly && h.source && <span className="ml-1 rounded bg-surface-raised px-1 text-[9px] text-ink-faint">{h.source}</span>}
                         {h.assetType === "crypto" && <span className="ml-1 rounded bg-lime-500/15 px-1 text-[9px] text-lime-300">CRYPTO</span>}
                       </td>
                       <td className="px-3 py-2">
@@ -347,7 +370,9 @@ export function HoldingsManager() {
                       {/* Weight */}
                       <td className="px-3 py-2 text-right text-ink-dim">{weight != null ? `${weight.toFixed(1)}%` : "—"}</td>
                       <td className="px-3 py-2 text-right">
-                        <button onClick={() => removeHolding(h.id)} className="text-xs text-ink-faint hover:text-rose-300">Remove</button>
+                        {(h as any).readOnly
+                          ? <span className="text-[10px] text-ink-faint">linked</span>
+                          : <button onClick={() => removeHolding(h.id)} className="text-xs text-ink-faint hover:text-rose-300">Remove</button>}
                       </td>
                     </tr>
                   );
