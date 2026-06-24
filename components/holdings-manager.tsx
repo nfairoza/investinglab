@@ -45,20 +45,23 @@ async function fetchSparks(symbols: string[]): Promise<Record<string, { v: numbe
   return Object.fromEntries(entries);
 }
 
-interface PlaidHolding { symbol: string; name: string | null; quantity: number; price: number | null; value: number | null; costBasis: number | null; currency: string; institution: string; secType?: string | null; isCashEquivalent?: boolean }
+interface PlaidHolding { symbol: string; name: string | null; hasRealTicker?: boolean; quantity: number; price: number | null; value: number | null; costBasis: number | null; currency: string; institution: string; secType?: string | null; isCashEquivalent?: boolean }
 
-type HoldingKind = "security" | "crypto" | "other";
+// security  = priceable/researchable ticker → main equities table
+// crypto    = its own card
+// fund      = mutual fund / CUSIP-only holding with NO live ticker → "Funds & other" card
+// other     = cash equivalents, options/derivatives, bonds → excluded from totals
+type HoldingKind = "security" | "crypto" | "fund" | "other";
 
-// Classify a holding into security (stock/ETF/fund — the main table), crypto
-// (its own section), or other (cash equivalents, options/derivatives, bonds —
-// not investable equities, kept out of the equities table & its totals).
-function classifyHolding(opts: { symbol: string; secType?: string | null; isCashEquivalent?: boolean; assetType?: string }): HoldingKind {
+function classifyHolding(opts: { symbol: string; secType?: string | null; isCashEquivalent?: boolean; assetType?: string; hasRealTicker?: boolean }): HoldingKind {
   if (opts.assetType === "crypto") return "crypto";
   const t = (opts.secType ?? "").toLowerCase();
   if (t.includes("crypto")) return "crypto";
   if (opts.isCashEquivalent || t === "cash") return "other";
   if (t.includes("derivative") || t.includes("option") || t.includes("fixed income") || t.includes("bond")) return "other";
-  // equity, etf, mutual fund, "other" with a real ticker → treat as a security.
+  // Plaid holdings flagged without a real ticker (mutual funds, CUSIP-only) →
+  // can't be priced/researched by ticker, so keep them out of the equities table.
+  if (opts.hasRealTicker === false) return "fund";
   return "security";
 }
 
@@ -92,17 +95,22 @@ export function HoldingsManager() {
     const plaidRows: Holding[] = (plaidInv?.holdings ?? [])
       .filter((p) => p.symbol && p.symbol !== "—")
       .filter((p) => !(haveEtrade && isEtradeInstitution(p.institution))) // E*TRADE wins
-      .map((p) => ({
-        id: `plaid:${p.institution}:${p.symbol}`,
-        symbol: String(p.symbol).toUpperCase(),
-        shares: Number(p.quantity) || 0,
-        avgCost: p.costBasis != null && p.quantity ? Number(p.costBasis) / Number(p.quantity) : 0,
-        source: p.institution, // institution name acts as the source/account tag
-        marketValue: p.value ?? undefined,
-        assetType: classifyHolding({ symbol: p.symbol, secType: p.secType, isCashEquivalent: p.isCashEquivalent }) === "crypto" ? "crypto" : undefined,
-        kind: classifyHolding({ symbol: p.symbol, secType: p.secType, isCashEquivalent: p.isCashEquivalent }),
-        readOnly: true,
-      }) as unknown as Holding);
+      .map((p) => {
+        const kind = classifyHolding({ symbol: p.symbol, secType: p.secType, isCashEquivalent: p.isCashEquivalent, hasRealTicker: p.hasRealTicker });
+        return {
+          id: `plaid:${p.institution}:${p.symbol}`,
+          symbol: String(p.symbol).toUpperCase(),
+          shares: Number(p.quantity) || 0,
+          avgCost: p.costBasis != null && p.quantity ? Number(p.costBasis) / Number(p.quantity) : 0,
+          source: p.institution, // institution name acts as the source/account tag
+          marketValue: p.value ?? undefined,
+          assetType: kind === "crypto" ? "crypto" : undefined,
+          kind,
+          displayName: p.name ?? undefined, // fund full name (no ticker)
+          plaidPrice: p.price ?? undefined,  // broker-provided price for fund rows
+          readOnly: true,
+        } as unknown as Holding;
+      });
     const dbRows: Holding[] = dbHoldings.map((h) => ({ ...h, kind: classifyHolding({ symbol: h.symbol, assetType: h.assetType }) }) as unknown as Holding);
     return [...dbRows, ...plaidRows];
   }, [dbHoldings, plaidInv]);
@@ -113,6 +121,7 @@ export function HoldingsManager() {
   const kindOf = (h: Holding) => (h as any).kind as HoldingKind | undefined;
   const securities = allHoldings.filter((h) => (kindOf(h) ?? "security") === "security");
   const cryptoHoldings = allHoldings.filter((h) => kindOf(h) === "crypto");
+  const fundHoldings = allHoldings.filter((h) => kindOf(h) === "fund");
 
   // Which sources actually exist among securities (for the relevant filter chips).
   const presentSources = Array.from(new Set(securities.map((h) => h.source ?? "manual")));
@@ -449,6 +458,10 @@ export function HoldingsManager() {
       {/* Crypto — separate card; not mixed into the equities table or totals. */}
       {cryptoHoldings.length > 0 && <CryptoCard rows={cryptoHoldings} quotes={quotes} />}
 
+      {/* Funds & other holdings with no live ticker (mutual funds, CUSIP-only).
+          Priced from the broker's value, not researchable by ticker. */}
+      {fundHoldings.length > 0 && <FundsCard rows={fundHoldings} />}
+
       {/* Manual add — secondary, collapsed by default, lives at the bottom.
           Anything manual is not the focus; sync is the primary path. */}
       <div className="rounded-xl border border-hairline bg-surface">
@@ -564,6 +577,38 @@ function CryptoCard({ rows, quotes }: { rows: Holding[]; quotes: Record<string, 
           </li>
         ))}
       </ul>
+    </div>
+  );
+}
+
+// Funds & other holdings without a live ticker (mutual funds, CUSIP-only).
+// Valued from the broker's reported value; no price/research by ticker.
+function FundsCard({ rows }: { rows: Holding[] }) {
+  const total = rows.reduce((s, h) => s + (h.marketValue ?? 0), 0);
+  return (
+    <div className="rounded-xl border border-hairline bg-surface">
+      <div className="flex items-center justify-between px-4 py-2.5">
+        <span className="flex items-center gap-2 text-sm font-medium text-ink">
+          <span className="rounded bg-surface-raised px-1.5 py-0.5 text-[10px] font-semibold text-ink-dim">FUNDS</span>
+          {rows.length} holding{rows.length !== 1 ? "s" : ""} without a live ticker
+        </span>
+        <span className="text-sm font-semibold text-ink">{total > 0 ? `$${total.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : "—"}</span>
+      </div>
+      <ul className="divide-y divide-hairline border-t border-hairline">
+        {rows.map((h) => (
+          <li key={h.id} className="flex items-center justify-between px-4 py-2.5 text-sm">
+            <span className="min-w-0">
+              <span className="block truncate text-ink">{(h as any).displayName ?? h.symbol}</span>
+              <span className="block text-[11px] text-ink-faint">{h.shares} units{h.source && h.source !== "manual" && h.source !== "etrade" ? ` · ${h.source}` : ""}</span>
+            </span>
+            <span className="shrink-0 text-right">
+              <span className="block font-medium text-ink">{h.marketValue != null ? `$${h.marketValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : "—"}</span>
+              {(h as any).plaidPrice != null && <span className="block text-[11px] text-ink-faint">${Number((h as any).plaidPrice).toLocaleString(undefined, { maximumFractionDigits: 2 })}/unit</span>}
+            </span>
+          </li>
+        ))}
+      </ul>
+      <p className="px-4 pb-3 pt-1 text-[11px] text-ink-faint">Mutual funds and CUSIP-only holdings don&apos;t have a tradeable ticker, so they aren&apos;t priced live or researchable here.</p>
     </div>
   );
 }

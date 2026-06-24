@@ -25,9 +25,14 @@ export async function GET() {
       const securities = new Map((resp.data.securities ?? []).map((s) => [s.security_id, s]));
       for (const h of resp.data.holdings ?? []) {
         const sec = securities.get(h.security_id);
+        const ticker = sec?.ticker_symbol?.trim() || null;
+        // A "real" ticker is a short alphanumeric symbol we can price/research.
+        // CUSIPs (9-char) and fund names are NOT tradeable tickers.
+        const hasRealTicker = !!ticker && /^[A-Z][A-Z.\-]{0,5}$/.test(ticker.toUpperCase());
         holdings.push({
-          symbol: sec?.ticker_symbol ?? sec?.name ?? "—",
+          symbol: hasRealTicker ? ticker!.toUpperCase() : (sec?.name ?? "—"),
           name: sec?.name ?? null,
+          hasRealTicker,
           quantity: h.quantity,
           price: h.institution_price ?? sec?.close_price ?? null,
           value: h.institution_value ?? null,
