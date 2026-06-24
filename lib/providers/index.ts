@@ -1,5 +1,5 @@
-import { MarketDataProvider, CongressTradesProvider } from "./types";
-import { fmpProvider } from "./fmp";
+import { MarketDataProvider, CongressTradesProvider, DataResult, ScreenerRow, ScreenerFilters, unavailable } from "./types";
+import { fmpProvider, screenStocks as fmpScreenStocks } from "./fmp";
 import { demoProvider } from "./demo";
 import { congressApiProvider } from "./congress-api";
 import { congressDemoProvider } from "./congress-demo";
@@ -40,6 +40,13 @@ function hasCongressKey(): boolean {
 }
 function congress(): CongressTradesProvider {
   return hasCongressKey() ? congressApiProvider : congressDemoProvider;
+}
+
+// Screener needs a real market key (the demo provider has no universe to scan).
+// Without a key we return an honest "unavailable" rather than fake rows.
+export function screenStocks(filters: ScreenerFilters): Promise<DataResult<ScreenerRow[]>> {
+  if (!hasMarketKey()) return Promise.resolve(unavailable("auto", "MARKET_DATA_API_KEY missing — add a market-data key in Connectors to use the screener"));
+  return fmpScreenStocks(filters);
 }
 
 export const congressData: CongressTradesProvider = {

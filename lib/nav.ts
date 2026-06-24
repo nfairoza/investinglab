@@ -1,7 +1,7 @@
 import {
   LayoutDashboard, Wallet, Eye, NotebookPen, Search, Grid3x3, Trophy,
   Stethoscope, TrendingUp, Landmark, Scale, Receipt, PieChart, Sparkles, Bell,
-  Plug, Gauge, Coins, HeartPulse, ShieldAlert, AlertTriangle, type LucideIcon,
+  Plug, Gauge, Coins, HeartPulse, ShieldAlert, AlertTriangle, Filter, type LucideIcon,
 } from "lucide-react";
 
 // =============================================================================
@@ -28,6 +28,7 @@ export const SECTIONS: NavSection[] = [
       { href: "/research", label: "Research", icon: Search },
       { href: "/rankings", label: "Rankings", icon: Trophy },
       { href: "/map", label: "Stock Map", icon: Grid3x3 },
+      { href: "/screeners", label: "Screeners", icon: Filter },
       { href: "/predictions", label: "Predictions", icon: TrendingUp },
       { href: "/portfolio-doctor", label: "Portfolio Doctor", icon: Stethoscope },
       { href: "/power-trades", label: "Power Trades", icon: Landmark },

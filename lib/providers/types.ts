@@ -148,6 +148,46 @@ export interface DcfValue {
   upDownPct: number | null; // how far above/below intrinsic value current price is
 }
 
+// ----- Stock screener (Robinhood-style discovery) --------------------------
+// One result row from the screener. Mirrors the fields FMP's company-screener
+// returns; nulls where a field is missing so the UI degrades gracefully.
+
+export interface ScreenerRow {
+  symbol: string;
+  name: string | null;
+  price: number | null;
+  changePct: number | null; // day change %, when available
+  marketCap: number | null;
+  volume: number | null;
+  beta: number | null;
+  sector: string | null;
+  industry: string | null;
+  exchange: string | null;
+  country: string | null;
+  dividend: number | null;
+}
+
+// Filters the screener accepts. All optional → an empty object is a broad scan.
+export interface ScreenerFilters {
+  marketCapMoreThan?: number;
+  marketCapLowerThan?: number;
+  priceMoreThan?: number;
+  priceLowerThan?: number;
+  betaMoreThan?: number;
+  betaLowerThan?: number;
+  volumeMoreThan?: number;
+  volumeLowerThan?: number;
+  dividendMoreThan?: number;
+  sector?: string;
+  industry?: string;
+  exchange?: string;
+  country?: string;
+  isEtf?: boolean;
+  isFund?: boolean;
+  isActivelyTrading?: boolean;
+  limit?: number;
+}
+
 // ----- The interface every data provider implements ------------------------
 // Add a new provider by writing one file that implements this, then point
 // lib/providers/index.ts at it. Nothing else in the app changes.

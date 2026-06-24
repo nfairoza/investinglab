@@ -11,6 +11,8 @@ import {
   InsiderTrade,
   DcfValue,
   PriceHistory,
+  ScreenerRow,
+  ScreenerFilters,
   live,
   unavailable,
 } from "./types";
@@ -450,3 +452,64 @@ export const fmpProvider: MarketDataProvider = {
     }
   },
 };
+
+// ── Stock screener ───────────────────────────────────────────────────────────
+// Uses FMP's STABLE company-screener endpoint (verified against FMP docs). Maps
+// our ScreenerFilters to FMP's *MoreThan/*LowerThan query params. Reuses the
+// same cache + dedup + retry as every other call. Returns a DataResult so the UI
+// gets the same live/unavailable honesty contract.
+export async function screenStocks(filters: ScreenerFilters): Promise<DataResult<ScreenerRow[]>> {
+  const KEY = getKey();
+  if (!KEY) return unavailable(NAME, "MARKET_DATA_API_KEY missing");
+
+  const params = new URLSearchParams();
+  const setNum = (k: string, v: number | undefined) => { if (v != null && Number.isFinite(v)) params.set(k, String(v)); };
+  setNum("marketCapMoreThan", filters.marketCapMoreThan);
+  setNum("marketCapLowerThan", filters.marketCapLowerThan);
+  setNum("priceMoreThan", filters.priceMoreThan);
+  setNum("priceLowerThan", filters.priceLowerThan);
+  setNum("betaMoreThan", filters.betaMoreThan);
+  setNum("betaLowerThan", filters.betaLowerThan);
+  setNum("volumeMoreThan", filters.volumeMoreThan);
+  setNum("volumeLowerThan", filters.volumeLowerThan);
+  setNum("dividendMoreThan", filters.dividendMoreThan);
+  if (filters.sector) params.set("sector", filters.sector);
+  if (filters.industry) params.set("industry", filters.industry);
+  if (filters.exchange) params.set("exchange", filters.exchange);
+  if (filters.country) params.set("country", filters.country);
+  if (filters.isEtf != null) params.set("isEtf", String(filters.isEtf));
+  if (filters.isFund != null) params.set("isFund", String(filters.isFund));
+  if (filters.isActivelyTrading != null) params.set("isActivelyTrading", String(filters.isActivelyTrading));
+  params.set("limit", String(Math.min(Math.max(filters.limit ?? 100, 1), 500)));
+  params.set("apikey", KEY);
+
+  try {
+    const arr = (await getJson(`${BASE}/company-screener?${params.toString()}`)) as any[];
+    if (!Array.isArray(arr)) return unavailable(NAME, "Screener returned no data");
+    const rows: ScreenerRow[] = arr.map((r) => ({
+      symbol: String(r.symbol ?? ""),
+      name: r.companyName ?? r.name ?? null,
+      price: num(r.price),
+      changePct: num(r.changePercentage ?? r.changesPercentage),
+      marketCap: num(r.marketCap),
+      volume: num(r.volume),
+      beta: num(r.beta),
+      sector: r.sector ?? null,
+      industry: r.industry ?? null,
+      exchange: r.exchangeShortName ?? r.exchange ?? null,
+      country: r.country ?? null,
+      dividend: num(r.lastAnnualDividend ?? r.dividend),
+    })).filter((r) => r.symbol);
+    return live(NAME, rows);
+  } catch (e: any) {
+    if (e?.status === 402) return unavailable(NAME, "Stock screener requires a paid FMP plan");
+    if (e?.status === 429) return unavailable(NAME, "FMP rate/quota limit reached — try again shortly");
+    return unavailable(NAME, e instanceof Error ? e.message : "screener fetch failed");
+  }
+}
+
+// Small numeric coercion shared by the screener mapper.
+function num(v: unknown): number | null {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
