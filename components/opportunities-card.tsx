@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { Sparkles, TrendingUp, TrendingDown, RefreshCw, Landmark } from "lucide-react";
 import { MotionLoader } from "./motion-loader";
+import { useIsAdmin } from "./use-is-admin";
+import { friendlyMessage } from "./data-state";
 
 interface Idea {
   ticker: string;
@@ -39,6 +41,7 @@ const ACTION_STYLE: Record<string, string> = {
 // missing/stale (>6h); otherwise shows the cached scan instantly. Manual refresh
 // re-runs on demand.
 export function OpportunitiesCard() {
+  const isAdmin = useIsAdmin();
   const [result, setResult] = useState<OppResult | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -101,13 +104,17 @@ export function OpportunitiesCard() {
         <div className="flex items-center gap-2">
           {result?.generatedAt && (
             <span className="text-[11px] text-ink-faint">
-              {cached ? "Cached" : "Fresh"} · {new Date(result.generatedAt).toLocaleString()}
+              Updated {new Date(result.generatedAt).toLocaleString()}
             </span>
           )}
-          <button onClick={() => run()} disabled={busy}
-            className="flex items-center gap-1.5 rounded-md border border-brand-500/50 bg-brand-500/10 px-3 py-1.5 text-xs font-medium text-brand-300 hover:bg-brand-500/20 disabled:opacity-50">
-            <RefreshCw size={12} className={busy ? "animate-spin" : ""} /> {busy ? "Researching…" : "Re-scan"}
-          </button>
+          {/* Re-scan is admin-only to control token spend; users see the cached
+              scan (refreshed periodically). */}
+          {isAdmin && (
+            <button onClick={() => run()} disabled={busy}
+              className="flex items-center gap-1.5 rounded-md border border-brand-500/50 bg-brand-500/10 px-3 py-1.5 text-xs font-medium text-brand-300 hover:bg-brand-500/20 disabled:opacity-50">
+              <RefreshCw size={12} className={busy ? "animate-spin" : ""} /> {busy ? "Researching…" : "Re-scan"}
+            </button>
+          )}
         </div>
       </div>
 
@@ -137,7 +144,8 @@ export function OpportunitiesCard() {
 
       {error && (
         <div className="mt-3 rounded-lg border border-rose-500/30 bg-rose-500/5 p-3 text-sm text-rose-300">
-          {error}{error.includes("Connectors") || error.includes("key") ? <a href="/connectors" className="ml-1 underline">Open Connectors</a> : null}
+          {isAdmin ? error : friendlyMessage(error)}
+          {isAdmin && (error.includes("Connectors") || error.includes("key")) ? <a href="/connectors" className="ml-1 underline">Open Connectors</a> : null}
         </div>
       )}
 

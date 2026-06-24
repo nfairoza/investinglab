@@ -47,7 +47,7 @@ export async function writeAiCache(ctx: { supabase: SupabaseClient; userId: stri
 // the result is identical for every user. We cache it once and reuse it across
 // all users to save AI tokens. NOT user-scoped: any authenticated user reads and
 // any authenticated user may refresh. Reused for up to SHARED_PREDICTION_TTL_MS.
-export const SHARED_PREDICTION_TTL_MS = 2 * 60 * 60 * 1000; // 2 hours
+export const SHARED_PREDICTION_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours (shared, market-only — token control)
 
 export async function readSharedPrediction(
   ctx: { supabase: SupabaseClient },

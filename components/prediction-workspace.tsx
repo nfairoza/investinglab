@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { usePersistedState } from "@/lib/use-persisted-state";
 import { DataBadge } from "./data-state";
+import { useIsAdmin } from "./use-is-admin";
 import { TickerInput } from "./ticker-input";
 import { MotionLoader } from "./motion-loader";
 import type { DataSource } from "@/lib/providers/types";
@@ -67,6 +68,7 @@ const DIR_STYLE: Record<string, { cls: string; arrow: string; word: string }> = 
 };
 
 export function PredictionWorkspace({ initial = "AMD" }: { initial?: string }) {
+  const isAdmin = useIsAdmin();
   const [draft, setDraft] = useState(initial);
   const [busy, setBusy] = useState(false);
   // Persisted so the last prediction survives navigation/reload until you re-run.
@@ -107,9 +109,11 @@ export function PredictionWorkspace({ initial = "AMD" }: { initial?: string }) {
           className="btn-gold rounded-md px-4 py-2 text-sm disabled:opacity-50">
           {busy ? "Researching the web…" : "Predict"}
         </button>
-        {result && !busy && (
+        {/* Force-refresh is admin-only (token control). Users get the shared
+            cached prediction, which refreshes on its own schedule. */}
+        {result && !busy && isAdmin && (
           <button onClick={() => run(result.symbol, true)}
-            title="Force a fresh prediction (ignores the shared 2-hour cache)"
+            title="Force a fresh prediction (ignores the shared cache)"
             className="rounded-md border border-hairline px-3 py-2 text-sm text-ink-dim hover:bg-surface hover:text-ink">
             Refresh
           </button>
