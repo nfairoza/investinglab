@@ -19,8 +19,8 @@ interface TrendPt { month: string; netWorth: number; assets: number; liabilities
 interface NetWorth { netWorth: number; totalAssets: number; totalLiabilities: number; byType: Record<string, number>; changeAmount: number | null; changePct: number | null; trend?: TrendPt[] }
 interface AdvisorStep { id: string; title: string; status: string; mathSummary: string; explanationInput: string }
 interface AdvisorResp { result?: { steps: AdvisorStep[]; surplus: { available: boolean; surplus: number; destination: string }; avgMonthlyExpenses: number | null; liquidCash: number } }
-interface Balances { totalCash: number; items: { accounts: { type: string; current: number | null }[] }[] }
-interface Txn { date: string; amount: number; category: string; isTransfer: boolean; excluded: boolean }
+interface Balances { totalCash: number; items: { accounts: { account_id: string; type: string; current: number | null }[] }[] }
+interface Txn { date: string; amount: number; category: string; isTransfer: boolean; excluded: boolean; accountId?: string }
 interface Holding { symbol: string; shares: number; marketValue?: number; daysGain?: number }
 
 // Whole-card link: the entire card is clickable (no separate "→" button).
@@ -95,6 +95,26 @@ export function Overview() {
     const top = [...cats.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3);
     return { income, expense, net: income - expense, top };
   }, [txnData]);
+
+  // Credit-card vs debit/checking spending this month. Joins each transaction
+  // to its account type via the accounts list. Only meaningful when the user has
+  // BOTH a credit card and a depository account linked.
+  const payMix = useMemo(() => {
+    const typeById = new Map<string, string>();
+    for (const it of bal?.items ?? []) for (const a of it.accounts) typeById.set(a.account_id, a.type);
+    const hasCredit = [...typeById.values()].includes("credit");
+    const hasDebit = [...typeById.values()].includes("depository");
+    const since = new Date(); since.setDate(1);
+    const from = since.toISOString().slice(0, 10);
+    let credit = 0, debit = 0;
+    for (const t of txnData?.transactions ?? []) {
+      if (t.date < from || t.excluded || t.isTransfer || t.amount <= 0) continue;
+      const ty = t.accountId ? typeById.get(t.accountId) : undefined;
+      if (ty === "credit") credit += t.amount;
+      else if (ty === "depository") debit += t.amount;
+    }
+    return { credit, debit, show: hasCredit && hasDebit && credit + debit > 0 };
+  }, [txnData, bal]);
 
   // Top advisor insight: the highest-priority step needing attention, plus the
   // surplus destination. Computed server-side — we only pick what to surface.
@@ -301,6 +321,30 @@ export function Overview() {
           </div>
         )}
       </Card>
+
+      {/* Credit vs debit spending — only when both account types are linked */}
+      {payMix.show && (
+        <Card href="/spending" title="Credit vs debit — this month">
+          <div className="flex items-end justify-between gap-2">
+            <div>
+              <div className="text-[11px] text-ink-faint">On credit cards</div>
+              <div className="text-lg font-bold text-rose-400">{money(payMix.credit)}</div>
+            </div>
+            <div className="text-right">
+              <div className="text-[11px] text-ink-faint">On debit / checking</div>
+              <div className="text-lg font-bold text-sky-400">{money(payMix.debit)}</div>
+            </div>
+          </div>
+          <div className="mt-3 flex h-3 overflow-hidden rounded-full bg-surface-raised">
+            <div className="bg-rose-500/70" style={{ width: `${(payMix.credit / (payMix.credit + payMix.debit)) * 100}%` }} />
+            <div className="bg-sky-500/70" style={{ width: `${(payMix.debit / (payMix.credit + payMix.debit)) * 100}%` }} />
+          </div>
+          <div className="mt-1.5 flex justify-between text-[11px] text-ink-faint">
+            <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-sm bg-rose-500/70" /> Credit {Math.round((payMix.credit / (payMix.credit + payMix.debit)) * 100)}%</span>
+            <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-sm bg-sky-500/70" /> Debit {Math.round((payMix.debit / (payMix.credit + payMix.debit)) * 100)}%</span>
+          </div>
+        </Card>
+      )}
 
       {/* AI insight (whole card → Advisor) — driven by the computed advisor */}
       <Card href="/advisor" title="Rukmani — your next money move">

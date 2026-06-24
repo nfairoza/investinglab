@@ -98,6 +98,7 @@ export async function GET(req: NextRequest) {
       currency: t.currency,
       category: cat,
       institution: t.institution,
+      accountId: t.account_id,
       pending: t.pending,
       isTransfer: ov?.is_transfer ?? false,
       excluded: ov?.excluded ?? false,
