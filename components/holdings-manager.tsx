@@ -456,7 +456,7 @@ export function HoldingsManager() {
       )}
 
       {/* Crypto — separate card; not mixed into the equities table or totals. */}
-      {cryptoHoldings.length > 0 && <CryptoCard rows={cryptoHoldings} quotes={quotes} />}
+      {cryptoHoldings.length > 0 && <CryptoCard rows={cryptoHoldings} />}
 
       {/* Funds & other holdings with no live ticker (mutual funds, CUSIP-only).
           Priced from the broker's value, not researchable by ticker. */}
@@ -545,38 +545,84 @@ function HoldingRow({ v, total, sparks, onRemove, child }: {
   );
 }
 
-// Crypto holdings — shown in their own card, separate from the equities table.
-function CryptoCard({ rows, quotes }: { rows: Holding[]; quotes: Record<string, DataResult<Quote>> | undefined }) {
+// Map a crypto holding symbol to FMP's crypto ticker (BTC -> BTCUSD). Leaves
+// already-USD-suffixed symbols alone.
+function cryptoFmpSymbol(sym: string): string {
+  const s = sym.toUpperCase();
+  return /USD$/.test(s) ? s : `${s}USD`;
+}
+
+// Crypto holdings — own card, with full info (live price, day's gain, value,
+// total gain) using FMP's crypto quotes, which are real and free to use.
+function CryptoCard({ rows }: { rows: Holding[] }) {
+  const fmpSymbols = Array.from(new Set(rows.map((h) => cryptoFmpSymbol(h.symbol))));
+  const { data: quotes } = useSWR(
+    fmpSymbols.length ? ["crypto-quotes", fmpSymbols.join(",")] : null,
+    () => fetchQuotes(fmpSymbols),
+    { refreshInterval: 60_000, revalidateOnFocus: true, keepPreviousData: true },
+  );
+
   const valued = rows.map((h) => {
-    const price = quotes?.[h.symbol]?.data?.price ?? null;
+    const q = quotes?.[cryptoFmpSymbol(h.symbol)]?.data ?? null;
+    const price = q?.price ?? (h as any).plaidPrice ?? null;
     const value = price != null ? price * h.shares : (h.marketValue ?? null);
-    return { h, price, value };
+    const dayPct = q?.changePct ?? null;
+    const dayGain = dayPct != null && value != null ? (dayPct / 100) * value : null;
+    const cost = h.avgCost > 0 ? h.avgCost * h.shares : null;
+    const totalGain = value != null && cost != null ? value - cost : null;
+    const totalGainPct = totalGain != null && cost ? (totalGain / cost) * 100 : null;
+    return { h, price, value, dayPct, dayGain, totalGain, totalGainPct };
   });
   const total = valued.reduce((s, v) => s + (v.value ?? 0), 0);
+  const totalDay = valued.reduce((s, v) => s + (v.dayGain ?? 0), 0);
+
   return (
-    <div className="rounded-xl border border-hairline bg-surface">
+    <div className="overflow-hidden rounded-xl border border-hairline bg-surface">
       <div className="flex items-center justify-between px-4 py-2.5">
         <span className="flex items-center gap-2 text-sm font-medium text-ink">
           <span className="rounded bg-lime-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-lime-300">CRYPTO</span>
           {rows.length} holding{rows.length !== 1 ? "s" : ""}
         </span>
-        <span className="text-sm font-semibold text-ink">{total > 0 ? `$${total.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : "—"}</span>
+        <span className="text-right">
+          <span className="block text-sm font-semibold text-ink">{total > 0 ? `$${total.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : "—"}</span>
+          {totalDay !== 0 && (
+            <span className={`block text-[11px] ${totalDay >= 0 ? "text-emerald-400" : "text-rose-400"}`}>{totalDay >= 0 ? "▲" : "▼"} ${Math.abs(totalDay).toLocaleString(undefined, { maximumFractionDigits: 0 })} today</span>
+          )}
+        </span>
       </div>
-      <ul className="divide-y divide-hairline border-t border-hairline">
-        {valued.map(({ h, price, value }) => (
-          <li key={h.id} className="flex items-center justify-between px-4 py-2.5 text-sm">
-            <span className="min-w-0">
-              <span className="font-medium text-ink">{h.symbol}</span>
-              {h.source && h.source !== "manual" && h.source !== "etrade" && <span className="ml-1.5 rounded bg-surface-raised px-1 text-[9px] text-ink-faint">{h.source}</span>}
-              <span className="block text-[11px] text-ink-faint">{h.shares} units</span>
-            </span>
-            <span className="shrink-0 text-right">
-              <span className="block text-ink-dim">{price != null ? `$${price.toLocaleString(undefined, { maximumFractionDigits: 2 })}` : "—"}</span>
-              <span className="block text-[11px] text-ink-faint">{value != null ? `$${value.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : "—"}</span>
-            </span>
-          </li>
-        ))}
-      </ul>
+      <div className="overflow-x-auto border-t border-hairline">
+        <table className="w-full text-left text-sm">
+          <thead className="bg-surface text-xs uppercase tracking-wide text-ink-faint">
+            <tr>
+              <th className="px-3 py-2">Asset</th>
+              <th className="px-3 py-2 text-right">Price</th>
+              <th className="px-3 py-2 text-right">Day&apos;s gain</th>
+              <th className="px-3 py-2 text-right">Value</th>
+              <th className="px-3 py-2 text-right">Total gain</th>
+              <th className="px-3 py-2 text-right">Units</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-white/5">
+            {valued.map(({ h, price, value, dayPct, dayGain, totalGain, totalGainPct }) => (
+              <tr key={h.id} className="hover:bg-surface">
+                <td className="px-3 py-2 font-medium">
+                  {h.symbol}
+                  {h.source && h.source !== "manual" && h.source !== "etrade" && <span className="ml-1.5 rounded bg-surface-raised px-1 text-[9px] text-ink-faint">{h.source}</span>}
+                </td>
+                <td className="px-3 py-2 text-right text-ink-dim">{price != null ? `$${price.toLocaleString(undefined, { maximumFractionDigits: 2 })}` : "—"}</td>
+                <td className={`px-3 py-2 text-right ${dayGain == null ? "text-ink-faint" : dayGain >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                  {dayGain == null ? "—" : `${dayGain >= 0 ? "▲" : "▼"} $${Math.abs(dayGain).toFixed(0)}${dayPct != null ? ` (${Math.abs(dayPct).toFixed(2)}%)` : ""}`}
+                </td>
+                <td className="px-3 py-2 text-right font-medium text-ink">{value != null ? `$${value.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : "—"}</td>
+                <td className={`px-3 py-2 text-right ${totalGain == null ? "text-ink-faint" : totalGain >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                  {totalGain == null ? "—" : `${totalGain >= 0 ? "▲" : "▼"} $${Math.abs(totalGain).toFixed(0)}${totalGainPct != null ? ` (${Math.abs(totalGainPct).toFixed(1)}%)` : ""}`}
+                </td>
+                <td className="px-3 py-2 text-right text-ink-dim">{h.shares}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
