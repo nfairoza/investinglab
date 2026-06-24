@@ -45,7 +45,22 @@ async function fetchSparks(symbols: string[]): Promise<Record<string, { v: numbe
   return Object.fromEntries(entries);
 }
 
-interface PlaidHolding { symbol: string; name: string | null; quantity: number; price: number | null; value: number | null; costBasis: number | null; currency: string; institution: string }
+interface PlaidHolding { symbol: string; name: string | null; quantity: number; price: number | null; value: number | null; costBasis: number | null; currency: string; institution: string; secType?: string | null; isCashEquivalent?: boolean }
+
+type HoldingKind = "security" | "crypto" | "other";
+
+// Classify a holding into security (stock/ETF/fund — the main table), crypto
+// (its own section), or other (cash equivalents, options/derivatives, bonds —
+// not investable equities, kept out of the equities table & its totals).
+function classifyHolding(opts: { symbol: string; secType?: string | null; isCashEquivalent?: boolean; assetType?: string }): HoldingKind {
+  if (opts.assetType === "crypto") return "crypto";
+  const t = (opts.secType ?? "").toLowerCase();
+  if (t.includes("crypto")) return "crypto";
+  if (opts.isCashEquivalent || t === "cash") return "other";
+  if (t.includes("derivative") || t.includes("option") || t.includes("fixed income") || t.includes("bond")) return "other";
+  // equity, etf, mutual fund, "other" with a real ticker → treat as a security.
+  return "security";
+}
 
 export function HoldingsManager() {
   const { data: dbHoldings = [], mutate } = useSWR<Holding[]>("/api/holdings", fetchJson, {
@@ -84,16 +99,26 @@ export function HoldingsManager() {
         avgCost: p.costBasis != null && p.quantity ? Number(p.costBasis) / Number(p.quantity) : 0,
         source: p.institution, // institution name acts as the source/account tag
         marketValue: p.value ?? undefined,
+        assetType: classifyHolding({ symbol: p.symbol, secType: p.secType, isCashEquivalent: p.isCashEquivalent }) === "crypto" ? "crypto" : undefined,
+        kind: classifyHolding({ symbol: p.symbol, secType: p.secType, isCashEquivalent: p.isCashEquivalent }),
         readOnly: true,
       }) as unknown as Holding);
-    return [...dbHoldings, ...plaidRows];
+    const dbRows: Holding[] = dbHoldings.map((h) => ({ ...h, kind: classifyHolding({ symbol: h.symbol, assetType: h.assetType }) }) as unknown as Holding);
+    return [...dbRows, ...plaidRows];
   }, [dbHoldings, plaidInv]);
 
-  // Which sources actually exist in the data (for showing only relevant chips).
-  const presentSources = Array.from(new Set(allHoldings.map((h) => h.source ?? "manual")));
+  // Split by kind: securities (stocks/ETFs/funds) fill the main table; crypto
+  // gets its own card; "other" (cash equivalents, options, bonds) is excluded
+  // from the equities table and its totals.
+  const kindOf = (h: Holding) => (h as any).kind as HoldingKind | undefined;
+  const securities = allHoldings.filter((h) => (kindOf(h) ?? "security") === "security");
+  const cryptoHoldings = allHoldings.filter((h) => kindOf(h) === "crypto");
+
+  // Which sources actually exist among securities (for the relevant filter chips).
+  const presentSources = Array.from(new Set(securities.map((h) => h.source ?? "manual")));
   const holdings = sourceFilter === "all"
-    ? allHoldings
-    : allHoldings.filter((h) => (h.source ?? "manual") === sourceFilter);
+    ? securities
+    : securities.filter((h) => (h.source ?? "manual") === sourceFilter);
 
   const symbols = holdings.map((h) => h.symbol);
   const { data: quotes } = useSWR(
@@ -270,7 +295,7 @@ export function HoldingsManager() {
         </div>
       )}
 
-      {allHoldings.length > 0 && (
+      {securities.length > 0 && (
         <>
           {/* Portfolio summary: value, day's gain, total gain */}
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -378,12 +403,9 @@ export function HoldingsManager() {
                   const weight = g.value != null && total > 0 ? (g.value / total) * 100 : null;
                   return (
                     <React.Fragment key={`grp-${g.symbol}`}>
-                      <tr className="cursor-pointer hover:bg-surface" onClick={() => toggleExpand(g.symbol)}>
+                      <tr className="cursor-pointer hover:bg-surface" onClick={() => toggleExpand(g.symbol)} aria-expanded={open}>
                         <td className="px-3 py-2 font-medium">
-                          <button className="inline-flex items-center gap-1 align-middle" aria-expanded={open}>
-                            {open ? <ChevronDown size={13} className="text-ink-faint" /> : <ChevronRight size={13} className="text-ink-faint" />}
-                            <span className="text-brand-400">{g.symbol}</span>
-                          </button>
+                          <Link href={`/holdings/${g.symbol}`} onClick={(e) => e.stopPropagation()} className="text-brand-400 hover:underline">{g.symbol}</Link>
                           <span className="ml-1.5 rounded bg-surface-raised px-1 text-[9px] text-ink-faint">{g.rows.length} accounts</span>
                         </td>
                         <td className="px-3 py-2">
@@ -404,7 +426,11 @@ export function HoldingsManager() {
                         <td className="px-3 py-2 text-right text-ink-dim">{g.shares}</td>
                         <td className="px-3 py-2 text-right text-ink-faint">—</td>
                         <td className="px-3 py-2 text-right text-ink-dim">{weight != null ? `${weight.toFixed(1)}%` : "—"}</td>
-                        <td className="px-3 py-2 text-right text-[10px] text-ink-faint">{open ? "hide" : "details"}</td>
+                        <td className="px-3 py-2 text-right">
+                          <span className="inline-flex items-center justify-end text-ink-faint" title={open ? "Hide accounts" : "Show accounts"}>
+                            {open ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
+                          </span>
+                        </td>
                       </tr>
                       {open && g.rows.map((v) => (
                         <HoldingRow key={v.h.id} v={v} total={total} sparks={sparks} onRemove={removeHolding} child />
@@ -419,6 +445,9 @@ export function HoldingsManager() {
           {quotes && <DataTimestamp asOf={Object.values(quotes)[0]?.asOf ?? null} />}
         </>
       )}
+
+      {/* Crypto — separate card; not mixed into the equities table or totals. */}
+      {cryptoHoldings.length > 0 && <CryptoCard rows={cryptoHoldings} quotes={quotes} />}
 
       {/* Manual add — secondary, collapsed by default, lives at the bottom.
           Anything manual is not the focus; sync is the primary path. */}
@@ -498,6 +527,42 @@ function HoldingRow({ v, total, sparks, onRemove, child }: {
           : <button onClick={() => onRemove(h.id)} className="text-xs text-ink-faint hover:text-rose-300">Remove</button>}
       </td>
     </tr>
+  );
+}
+
+// Crypto holdings — shown in their own card, separate from the equities table.
+function CryptoCard({ rows, quotes }: { rows: Holding[]; quotes: Record<string, DataResult<Quote>> | undefined }) {
+  const valued = rows.map((h) => {
+    const price = quotes?.[h.symbol]?.data?.price ?? null;
+    const value = price != null ? price * h.shares : (h.marketValue ?? null);
+    return { h, price, value };
+  });
+  const total = valued.reduce((s, v) => s + (v.value ?? 0), 0);
+  return (
+    <div className="rounded-xl border border-hairline bg-surface">
+      <div className="flex items-center justify-between px-4 py-2.5">
+        <span className="flex items-center gap-2 text-sm font-medium text-ink">
+          <span className="rounded bg-lime-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-lime-300">CRYPTO</span>
+          {rows.length} holding{rows.length !== 1 ? "s" : ""}
+        </span>
+        <span className="text-sm font-semibold text-ink">{total > 0 ? `$${total.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : "—"}</span>
+      </div>
+      <ul className="divide-y divide-hairline border-t border-hairline">
+        {valued.map(({ h, price, value }) => (
+          <li key={h.id} className="flex items-center justify-between px-4 py-2.5 text-sm">
+            <span className="min-w-0">
+              <span className="font-medium text-ink">{h.symbol}</span>
+              {h.source && h.source !== "manual" && h.source !== "etrade" && <span className="ml-1.5 rounded bg-surface-raised px-1 text-[9px] text-ink-faint">{h.source}</span>}
+              <span className="block text-[11px] text-ink-faint">{h.shares} units</span>
+            </span>
+            <span className="shrink-0 text-right">
+              <span className="block text-ink-dim">{price != null ? `$${price.toLocaleString(undefined, { maximumFractionDigits: 2 })}` : "—"}</span>
+              <span className="block text-[11px] text-ink-faint">{value != null ? `$${value.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : "—"}</span>
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 

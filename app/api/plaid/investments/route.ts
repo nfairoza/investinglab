@@ -34,6 +34,10 @@ export async function GET() {
           costBasis: h.cost_basis ?? null,
           currency: h.iso_currency_code ?? "USD",
           institution: it.institution_name,
+          // Plaid security type: equity | etf | mutual fund | cryptocurrency |
+          // derivative | fixed income | cash | other — used to classify the row.
+          secType: (sec as any)?.type ?? null,
+          isCashEquivalent: (sec as any)?.is_cash_equivalent ?? false,
         });
       }
     } catch { /* skip item (account may not support investments) */ }
