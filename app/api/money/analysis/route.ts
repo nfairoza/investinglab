@@ -1,5 +1,5 @@
-import { NextResponse } from "next/server";
-import { getUserClient } from "@/lib/supabase-data";
+import { NextRequest, NextResponse } from "next/server";
+import { getUserClient, readAiCache, writeAiCache } from "@/lib/supabase-data";
 import { resolveApiKey } from "@/lib/ai/anthropic";
 import { geminiKey } from "@/lib/ai/gemini";
 import { routeText } from "@/lib/ai/router";
@@ -7,54 +7,86 @@ import { computeAdvisor } from "@/lib/advisor/engine";
 
 export const dynamic = "force-dynamic";
 
-// Rukmani narrates spending — what to cut, where freed-up money could go, and
-// what to keep an eye on. Numbers are computed by the advisor engine; the AI
-// only narrates them and never invents figures or recommends specific products.
-const SYSTEM = `You are Rukmani, the rukMoney money coach. You are given a user's spending picture where EVERY number has already been computed. Narrate it — do not calculate.
+const CACHE_KEY = "money_doctor";
+const TTL_MS = 24 * 60 * 60 * 1000; // 24h — Money Doctor is cached for a day to save tokens.
+
+// Rukmani is the "Money Doctor": she reviews the user's whole money picture —
+// spending, recurring bills, cash, and debt — and gives recommendations. Every
+// number is computed by the advisor engine; the AI only narrates them.
+const SYSTEM = `You are Rukmani, the rukMoney "Money Doctor". You are given a user's complete MONEY picture (spending, recurring bills, cash runway, surplus, and debts) where EVERY number has already been computed. Narrate and advise — do not calculate.
 Strict rules:
 - NEVER invent or alter a number. Use only figures present in the input.
 - NEVER recommend specific merchants, lenders, securities, or products to buy/sell.
-- Be specific, warm, and practical. Reference the user's actual categories/merchants/amounts.
+- Be specific, warm, and practical. Reference the user's actual categories/merchants/amounts/APRs.
 - Education only — not individualized financial advice.
 Return ONLY valid JSON (no markdown fences).`;
 
-export async function POST() {
-  const ctx = await getUserClient();
-  if (!ctx) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-
-  const advisor = await computeAdvisor(ctx);
+function buildPrompt(advisor: Awaited<ReturnType<typeof computeAdvisor>>): string {
   const s = advisor.spending;
-  if (!s.available) {
-    return NextResponse.json({ error: "no_data", message: "Link a checking account to see spending analysis." }, { status: 400 });
-  }
-
-  if (!resolveApiKey() && !geminiKey()) {
-    return NextResponse.json({ analysis: null, spending: s, model: null });
-  }
-
-  const prompt = `SPENDING (all numbers pre-computed):
+  const debtStep = advisor.steps.find((x) => x.id === "high_interest_debt");
+  const efStep = advisor.steps.find((x) => x.id === "emergency_fund");
+  return `MONEY PICTURE (all numbers pre-computed):
+Cash on hand: ${advisor.liquidCash}. Avg monthly expenses: ${advisor.avgMonthlyExpenses ?? "unknown"}.
 This month — income ${s.monthIncome}, expenses ${s.monthExpenses}, net ${s.net}.
 Top categories: ${s.topCategories.map((c) => `${c.category} $${c.amount}`).join(", ") || "none"}.
 Top merchants: ${s.topMerchants.map((m) => `${m.merchant} $${m.amount}`).join(", ") || "none"}.
 Recurring bills/subscriptions: ${s.recurring.map((r) => `${r.merchant} $${r.amount}/mo (${r.months} mo)`).join(", ") || "none detected"}.
 Notable changes vs last month: ${s.movers.map((m) => `${m.category} ${m.deltaPct > 0 ? "+" : ""}${m.deltaPct}%`).join(", ") || "none"}.
-Surplus routing: ${advisor.surplus.available ? `${advisor.surplus.surplus} → ${advisor.surplus.destination}` : "unavailable"}.
+Emergency fund: ${efStep?.mathSummary || efStep?.status || "unknown"}.
+Debt: ${debtStep?.computedFacts.map((f) => `${f.label} ${f.value}`).join(", ") || "no debt linked"}. ${debtStep?.mathSummary || ""}
+Surplus routing: ${advisor.surplus.available ? `${advisor.surplus.surplus} → ${advisor.surplus.destination} (${advisor.surplus.rationale})` : "unavailable"}.
 
 Return JSON exactly:
 {
-  "summary": string,            // 1-2 sentences on the overall spending picture
+  "summary": string,            // 2-3 sentences: overall money health read
   "cut": [string],              // 2-3 concrete places to consider cutting, citing real categories/merchants/amounts
   "redirect": [string],         // 1-2 ideas for where freed-up or surplus money could go (use the computed surplus destination)
-  "watch": [string]             // 1-2 things to keep an eye on (rising categories, large recurring bills, unusual patterns)
+  "watch": [string],            // 1-2 things to keep an eye on (rising categories, large recurring bills, unusual patterns)
+  "alarming": [string],         // 0-2 genuinely concerning items (high-APR debt, runway below 1 month, spending > income) — empty array if none
+  "ideas": [string]             // 1-3 forward-looking ideas/opportunities to improve the money picture
 }`;
+}
 
+async function generate(ctx: NonNullable<Awaited<ReturnType<typeof getUserClient>>>) {
+  const advisor = await computeAdvisor(ctx);
+  const s = advisor.spending;
+  if (!s.available && advisor.liquidCash === 0) {
+    return { error: "no_data" as const };
+  }
+  if (!resolveApiKey() && !geminiKey()) {
+    return { analysis: null, advisorMeta: { liquidCash: advisor.liquidCash }, model: null, generatedAt: new Date().toISOString() };
+  }
   try {
-    const { text, model } = await routeText({ task: "chat-analysis", system: SYSTEM, user: prompt, maxTokens: 1200 });
+    const { text, model } = await routeText({ task: "chat-analysis", system: SYSTEM, user: buildPrompt(advisor), maxTokens: 1500 });
     const cleaned = text.replace(/```json|```/g, "").trim();
     const start = cleaned.indexOf("{"); const end = cleaned.lastIndexOf("}");
     const analysis = JSON.parse(start !== -1 && end !== -1 ? cleaned.slice(start, end + 1) : cleaned);
-    return NextResponse.json({ analysis, spending: s, model });
+    return { analysis, spending: s, model, generatedAt: new Date().toISOString() };
   } catch {
-    return NextResponse.json({ analysis: null, spending: s, model: null });
+    return { analysis: null, spending: s, model: null, generatedAt: new Date().toISOString() };
   }
+}
+
+// GET — return the cached Money Doctor result if fresh (<24h). No AI tokens spent.
+export async function GET() {
+  const ctx = await getUserClient();
+  if (!ctx) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  const cached = await readAiCache(ctx, CACHE_KEY);
+  if (cached && Date.now() - new Date(cached.generatedAt).getTime() < TTL_MS) {
+    return NextResponse.json({ cached: true, ...(cached.data as object), generatedAt: cached.generatedAt });
+  }
+  return NextResponse.json({ cached: false, data: cached?.data ?? null, generatedAt: cached?.generatedAt ?? null });
+}
+
+// POST — run a fresh Money Doctor analysis, cache it 24h, return it.
+export async function POST(_req: NextRequest) {
+  const ctx = await getUserClient();
+  if (!ctx) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+
+  const result = await generate(ctx);
+  if ("error" in result && result.error === "no_data") {
+    return NextResponse.json({ error: "no_data", message: "Link a checking account to get a Money Doctor checkup." }, { status: 400 });
+  }
+  await writeAiCache(ctx, CACHE_KEY, { generatedAt: result.generatedAt!, data: result });
+  return NextResponse.json({ cached: false, ...result });
 }
