@@ -13,6 +13,7 @@ import { MobileTabBar } from "./mobile-tab-bar";
 import { SectionSubnav } from "./section-subnav";
 import { AddSheet } from "./add-sheet";
 import { SwipeSections } from "./swipe-sections";
+import { SidebarReopen } from "./sidebar-reopen";
 
 // Auth screens render with NO app chrome (no sidebar, chat, or command palette) —
 // just the page. Everything else gets the full shell.
@@ -34,6 +35,7 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
         <div className="flex min-w-0 flex-1 flex-col">
           {/* Desktop top bar: search left; + Add, theme, account right. */}
           <header className="sticky top-0 z-30 hidden items-center gap-3 border-b border-hairline px-6 py-2.5 md:flex" style={{ background: "color-mix(in oklab, var(--bg) 82%, transparent)", backdropFilter: "blur(8px)" }}>
+            <SidebarReopen />
             <div className="flex-1"><TopSearch /></div>
             <ThemeToggle compact />
             <AccountMenu />

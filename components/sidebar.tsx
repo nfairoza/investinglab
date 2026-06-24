@@ -4,13 +4,14 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
 import useSWR from "swr";
-import { Menu, X, Search } from "lucide-react";
+import { Menu, X, Search, PanelLeftClose } from "lucide-react";
 import clsx from "clsx";
 import { ThemeToggle } from "./theme-toggle";
 import { Blossom } from "./ui/primitives";
 import { AccountMenu } from "./account-menu";
 import { TopSearch } from "./top-search";
 import { useAlertsBadge } from "./use-alerts-badge";
+import { useSidebarCollapsed } from "./use-sidebar";
 import { OVERVIEW, SECTIONS, ADMIN_SECTION, isPathActive } from "@/lib/nav";
 
 // Desktop sidebar nav, driven by the four-section IA in lib/nav.ts:
@@ -94,6 +95,7 @@ function Footer() {
 export function Sidebar() {
   const [open, setOpen] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
+  const [collapsed, setCollapsed] = useSidebarCollapsed();
 
   // The mobile bottom tab bar's "More" button opens this drawer via a global event.
   useEffect(() => {
@@ -145,12 +147,25 @@ export function Sidebar() {
         </div>
       )}
 
-      {/* Desktop sidebar */}
-      <aside className="glass sticky top-0 hidden h-screen w-64 shrink-0 overflow-y-auto rounded-none border-y-0 border-l-0 p-4 md:block">
-        <div className="pb-7 pt-2"><Wordmark /></div>
-        <NavList />
-        <Footer />
-      </aside>
+      {/* Desktop sidebar — hidden (not overlaid) when collapsed, so content
+          reflows to full width with no blur. Reopen via the top-bar button. */}
+      {!collapsed && (
+        <aside className="glass sticky top-0 hidden h-screen w-64 shrink-0 overflow-y-auto rounded-none border-y-0 border-l-0 p-4 md:block">
+          <div className="flex items-start justify-between pb-7 pt-2">
+            <Wordmark />
+            <button
+              onClick={() => setCollapsed(true)}
+              aria-label="Hide sidebar"
+              title="Hide sidebar"
+              className="mt-1 shrink-0 rounded-md p-1.5 text-ink-faint hover:bg-surface hover:text-ink"
+            >
+              <PanelLeftClose size={16} />
+            </button>
+          </div>
+          <NavList />
+          <Footer />
+        </aside>
+      )}
     </>
   );
 }
