@@ -5,16 +5,20 @@ import { createPortal } from "react-dom";
 import { usePathname } from "next/navigation";
 import { X, Send, RotateCcw, Minus, Maximize2, Minimize2, ImagePlus, Square } from "lucide-react";
 
-// Rukmani mark: a speech bubble with a 4-point spark inside — signals "AI chat"
-// without the generic 4-pointed sparkle that reads as Gemini. White on the
-// brand disc so it's legible in both themes.
+// Rukmani mark: a speech bubble with a spark + two small "thinking" dots —
+// signals a smart assistant without a literal "AI" label or the generic
+// 4-pointed Gemini sparkle. White on the brand disc, legible in both themes.
 function RukmaniMark() {
   return (
     <svg width="26" height="26" viewBox="0 0 24 24" fill="none" className="relative" aria-hidden="true">
       <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v7A2.5 2.5 0 0 1 17.5 15H10l-4 3.5V15H6.5A2.5 2.5 0 0 1 4 12.5v-7Z"
-        fill="white" fillOpacity="0.95" />
-      <path d="M12 6.2c.25 1.4.9 2.05 2.3 2.3-1.4.25-2.05.9-2.3 2.3-.25-1.4-.9-2.05-2.3-2.3 1.4-.25 2.05-.9 2.3-2.3Z"
+        fill="white" fillOpacity="0.96" />
+      {/* central spark */}
+      <path d="M11 5.4c.22 1.5.85 2.13 2.35 2.35-1.5.22-2.13.85-2.35 2.35-.22-1.5-.85-2.13-2.35-2.35 1.5-.22 2.13-.85 2.35-2.35Z"
         fill="var(--nav-active, #16D27E)" />
+      {/* small companion sparks → "thinking" */}
+      <circle cx="15.4" cy="11" r="0.9" fill="var(--nav-active, #16D27E)" opacity="0.8" />
+      <circle cx="8.2" cy="11.4" r="0.7" fill="var(--nav-active, #16D27E)" opacity="0.55" />
     </svg>
   );
 }
@@ -348,23 +352,28 @@ export function ChatWidget() {
   // made it move on scroll). Anchored to the viewport, it stays bottom-right.
   return createPortal(
     <>
-      {/* Floating button — Rukmani. A solid brand-green disc with a chat-spark
-          glyph; reads clearly in both light and dark, and distinct from generic
-          AI sparkle logos. */}
+      {/* Floating button — Rukmani. A glowing gradient disc with a chat-spark
+          glyph + a slow living pulse ring, so it reads as a smart assistant
+          (not a static chat bubble). Legible in light and dark. */}
       <button
         onClick={() => setOpen((o) => !o)}
-        className="group flex items-center justify-center rounded-full shadow-lg transition-all duration-200 hover:scale-110 active:scale-95"
+        className="group flex items-center justify-center rounded-full transition-all duration-200 hover:scale-110 active:scale-95"
         style={{
           position: "fixed",
           bottom: isMobile ? "calc(76px + env(safe-area-inset-bottom))" : "calc(20px + env(safe-area-inset-bottom))",
           right: "calc(20px + env(safe-area-inset-right))",
           left: "auto", zIndex: 50, width: 56, height: 56,
-          background: open ? "var(--surface-solid)" : "var(--nav-active, #16D27E)",
+          background: open ? "var(--surface-solid)" : "linear-gradient(140deg, #16D27E 0%, #0EA6C9 100%)",
           border: open ? "1px solid var(--hairline-strong)" : "none",
+          boxShadow: open ? "var(--shadow, 0 4px 14px rgba(0,0,0,0.25))" : "0 6px 20px rgba(16,166,201,0.45)",
         }}
         aria-label="Chat with Rukmani"
         title="Ask Rukmani"
       >
+        {!open && (
+          <span className="pointer-events-none absolute inset-0 rounded-full opacity-50 animate-ping"
+            style={{ background: "radial-gradient(circle, rgba(22,210,126,0.6) 0%, transparent 70%)", animationDuration: "3s" }} />
+        )}
         {open
           ? <X size={20} className="relative text-ink" />
           : <RukmaniMark />}

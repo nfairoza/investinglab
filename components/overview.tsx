@@ -209,6 +209,8 @@ export function Overview() {
         )}
       </Card>
 
+      {/* Two-up grid on desktop so cards don't sprawl full-width. */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
       {/* Asset allocation — where your money sits (whole card → Net worth) */}
       {allocation.length > 0 && (
         <Card href="/networth" title="Asset allocation">
@@ -318,6 +320,7 @@ export function Overview() {
           </p>
         )}
       </Card>
+      </div>
 
       <p className="text-[11px] text-ink-faint">Tap any card for the full view. Research and education, not financial advice.</p>
     </div>
