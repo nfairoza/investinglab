@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { now } from "@/lib/db";
 import { getUserClient, readAiCache, writeAiCache } from "@/lib/supabase-data";
+import { congressData } from "@/lib/providers";
 import { routeText } from "@/lib/ai/router";
 import { resolveApiKey } from "@/lib/ai/anthropic";
 import { geminiKey } from "@/lib/ai/gemini";
@@ -8,7 +9,9 @@ import { parseLooseJson } from "@/lib/ai/json";
 
 export const dynamic = "force-dynamic";
 
+// Two cache slots so Market and Market+Congress scans don't clobber each other.
 const CACHE_KEY = "opportunities";
+const CACHE_KEY_CONGRESS = "opportunities_congress";
 const TTL_MS = 6 * 60 * 60 * 1000; // 6h — auto-run-on-open reuses a recent scan
 
 // A small curated large-cap universe to scan for NEW ideas (mirrors the Stock
@@ -29,14 +32,14 @@ Rules:
 - This is educational analysis, NOT financial advice, and you must not place trades.
 Return ONLY valid JSON (no markdown) matching the schema given.`;
 
-function buildPrompt(cash: number, holdings: any[], watchlist: string[]): string {
+function buildPrompt(cash: number, holdings: any[], watchlist: string[], congressBlock: string): string {
   const hold = holdings.map((h) => `${h.symbol} (${h.shares} sh @ $${h.avgCost})`).join(", ") || "none";
   return `Available cash to deploy: $${cash.toLocaleString()}.
 
 Current holdings: ${hold}.
 Watchlist: ${watchlist.join(", ") || "none"}.
 Curated large-cap universe to also consider for new ideas: ${CURATED.join(", ")}.
-
+${congressBlock}
 Search the web for the latest prices, news, earnings, and market backdrop, then produce a ranked plan.
 
 Return JSON with this exact shape:
@@ -59,11 +62,44 @@ Return JSON with this exact shape:
 Provide 4-8 ideas total, spanning the three lanes. Keep total buy/add dollarAmount <= the available cash.`;
 }
 
-async function generate(cash: number, holdings: any[], watchlist: string[]) {
+// Recent congressional trading, aggregated into a net buy/sell signal per ticker,
+// so the AI can weigh "smart money in DC" alongside the market scan. Best-effort:
+// returns "" if the congress provider is unavailable.
+async function buildCongressBlock(): Promise<string> {
+  try {
+    const res = await congressData.getRecent(120);
+    const rows: any[] = (res as any)?.data ?? [];
+    if (!rows.length) return "";
+    const agg = new Map<string, { buys: number; sells: number; members: Set<string> }>();
+    for (const r of rows) {
+      const sym = String(r.ticker ?? r.symbol ?? "").toUpperCase();
+      if (!sym || sym.length > 5) continue;
+      const a = agg.get(sym) ?? { buys: 0, sells: 0, members: new Set<string>() };
+      const action = String(r.type ?? r.transaction ?? r.action ?? "").toLowerCase();
+      if (action.includes("buy") || action.includes("purchase")) a.buys++;
+      else if (action.includes("sell") || action.includes("sale")) a.sells++;
+      if (r.member ?? r.representative) a.members.add(String(r.member ?? r.representative));
+      agg.set(sym, a);
+    }
+    const ranked = [...agg.entries()]
+      .map(([sym, a]) => ({ sym, net: a.buys - a.sells, buys: a.buys, sells: a.sells, members: a.members.size }))
+      .filter((x) => x.buys + x.sells >= 1)
+      .sort((a, b) => Math.abs(b.net) - Math.abs(a.net) || (b.buys + b.sells) - (a.buys + a.sells))
+      .slice(0, 15);
+    if (!ranked.length) return "";
+    const lines = ranked.map((x) => `  ${x.sym}: ${x.buys} buys / ${x.sells} sells across ${x.members} member${x.members !== 1 ? "s" : ""} (net ${x.net > 0 ? "+" : ""}${x.net})`).join("\n");
+    return `\nRECENT CONGRESSIONAL TRADING (disclosed, lagged — a sentiment signal, NOT a recommendation):\n${lines}\nFactor this in: net-buying by multiple members can corroborate an idea; heavy selling is a caution flag. Disclosures lag by weeks and are ranges — weight accordingly, don't follow blindly.\n`;
+  } catch {
+    return "";
+  }
+}
+
+async function generate(cash: number, holdings: any[], watchlist: string[], useCongress: boolean) {
+  const congressBlock = useCongress ? await buildCongressBlock() : "";
   const { text, provider, model } = await routeText({
     task: "deep-analysis",
     system: SYSTEM,
-    user: buildPrompt(cash, holdings, watchlist),
+    user: buildPrompt(cash, holdings, watchlist, congressBlock),
     maxTokens: 4096,
     webSearch: true,
   });
@@ -71,6 +107,8 @@ async function generate(cash: number, holdings: any[], watchlist: string[]) {
   return {
     ...parsed,
     cash,
+    mode: useCongress ? "congress" : "market",
+    congressUsed: Boolean(congressBlock),
     aiName: provider === "claude" ? "Claude" : "Gemini",
     model,
     generatedAt: now(),
@@ -83,20 +121,24 @@ export async function GET(req: NextRequest) {
   const ctx = await getUserClient();
   if (!ctx) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const force = req.nextUrl.searchParams.get("force") === "1";
-  const cached = await readAiCache(ctx, CACHE_KEY);
+  const useCongress = req.nextUrl.searchParams.get("congress") === "1";
+  const key = useCongress ? CACHE_KEY_CONGRESS : CACHE_KEY;
+  const cached = await readAiCache(ctx, key);
   if (!force && cached && Date.now() - new Date(cached.generatedAt).getTime() < TTL_MS) {
     return NextResponse.json({ cached: true, ...(cached.data as object) });
   }
   return NextResponse.json({ cached: false, stale: Boolean(cached), data: cached?.data ?? null });
 }
 
-// POST — run a fresh scan, cache it, return it.
-export async function POST() {
+// POST — run a fresh scan, cache it, return it. ?congress=1 folds in
+// congressional trading signal.
+export async function POST(req: NextRequest) {
   const ctx = await getUserClient();
   if (!ctx) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   if (!resolveApiKey() && !geminiKey()) {
     return NextResponse.json({ error: "no_key", message: "Add a Claude or Gemini API key in Connectors to use AI opportunities." }, { status: 400 });
   }
+  const useCongress = req.nextUrl.searchParams.get("congress") === "1";
   const [{ data: cashRow }, { data: holdings }, { data: wl }] = await Promise.all([
     ctx.supabase.from("cash").select("amount").maybeSingle(),
     ctx.supabase.from("holdings").select("symbol,shares,avg_cost"),
@@ -107,8 +149,8 @@ export async function POST() {
   const watchlist = (wl ?? []).map((w: any) => w.symbol);
 
   try {
-    const result = await generate(cash, holdingList, watchlist);
-    await writeAiCache(ctx, CACHE_KEY, { generatedAt: result.generatedAt, data: result });
+    const result = await generate(cash, holdingList, watchlist, useCongress);
+    await writeAiCache(ctx, useCongress ? CACHE_KEY_CONGRESS : CACHE_KEY, { generatedAt: result.generatedAt, data: result });
     return NextResponse.json({ cached: false, ...result });
   } catch (e) {
     return NextResponse.json(

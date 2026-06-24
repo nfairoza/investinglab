@@ -2,26 +2,35 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import useSWR from "swr";
 import { Search, CornerDownLeft } from "lucide-react";
 import type { SymbolMatch } from "@/app/api/search/route";
+import { OVERVIEW, SECTIONS, ADMIN_SECTION } from "@/lib/nav";
 
-// Pages reachable from the palette (mirrors the sidebar nav).
-const PAGES: { label: string; href: string; group: string }[] = [
-  { label: "Dashboard", href: "/", group: "Portfolio" },
-  { label: "Holdings", href: "/holdings", group: "Portfolio" },
-  { label: "Watchlist", href: "/watchlist", group: "Portfolio" },
-  { label: "Journal", href: "/journal", group: "Portfolio" },
-  { label: "Research", href: "/research", group: "Research" },
-  { label: "Stock Map", href: "/map", group: "Research" },
-  { label: "Rankings", href: "/rankings", group: "Research" },
-  { label: "Portfolio Doctor", href: "/portfolio-doctor", group: "Research" },
-  { label: "Predictions", href: "/predictions", group: "Research" },
-  { label: "Congress", href: "/congress", group: "Research" },
-  { label: "Alerts", href: "/alerts", group: "Alerts" },
-  { label: "Connectors", href: "/connectors", group: "Setup" },
-  { label: "Settings", href: "/settings", group: "Setup" },
-  { label: "Glossary", href: "/glossary", group: "Setup" },
-];
+interface PageEntry { label: string; href: string; group: string }
+
+// Pages reachable from the palette — derived from the single nav source of
+// truth so it never drifts from the sidebar. Setup pages + admin are appended;
+// admin pages are only shown to admins.
+function buildPages(isAdmin: boolean): PageEntry[] {
+  const pages: PageEntry[] = [{ label: OVERVIEW.label, href: OVERVIEW.href, group: "Overview" }];
+  for (const s of SECTIONS) {
+    for (const it of s.items) pages.push({ label: it.label, href: it.href, group: s.label });
+  }
+  pages.push(
+    { label: "Settings", href: "/settings", group: "Setup" },
+    { label: "Profile", href: "/profile", group: "Setup" },
+    { label: "Reports", href: "/reports", group: "Setup" },
+    { label: "Help", href: "/help", group: "Setup" },
+    { label: "Glossary", href: "/glossary", group: "Setup" },
+  );
+  if (isAdmin) {
+    for (const it of ADMIN_SECTION.items) pages.push({ label: it.label, href: it.href, group: "Admin" });
+  }
+  return pages;
+}
+
+const fetchJson = (u: string) => fetch(u).then((r) => r.json());
 
 export function CommandPalette() {
   const [open, setOpen] = useState(false);
@@ -30,6 +39,8 @@ export function CommandPalette() {
   const [active, setActive] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
+  const { data: me } = useSWR<{ isAdmin?: boolean }>("/api/me", fetchJson, { revalidateOnFocus: false });
+  const PAGES = buildPages(Boolean(me?.isAdmin));
 
   // Global ⌘K / Ctrl-K to open, Esc to close.
   useEffect(() => {

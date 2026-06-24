@@ -3,6 +3,7 @@ import { resolveApiKey } from "@/lib/ai/anthropic";
 import { streamGemini, geminiKey } from "@/lib/ai/gemini";
 import { marketData } from "@/lib/providers";
 import { planRoute, type AiTask } from "@/lib/ai/router";
+import { getUserClient } from "@/lib/supabase-data";
 
 export const dynamic = "force-dynamic";
 
@@ -58,6 +59,7 @@ interface ChatContext {
   holdings: HoldingContext[];
   watchlist: string[];
   currentPage: string;
+  isAdmin?: boolean; // set server-side from the verified session, never trusted from client
 }
 
 // Pull tickers mentioned in the latest user message (and the current page),
@@ -122,7 +124,15 @@ function buildSystem(ctx: ChatContext): string {
   );
   const totalGain = ctx.holdings.reduce((s, h) => s + (h.gain ?? 0), 0);
 
+  const roleBlock = ctx.isAdmin
+    ? `ACCESS LEVEL: ADMIN. This user is an administrator. In addition to everything a regular user can do, they have access to the Connectors & Keys page (/connectors) where platform-level API keys (AI providers, brokerage, finance data) are managed. You may reference and explain admin-only tools when asked.`
+    : `ACCESS LEVEL: STANDARD USER. This is a regular user — NOT an admin. They do NOT have access to the Connectors & Keys / admin pages. Never tell them to "go to Connectors" to change API keys or model settings — that page is admin-only and hidden from them. If they ask how to switch the AI model or manage keys, explain that those are managed by the app administrator, not something they configure themselves. Only discuss features and pages this user can actually reach.`;
+
   return `You are Rukmani — the rukMoney AI assistant: the user's personal investment banker, financial advisor, and patient finance teacher, embedded inside the rukMoney app. If asked your name, you are Rukmani. Speak with the depth of a seasoned analyst but explain like a great teacher: clear, plain-English, no condescension.
+
+${roleBlock}
+
+DATA SCOPE (strict): You may ONLY analyze and reveal (a) THIS user's own data shown below (their holdings, watchlist, accounts, spending) and (b) general public market/company information. Never reference, compare against, or reveal any other user's data — you do not have it and must never fabricate it. If asked about another person's portfolio or about app internals/other accounts, decline and redirect to what this user can see.
 
 WHO YOU ARE / HOW TO BEHAVE:
 - Act as a financial advisor + investment banker: give real, reasoned opinions and analysis, not vague disclaimers. Take a view, justify it with data.
@@ -158,8 +168,11 @@ YOU ALSO KNOW THIS APP INSIDE-OUT — help the user navigate it and explain what
 - Congress (/congress) — disclosed congressional stock trades (lagged disclosure, ranges).
 - Alerts (/alerts) — price/earnings/weight alerts.
 - Journal (/journal) — log trades (why you entered, target, stop, exit plan, 1wk/1mo results) to learn over time.
-- Glossary (/glossary) — plain-English definitions of every finance term.
-- Connectors (/connectors) — API keys, grouped: AI providers (Claude, Gemini), Brokerage (E*TRADE, Robinhood), Finance data (FMP, News, Congress).
+- Money (/money) — connected bank/card accounts + balances, income vs expenses, spending by category, and an AI spending analysis.
+- Net worth (/networth) — everything owned and owed, trend over time, plus manual items (house, car, loans).
+- Accounts (/accounts), Transactions (/transactions), Spending (/spending) — the Money sub-pages.
+- AI Advisor / Insights (/advisor) — your financial order-of-operations plan (emergency fund, debt, surplus routing).
+- Glossary (/glossary) — plain-English definitions of every finance term.${ctx.isAdmin ? "\n- Connectors (/connectors, ADMIN ONLY) — API keys: AI providers (Claude, Gemini), Brokerage (E*TRADE, Robinhood), Finance data (FMP, News, Congress)." : ""}
 - The chat (you) floats on every page.
 When the user asks where to do something or what a section is for, point them to the exact page and explain it. When it helps, suggest the relevant page (e.g. "open Research for AAPL to see the full memo").
 
@@ -186,6 +199,10 @@ export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}));
   const messages: ChatMessage[] = Array.isArray(body?.messages) ? body.messages : [];
   const ctx: ChatContext = body?.context ?? { holdings: [], watchlist: [], currentPage: "/" };
+  // Derive role from the VERIFIED session — never trust an isAdmin sent by the
+  // client. Defaults to standard-user access if there's no session.
+  const session = await getUserClient();
+  ctx.isAdmin = Boolean(session?.isAdmin);
 
   if (!messages.length) {
     return NextResponse.json({ error: "messages required" }, { status: 400 });
