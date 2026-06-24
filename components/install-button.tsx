@@ -32,17 +32,20 @@ export function InstallButton() {
   }, []);
 
   if (installed) return null;
-  // Show the button if we have a deferred prompt (Android/desktop) or it's iOS.
-  if (!deferred && !isIos) return null;
 
   async function install() {
     if (deferred) {
       await deferred.prompt();
-      await deferred.userChoice;
+      const choice = await deferred.userChoice;
+      // The event can only be used once. Keep it only if still pending; on
+      // accept/dismiss drop it but leave the button (re-tap shows guidance).
+      if (choice?.outcome === "accepted") setInstalled(true);
       setDeferred(null);
-    } else if (isIos) {
-      setShowIos(true);
+      return;
     }
+    // No live prompt (iOS, or the prompt was already used/dismissed): show
+    // browser-appropriate "add to home screen" guidance instead of doing nothing.
+    setShowIos(true);
   }
 
   return (
@@ -57,12 +60,20 @@ export function InstallButton() {
           <div className="absolute inset-0 bg-black/50" onClick={() => setShowIos(false)} />
           <div className="relative m-4 w-full max-w-sm rounded-2xl border border-hairline p-5" style={{ background: "var(--surface-solid)" }}>
             <button onClick={() => setShowIos(false)} className="absolute right-3 top-3 text-ink-faint hover:text-ink"><X size={18} /></button>
-            <div className="text-sm font-semibold text-ink">Install on iPhone / iPad</div>
-            <ol className="mt-3 space-y-2 text-sm text-ink-dim">
-              <li>1. Tap the <span className="text-ink">Share</span> button in Safari.</li>
-              <li>2. Choose <span className="text-ink">Add to Home Screen</span>.</li>
-              <li>3. Tap <span className="text-ink">Add</span> — rukMoney appears like a native app.</li>
-            </ol>
+            <div className="text-sm font-semibold text-ink">Install rukMoney</div>
+            {isIos ? (
+              <ol className="mt-3 space-y-2 text-sm text-ink-dim">
+                <li>1. Tap the <span className="text-ink">Share</span> button in Safari.</li>
+                <li>2. Choose <span className="text-ink">Add to Home Screen</span>.</li>
+                <li>3. Tap <span className="text-ink">Add</span> — rukMoney appears like a native app.</li>
+              </ol>
+            ) : (
+              <ol className="mt-3 space-y-2 text-sm text-ink-dim">
+                <li>1. Open your browser&apos;s menu (the <span className="text-ink">⋮</span> or install icon in the address bar).</li>
+                <li>2. Choose <span className="text-ink">Install rukMoney</span> / <span className="text-ink">Add to Home screen</span>.</li>
+                <li>3. Confirm — it opens like a native app. If you already dismissed the prompt, this is the way back to it.</li>
+              </ol>
+            )}
           </div>
         </div>
       )}
