@@ -3,11 +3,14 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import useSWR from "swr";
-import { SlidersHorizontal, RefreshCw } from "lucide-react";
+import { SlidersHorizontal, RefreshCw, ChevronDown, Sparkles } from "lucide-react";
 import { DataBadge } from "./data-state";
-import type { DataResult, ScreenerRow } from "@/lib/providers/types";
+import { useIsAdmin } from "./use-is-admin";
+import type { DataResult, ScreenerRow, ScreenerFilters } from "@/lib/providers/types";
+import { relatedPresets, presetByKey } from "@/lib/screener/presets";
 
 const fetchJson = (u: string) => fetch(u).then((r) => r.json() as Promise<DataResult<ScreenerRow[]>>);
+const fetchJsonRaw = (u: string) => fetch(u).then((r) => r.json());
 
 // FMP sector vocabulary (from the Available Sectors API). "" = any sector.
 const SECTORS = ["", "Technology", "Healthcare", "Financial Services", "Consumer Cyclical", "Consumer Defensive", "Energy", "Industrials", "Basic Materials", "Communication Services", "Utilities", "Real Estate"];
@@ -19,14 +22,27 @@ interface Filters {
 }
 const EMPTY: Filters = { marketCapMoreThan: "", priceMoreThan: "", priceLowerThan: "", volumeMoreThan: "", betaMoreThan: "", betaLowerThan: "", dividendMoreThan: "", sector: "" };
 
-// Robinhood-style starting points. Each just seeds the filter form.
-const PRESETS: { key: string; label: string; f: Partial<Filters> }[] = [
-  { key: "large-tech", label: "Large-cap Tech", f: { marketCapMoreThan: "10000000000", sector: "Technology", volumeMoreThan: "1000000" } },
-  { key: "dividend", label: "Dividend payers", f: { dividendMoreThan: "1", marketCapMoreThan: "2000000000" } },
-  { key: "low-beta", label: "Low volatility", f: { betaLowerThan: "1", marketCapMoreThan: "5000000000" } },
-  { key: "high-beta", label: "High momentum", f: { betaMoreThan: "1.5", volumeMoreThan: "2000000" } },
-  { key: "affordable", label: "Under $50", f: { priceLowerThan: "50", marketCapMoreThan: "1000000000", volumeMoreThan: "500000" } },
-];
+// A preset's numeric ScreenerFilters → the string-based form Filters.
+function presetToFilters(f: ScreenerFilters): Filters {
+  const s = (n: number | undefined) => (n != null ? String(n) : "");
+  return {
+    marketCapMoreThan: s(f.marketCapMoreThan), priceMoreThan: s(f.priceMoreThan),
+    priceLowerThan: s(f.priceLowerThan), volumeMoreThan: s(f.volumeMoreThan),
+    betaMoreThan: s(f.betaMoreThan), betaLowerThan: s(f.betaLowerThan),
+    dividendMoreThan: s(f.dividendMoreThan), sector: f.sector ?? "",
+  };
+}
+
+interface PresetCard { key: string; label: string; blurb: string; category: string; filters: ScreenerFilters; image: string }
+
+// Deterministic gradient per category so missing images still look intentional.
+const CAT_GRADIENT: Record<string, string> = {
+  momentum: "from-emerald-600/40 to-teal-800/40", value: "from-amber-600/40 to-stone-800/40",
+  dividend: "from-yellow-600/40 to-amber-900/40", income: "from-lime-600/40 to-green-900/40",
+  growth: "from-green-600/40 to-emerald-900/40", sector: "from-sky-600/40 to-indigo-900/40",
+  size: "from-violet-600/40 to-purple-900/40", volatility: "from-rose-600/40 to-red-900/40",
+  quality: "from-cyan-600/40 to-blue-900/40", speculative: "from-fuchsia-600/40 to-rose-900/40",
+};
 
 function compact(n: number | null): string {
   if (n == null) return "—";
@@ -38,12 +54,65 @@ function compact(n: number | null): string {
   return String(n);
 }
 
+// A Robinhood-style preset tile: image (or category gradient) + label + blurb.
+function PresetTile({ p, active, onClick }: { p: PresetCard; active: boolean; onClick: () => void }) {
+  const [imgOk, setImgOk] = useState(true);
+  return (
+    <button onClick={onClick}
+      className={`group relative flex h-28 w-44 shrink-0 flex-col justify-end overflow-hidden rounded-xl border p-3 text-left transition-all ${active ? "border-brand-500 ring-1 ring-brand-500/50" : "border-hairline hover:border-brand-500/50"}`}>
+      {/* image or gradient fallback */}
+      {imgOk
+        ? <img src={p.image} alt="" onError={() => setImgOk(false)} className="absolute inset-0 h-full w-full object-cover opacity-60 transition-opacity group-hover:opacity-75" />
+        : <div className={`absolute inset-0 bg-gradient-to-br ${CAT_GRADIENT[p.category] ?? "from-surface to-black/40"}`} />}
+      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
+      <div className="relative">
+        <div className="text-sm font-semibold text-white drop-shadow">{p.label}</div>
+        <div className="mt-0.5 line-clamp-2 text-[10px] text-white/70">{p.blurb}</div>
+      </div>
+    </button>
+  );
+}
+
 export function Screener() {
+  const isAdmin = useIsAdmin();
   const [filters, setFilters] = useState<Filters>(EMPTY);
   // `applied` is the committed filter set the query uses — editing the form does
   // NOT refetch until you press Run, so we don't hammer FMP's quota per keystroke.
   const [applied, setApplied] = useState<Filters>(EMPTY);
   const [live, setLive] = useState(false); // opt-in polling (off by default to save quota)
+  const [activePreset, setActivePreset] = useState<string | null>(null);
+  const [showAll, setShowAll] = useState(false);
+  const [reranking, setReranking] = useState(false);
+
+  // Preset catalog + the day's AI-chosen order (auto-refreshes after 8am ET).
+  const { data: presetData, mutate: mutatePresets } = useSWR<{ presets: PresetCard[]; rankedKeys: string[]; rationale: string | null }>("/api/screener/presets", fetchJsonRaw, { revalidateOnFocus: false });
+  const presetMap = useMemo(() => new Map((presetData?.presets ?? []).map((p) => [p.key, p])), [presetData]);
+  const orderedPresets = useMemo(() => {
+    const order = presetData?.rankedKeys ?? [];
+    const ranked = order.map((k) => presetMap.get(k)).filter(Boolean) as PresetCard[];
+    // include any catalog presets not in the ranking, at the end
+    const extra = (presetData?.presets ?? []).filter((p) => !order.includes(p.key));
+    return [...ranked, ...extra];
+  }, [presetData, presetMap]);
+  const TOP_N = 8;
+  const visiblePresets = showAll ? orderedPresets : orderedPresets.slice(0, TOP_N);
+  const related = activePreset ? relatedPresets(activePreset, 6) : [];
+
+  // Click a preset → apply its filters AND run immediately (no Run click).
+  function pickPreset(key: string) {
+    const p = presetMap.get(key) ?? (presetByKey(key) ? { ...presetByKey(key)!, image: "" } as any : null);
+    if (!p) return;
+    const next = presetToFilters(p.filters);
+    setFilters(next);
+    setApplied(next);
+    setActivePreset(key);
+  }
+
+  async function rerank() {
+    setReranking(true);
+    try { await fetch("/api/screener/presets", { method: "POST" }); await mutatePresets(); }
+    finally { setReranking(false); }
+  }
 
   const qs = useMemo(() => {
     const p = new URLSearchParams();
@@ -71,23 +140,51 @@ export function Screener() {
   const rows = data?.data ?? [];
   const set = (k: keyof Filters) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setFilters((f) => ({ ...f, [k]: e.target.value }));
-  const run = () => setApplied(filters);
-  const applyPreset = (f: Partial<Filters>) => { const next = { ...EMPTY, ...f }; setFilters(next); setApplied(next); };
-  const reset = () => { setFilters(EMPTY); setApplied(EMPTY); };
+  const run = () => { setApplied(filters); setActivePreset(null); };
+  const reset = () => { setFilters(EMPTY); setApplied(EMPTY); setActivePreset(null); };
 
   const inputCls = "w-full rounded-md border border-hairline bg-surface px-2.5 py-1.5 text-sm text-ink placeholder:text-ink-faint focus:border-brand-500 focus:outline-none";
 
   return (
     <div className="space-y-4">
-      {/* Presets */}
-      <div className="flex flex-wrap items-center gap-1.5">
-        <span className="text-[11px] text-ink-faint">Presets:</span>
-        {PRESETS.map((p) => (
-          <button key={p.key} onClick={() => applyPreset(p.f)}
-            className="rounded-full border border-hairline px-2.5 py-1 text-[11px] text-ink-dim transition-colors hover:bg-surface hover:text-ink">
-            {p.label}
+      {/* Presets — image tiles, AI-ordered for today. Click one to run it. */}
+      <div>
+        <div className="mb-2 flex items-center justify-between">
+          <span className="text-sm font-semibold text-ink">Browse presets</span>
+          {isAdmin && (
+            <button onClick={rerank} disabled={reranking} className="inline-flex items-center gap-1.5 rounded-md border border-hairline px-2.5 py-1 text-[11px] text-ink-dim hover:text-ink disabled:opacity-50" title={presetData?.rationale ?? undefined}>
+              <Sparkles size={12} className={reranking ? "animate-pulse" : ""} /> {reranking ? "Re-ranking…" : "Re-rank"}
+            </button>
+          )}
+        </div>
+        {isAdmin && presetData?.rationale && (
+          <p className="mb-2 text-[11px] text-ink-faint">Today: {presetData.rationale}</p>
+        )}
+        <div className="flex flex-wrap gap-2">
+          {visiblePresets.map((p) => (
+            <PresetTile key={p.key} p={p} active={activePreset === p.key} onClick={() => pickPreset(p.key)} />
+          ))}
+        </div>
+        {orderedPresets.length > TOP_N && (
+          <button onClick={() => setShowAll((s) => !s)} className="mt-2 inline-flex items-center gap-1 text-xs text-brand-400 hover:underline">
+            <ChevronDown size={13} className={showAll ? "rotate-180 transition-transform" : "transition-transform"} />
+            {showAll ? "Show fewer" : `Show all ${orderedPresets.length} presets`}
           </button>
-        ))}
+        )}
+
+        {/* Related presets appear after picking one ("more like this"). */}
+        {activePreset && related.length > 0 && (
+          <div className="mt-3">
+            <div className="mb-1.5 text-[11px] text-ink-faint">More like this</div>
+            <div className="flex flex-wrap gap-2">
+              {related.map((rp) => {
+                const card = presetMap.get(rp.key);
+                if (!card) return null;
+                return <PresetTile key={rp.key} p={card} active={false} onClick={() => pickPreset(rp.key)} />;
+              })}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Filters */}
