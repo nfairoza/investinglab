@@ -9,6 +9,8 @@ const fetchJson = (u: string) => fetch(u).then((r) => r.json());
 const money = (n: number) => new Intl.NumberFormat(undefined, { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n);
 
 interface NetWorth { netWorth: number; totalAssets: number; totalLiabilities: number; byType: Record<string, number>; changeAmount: number | null; changePct: number | null }
+interface AdvisorStep { id: string; title: string; status: string; mathSummary: string; explanationInput: string }
+interface AdvisorResp { result?: { steps: AdvisorStep[]; surplus: { available: boolean; surplus: number; destination: string }; avgMonthlyExpenses: number | null; liquidCash: number } }
 interface Balances { totalCash: number; items: { accounts: { type: string; current: number | null }[] }[] }
 interface Txn { date: string; amount: number; category: string; isTransfer: boolean; excluded: boolean }
 interface Holding { symbol: string; shares: number; marketValue?: number; daysGain?: number }
@@ -32,6 +34,8 @@ export function Overview() {
   const { data: bal } = useSWR<Balances>("/api/plaid/accounts", fetchJson, { revalidateOnFocus: false, keepPreviousData: true });
   const { data: txnData } = useSWR<{ transactions: Txn[] }>("/api/plaid/transactions?sync=0", fetchJson, { revalidateOnFocus: false, keepPreviousData: true });
   const { data: holdings, isLoading: holdingsLoading } = useSWR<Holding[]>("/api/holdings", fetchJson, { revalidateOnFocus: false, keepPreviousData: true });
+  // Computed advisor (GET = no AI tokens) — drives the compact insight card.
+  const { data: advisor } = useSWR<AdvisorResp>("/api/advisor", fetchJson, { revalidateOnFocus: false, keepPreviousData: true });
 
   const inv = useMemo(() => {
     const list = holdings ?? [];
@@ -54,6 +58,19 @@ export function Overview() {
     const top = [...cats.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3);
     return { income, expense, net: income - expense, top };
   }, [txnData]);
+
+  // Top advisor insight: the highest-priority step needing attention, plus the
+  // surplus destination. Computed server-side — we only pick what to surface.
+  const insight = useMemo(() => {
+    const r = advisor?.result;
+    if (!r) return null;
+    const step = r.steps.find((s) => s.status === "attention") ?? r.steps.find((s) => s.status === "in_progress");
+    const line = step ? step.mathSummary || step.title : null;
+    const surplusLine = r.surplus.available && r.surplus.surplus > 0
+      ? `${money(r.surplus.surplus)} surplus → ${r.surplus.destination}`
+      : null;
+    return { title: step?.title ?? null, line, surplusLine };
+  }, [advisor]);
 
   // Only treat the account as empty once data has actually loaded at least once.
   // Otherwise the welcome screen flashes on every refresh for connected users.
@@ -150,13 +167,23 @@ export function Overview() {
         )}
       </Card>
 
-      {/* AI insight (whole card → Advisor) */}
-      <Card href="/advisor" title="Rukmani — AI insight">
-        <p className="text-sm text-ink-dim">
-          {nw?.changeAmount != null && nw.changeAmount !== 0
-            ? `Your net worth is ${nw.changeAmount >= 0 ? "up" : "down"} ${money(Math.abs(nw.changeAmount))} this month. Tap for a full review.`
-            : "Get a personalized review of your finances from Rukmani."}
-        </p>
+      {/* AI insight (whole card → Advisor) — driven by the computed advisor */}
+      <Card href="/advisor" title="Rukmani — your next money move">
+        {insight?.line ? (
+          <div className="space-y-1.5">
+            {insight.title && <div className="text-sm font-medium text-ink">Focus: {insight.title}</div>}
+            <p className="text-sm text-ink-dim">{insight.line}</p>
+            {insight.surplusLine && (
+              <span className="inline-flex items-center gap-1 rounded-full border border-brand-500/30 bg-brand-500/10 px-2.5 py-0.5 text-[11px] text-brand-200">{insight.surplusLine}</span>
+            )}
+          </div>
+        ) : (
+          <p className="text-sm text-ink-dim">
+            {nw?.changeAmount != null && nw.changeAmount !== 0
+              ? `Your net worth is ${nw.changeAmount >= 0 ? "up" : "down"} ${money(Math.abs(nw.changeAmount))} this month. Tap for your order-of-operations plan.`
+              : "Get your personalized financial order of operations from Rukmani."}
+          </p>
+        )}
       </Card>
 
       {/* Connect prompt */}
