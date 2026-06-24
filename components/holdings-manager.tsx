@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import useSWR from "swr";
-import { ArrowUp, ArrowDown, RefreshCw } from "lucide-react";
+import { ArrowUp, ArrowDown, RefreshCw, Plus, ChevronDown } from "lucide-react";
 import { DataBadge, DataTimestamp } from "./data-state";
 import { TickerInput } from "./ticker-input";
 import { Sparkline } from "./charts/Sparkline";
@@ -57,6 +57,9 @@ export function HoldingsManager() {
   const [syncingEtrade, setSyncingEtrade] = useState(false);
   const [syncMsg, setSyncMsg] = useState<string | null>(null);
   const [sourceFilter, setSourceFilter] = useState<"all" | "manual" | "etrade">("all");
+  // Manual entry is secondary (most holdings come from E*TRADE/Plaid sync), so
+  // the form is collapsed behind a toggle rather than dominating the top.
+  const [showAdd, setShowAdd] = useState(false);
 
   // Which sources actually exist in the data (for showing only relevant chips).
   const presentSources = Array.from(new Set(allHoldings.map((h) => h.source ?? "manual")));
@@ -203,24 +206,33 @@ export function HoldingsManager() {
 
   return (
     <div className="space-y-4">
-      {/* Add form */}
-      <div className="rounded-xl glass p-4">
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-5">
-          <TickerInput value={symbol} onChange={setSymbol} onSelect={setSymbol} placeholder="Search ticker…" className={`${inputCls} w-full`} />
-          <input value={shares} onChange={(e) => setShares(e.target.value)} placeholder="Shares" inputMode="decimal" className={inputCls} />
-          <input value={avgCost} onChange={(e) => setAvgCost(e.target.value)} placeholder="Avg cost $" inputMode="decimal" className={inputCls} />
-          <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Note (optional)" className={inputCls} />
-          <button onClick={addHolding} className="rounded-md bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-500">
-            Add holding
-          </button>
-        </div>
-      </div>
-
       {allHoldings.length === 0 && (
         <div className="rounded-lg border border-hairline bg-surface p-6 text-center text-sm text-ink-faint">
-          No holdings yet. Add a ticker above or sync from E*TRADE.
+          No holdings yet. Sync from E*TRADE in Settings, or add one manually below.
         </div>
       )}
+
+      {/* Manual add — secondary, collapsed by default */}
+      <div className="rounded-xl border border-hairline bg-surface">
+        <button onClick={() => setShowAdd((s) => !s)}
+          className="flex w-full items-center justify-between px-4 py-2.5 text-sm text-ink-dim hover:text-ink">
+          <span className="flex items-center gap-2"><Plus size={14} /> Add a holding manually</span>
+          <ChevronDown size={15} className={`transition-transform ${showAdd ? "rotate-180" : ""}`} />
+        </button>
+        {showAdd && (
+          <div className="border-t border-hairline p-4">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-5">
+              <TickerInput value={symbol} onChange={setSymbol} onSelect={setSymbol} placeholder="Search ticker…" className={`${inputCls} w-full`} />
+              <input value={shares} onChange={(e) => setShares(e.target.value)} placeholder="Shares" inputMode="decimal" className={inputCls} />
+              <input value={avgCost} onChange={(e) => setAvgCost(e.target.value)} placeholder="Avg cost $" inputMode="decimal" className={inputCls} />
+              <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Note (optional)" className={inputCls} />
+              <button onClick={addHolding} className="rounded-md bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-500">
+                Add holding
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
 
       {allHoldings.length > 0 && (
         <>

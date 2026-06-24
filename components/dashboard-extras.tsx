@@ -40,26 +40,27 @@ export function AssetCard({
   const periodChange = first != null && last != null && shares ? (last - first) * shares : null;
   return (
     <Link href={`/research?symbol=${symbol}`}
-      className="card-hover group relative block overflow-hidden rounded-md border border-hairline p-4" style={{ background: "var(--surface)" }}>
+      className="card-hover group relative block overflow-hidden rounded-md border border-hairline p-3 sm:p-4" style={{ background: "var(--surface)" }}>
       <div className="flex items-start justify-between">
-        <div>
+        <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <span className="font-mono text-base font-semibold text-ink">{symbol}</span>
+            <span className="font-mono text-sm font-semibold text-ink sm:text-base">{symbol}</span>
             <ArrowUpRight size={14} className="text-ink-faint opacity-0 transition-opacity group-hover:opacity-100" />
           </div>
-          {name && <div className="truncate text-[11px] text-ink-faint">{name}</div>}
+          {name && <div className="hidden truncate text-[11px] text-ink-faint sm:block">{name}</div>}
         </div>
         {dayPct != null && (
-          <span className="flex items-center gap-1 rounded-full px-2 py-0.5 font-mono text-xs font-medium"
+          <span className="flex items-center gap-1 rounded-full px-2 py-0.5 font-mono text-[11px] font-medium sm:text-xs"
             style={{ color: up ? "var(--positive)" : "var(--negative)", background: up ? "var(--positive-soft)" : "var(--negative-soft)" }}>
             {up ? "▲" : "▼"} {Math.abs(dayPct).toFixed(2)}%
           </span>
         )}
       </div>
-      <div className="mt-2 font-mono text-2xl font-semibold tnum text-ink">{price != null ? `$${price.toFixed(2)}` : "—"}</div>
-      {/* Big glow sparkline fills the card bottom */}
-      <div className="relative mt-2 -mx-4 -mb-4">
-        <GlowSparkline data={series} height={88} />
+      <div className="mt-1.5 font-mono text-lg font-semibold tnum text-ink sm:mt-2 sm:text-2xl">{price != null ? `$${price.toFixed(2)}` : "—"}</div>
+      {/* Glow sparkline — shorter on phones so cards don't rival the portfolio hero */}
+      <div className="relative mt-1.5 -mx-3 -mb-3 sm:mt-2 sm:-mx-4 sm:-mb-4">
+        <div className="sm:hidden"><GlowSparkline data={series} height={40} /></div>
+        <div className="hidden sm:block"><GlowSparkline data={series} height={88} /></div>
         {periodChange != null && Math.abs(periodChange) >= 1 && (
           <span className="absolute right-3 top-1 rounded-md border border-hairline px-1.5 py-0.5 font-mono text-[10px]"
             style={{ background: "var(--surface-solid)", color: periodChange >= 0 ? "var(--positive)" : "var(--negative)" }}>
