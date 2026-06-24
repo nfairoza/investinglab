@@ -219,19 +219,23 @@ export function Overview() {
         <Kpi label="Saved this month" value={money(spend.net)} tone={spend.net >= 0 ? "up" : "down"} />
       </div>
 
-      {/* What changed — glanceable signals from data we already have */}
+      {/* What changed — glanceable signals; tap one to ask Rukmani why */}
       {weekly.length > 0 && (
         <div className="rounded-2xl glass p-4">
-          <div className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-ink-faint">What changed</div>
+          <div className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-ink-faint">
+            <Sparkles size={12} className="text-brand-400" /> What changed <span className="font-normal normal-case text-ink-faint">· tap to ask Rukmani why</span>
+          </div>
           <div className="flex flex-wrap gap-2">
             {weekly.map((w, i) => (
-              <span key={i} className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs ${
+              <button key={i}
+                onClick={() => window.dispatchEvent(new CustomEvent("ask-rukmani", { detail: { prompt: `Why ${w.text.charAt(0).toLowerCase()}${w.text.slice(1)}? Explain the likely drivers using my data and current market context.` } }))}
+                className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs transition-colors hover:brightness-110 ${
                 w.tone === "up" ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
                 : w.tone === "down" ? "border-rose-500/30 bg-rose-500/10 text-rose-300"
                 : "border-hairline bg-surface text-ink-dim"}`}>
                 {w.tone === "up" ? <ArrowUp size={12} /> : w.tone === "down" ? <ArrowDown size={12} /> : null}
                 {w.text}
-              </span>
+              </button>
             ))}
           </div>
         </div>
@@ -353,19 +357,24 @@ export function Overview() {
         )}
       </Card>
 
-      {/* Top movers across all holdings today */}
+      {/* Top movers across all holdings today — tap a row to ask Rukmani why */}
       {movers.length > 0 && (
         <Card href="/holdings" title="Top movers today">
-          <ul className="space-y-2">
+          <ul className="space-y-1">
             {movers.map((m) => (
-              <li key={m.symbol} className="flex items-center justify-between text-sm">
-                <span className="font-mono font-medium text-ink">{m.symbol}</span>
-                <span className={`inline-flex items-center gap-1 font-mono ${m.pct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
-                  {m.pct >= 0 ? <ArrowUp size={13} /> : <ArrowDown size={13} />} {Math.abs(m.pct).toFixed(1)}%
-                </span>
+              <li key={m.symbol}>
+                <button
+                  onClick={(e) => { e.stopPropagation(); window.dispatchEvent(new CustomEvent("ask-rukmani", { detail: { prompt: `Why is ${m.symbol} ${m.pct >= 0 ? "up" : "down"} ${Math.abs(m.pct).toFixed(1)}% today? Explain the likely drivers with current news and context.` } })); }}
+                  className="flex w-full items-center justify-between rounded-md px-1.5 py-1 text-sm transition-colors hover:bg-surface">
+                  <span className="font-mono font-medium text-ink">{m.symbol}</span>
+                  <span className={`inline-flex items-center gap-1 font-mono ${m.pct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                    {m.pct >= 0 ? <ArrowUp size={13} /> : <ArrowDown size={13} />} {Math.abs(m.pct).toFixed(1)}%
+                  </span>
+                </button>
               </li>
             ))}
           </ul>
+          <p className="mt-1.5 text-[10px] text-ink-faint">Tap a mover to ask Rukmani why.</p>
         </Card>
       )}
 

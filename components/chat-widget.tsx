@@ -171,6 +171,32 @@ export function ChatWidget() {
     return () => window.removeEventListener("open-chat", openChat);
   }, []);
 
+  // Let other parts of the app ask Rukmani a specific question:
+  //   window.dispatchEvent(new CustomEvent("ask-rukmani", { detail: { prompt } }))
+  // Opens the chat and auto-sends the prompt. We stash it and fire after open so
+  // send() runs with fresh state on the next tick.
+  const queuedPrompt = useRef<string | null>(null);
+  useEffect(() => {
+    function onAsk(e: Event) {
+      const prompt = (e as CustomEvent<{ prompt?: string }>).detail?.prompt;
+      if (!prompt) return;
+      setOpen(true); setMinimized(false);
+      queuedPrompt.current = prompt;
+    }
+    window.addEventListener("ask-rukmani", onAsk as EventListener);
+    return () => window.removeEventListener("ask-rukmani", onAsk as EventListener);
+  }, []);
+
+  // When a queued prompt exists and we're open + not streaming, send it once.
+  useEffect(() => {
+    if (open && !streaming && queuedPrompt.current) {
+      const p = queuedPrompt.current;
+      queuedPrompt.current = null;
+      void send(p);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, streaming]);
+
   // On phones the chat docks as a full-width bottom sheet instead of a fixed
   // floating box (which would be cramped / could cover content).
   const [isMobile, setIsMobile] = useState(false);
