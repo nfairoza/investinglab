@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import useSWR from "swr";
-import { Landmark, TrendingUp, TrendingDown, ExternalLink, Info } from "lucide-react";
+import { Landmark, TrendingUp, TrendingDown, ExternalLink, Info, Users, X } from "lucide-react";
 import { DataBadge, DataTimestamp } from "./data-state";
 import { MotionLoader } from "./motion-loader";
 import type { DataSource } from "@/lib/providers/types";
@@ -91,19 +92,38 @@ function ScoreBar({ s }: { s: ScoredTrade }) {
 
 export function CongressAlphaFeed() {
   const [days, setDays] = useState(90);
-  const { data, isLoading, isValidating, mutate } = useSWR<AlphaResult>(`/api/congress/alpha?limit=300&days=${days}`, fetcher, {
+  // Always fetch the FULL YEAR once, then filter the window CLIENT-SIDE. This
+  // guarantees every window is a strict subset of the same dataset (6mo always
+  // contains 90d, etc.) — fixes windows that sometimes showed no data — and
+  // makes switching windows instant (no refetch).
+  const { data, isLoading, isValidating, mutate } = useSWR<AlphaResult>(`/api/congress/alpha?limit=400&days=365`, fetcher, {
     revalidateOnFocus: false,
     keepPreviousData: true,
   });
   // Force a fresh rebuild (bypasses the 12h server cache) then revalidate.
   async function reanalyze() {
-    await fetch(`/api/congress/alpha?limit=300&days=${days}&refresh=1`).catch(() => {});
+    await fetch(`/api/congress/alpha?limit=400&days=365&refresh=1`).catch(() => {});
     mutate();
   }
   const [minTier, setMinTier] = useState<"HIGH" | "MEDIUM" | "ALL">("HIGH");
   const [selected, setSelected] = useState<string | null>(null);
+  const [member, setMember] = useState<string | null>(null); // politician quick-filter
+
+  // Window cutoff (client-side) using the trade date, with a safe fallback.
+  const cutoffMs = Date.now() - days * 86_400_000;
+  const inWindow = (r: ScoredTrade) => {
+    const d = new Date(r.txDate || r.disclosureDate).getTime();
+    return Number.isNaN(d) || d >= cutoffMs;
+  };
+
+  // Distinct members present (for the quick-filter widget), by trade count.
+  const memberCounts = new Map<string, number>();
+  for (const r of data?.rows ?? []) if (inWindow(r)) memberCounts.set(r.representative, (memberCounts.get(r.representative) ?? 0) + 1);
+  const topMembers = [...memberCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 12);
 
   const rows = (data?.rows ?? []).filter((r) => {
+    if (!inWindow(r)) return false;
+    if (member && r.representative !== member) return false;
     if (minTier === "ALL") return true;
     if (minTier === "HIGH") return r.tier === "HIGH";
     return r.tier !== "LOW"; // MEDIUM+
@@ -189,13 +209,22 @@ export function CongressAlphaFeed() {
                 No trades at this conviction level. Try “All”.
               </div>
             )}
-            {rows.map((r) => (
-              <button key={r.id} onClick={() => setSelected(r.id)}
-                className={`w-full rounded-xl border p-3 text-left transition-colors ${
+            {/* Whole card → opens the official filing (source). The ticker chip
+                → Research for that ticker. "Inspect" → loads the Conflict
+                Inspector on the right without leaving the page. */}
+            {rows.map((r) => {
+              const cardClickable = Boolean(r.sourceLink);
+              return (
+              <div key={r.id}
+                onClick={() => { if (r.sourceLink) window.open(r.sourceLink, "_blank", "noopener,noreferrer"); }}
+                className={`group w-full rounded-xl border p-3 text-left transition-colors ${cardClickable ? "cursor-pointer" : ""} ${
                   sel?.id === r.id ? "border-brand-500/50 bg-brand-500/[0.06]" : "border-hairline bg-black/15 hover:bg-white/[0.03]"
                 }`}>
                 <div className="flex items-center gap-3">
-                  <span className="shrink-0 rounded-md bg-surface-raised px-2 py-1 font-bold text-brand-300">{r.ticker}</span>
+                  <Link href={`/research?symbol=${r.ticker}`} onClick={(e) => e.stopPropagation()}
+                    className="shrink-0 rounded-md bg-surface-raised px-2 py-1 font-bold text-brand-300 hover:bg-brand-500/15" title={`Research ${r.ticker}`}>
+                    {r.ticker}
+                  </Link>
                   <span className={`shrink-0 inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-xs ${r.action === "BUY" ? "border-emerald-500/40 text-emerald-300" : "border-rose-500/40 text-rose-300"}`}>
                     {r.action === "BUY" ? <TrendingUp size={12} /> : <TrendingDown size={12} />} {r.action}
                   </span>
@@ -220,19 +249,44 @@ export function CongressAlphaFeed() {
                     </span>
                   )}
                   <span className="text-ink-faint">traded {r.txDate}</span>
-                  {r.sourceLink && (
-                    <a href={r.sourceLink} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}
-                      className="ml-auto inline-flex items-center gap-1 text-brand-400 hover:underline">
-                      Source <ExternalLink size={11} />
-                    </a>
-                  )}
+                  <span className="ml-auto flex items-center gap-2">
+                    <button onClick={(e) => { e.stopPropagation(); setSelected(r.id); }}
+                      className="inline-flex items-center gap-1 rounded border border-hairline px-1.5 py-0.5 text-ink-dim hover:bg-surface hover:text-ink">
+                      <Info size={11} /> Inspect
+                    </button>
+                    {cardClickable && <span className="inline-flex items-center gap-1 text-brand-400 group-hover:underline">Source <ExternalLink size={11} /></span>}
+                  </span>
                 </div>
-              </button>
-            ))}
+              </div>
+              );
+            })}
           </div>
 
-          {/* Right column: Conflict Inspector + Macro */}
+          {/* Right column: Politicians + Conflict Inspector + Macro */}
           <div className="space-y-4">
+            {/* Politician quick-filter — click a name to filter the feed to them */}
+            {topMembers.length > 0 && (
+              <div className="rounded-xl glass p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-ink"><Users size={15} className="text-brand-400" /> Politicians</div>
+                  {member && (
+                    <button onClick={() => setMember(null)} className="inline-flex items-center gap-1 rounded border border-hairline px-1.5 py-0.5 text-[11px] text-ink-dim hover:text-ink">
+                      <X size={11} /> Clear
+                    </button>
+                  )}
+                </div>
+                <p className="mt-0.5 text-[11px] text-ink-faint">Tap a name to filter the feed to their trades.</p>
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {topMembers.map(([name, count]) => (
+                    <button key={name} onClick={() => setMember(member === name ? null : name)}
+                      className={`rounded-full border px-2.5 py-1 text-[11px] transition-colors ${member === name ? "tab-active" : "border-hairline text-ink-dim hover:bg-surface hover:text-ink"}`}>
+                      {name} <span className="text-ink-faint">{count}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Module 2: Legislative Conflict Inspector */}
             <div className="rounded-xl glass p-4">
               <div className="flex items-center gap-2 text-sm font-semibold text-ink">

@@ -13,7 +13,7 @@ interface Horizon {
   confidence: number;
   reason: string;
 }
-interface Headline { title: string; takeaway: string; url?: string; }
+interface Headline { title: string; takeaway: string; url?: string; source?: string; }
 interface Prediction {
   summary: string;
   horizons: Horizon[];
@@ -199,10 +199,11 @@ export function PredictionWorkspace({ initial = "AMD" }: { initial?: string }) {
             <p className="mt-1 text-sm text-ink-dim">{result.prediction.whatWouldChangeMyMind}</p>
           </div>
 
-          {/* Headlines from web search */}
+          {/* Recent headlines — REAL articles from the news provider (verified
+              links), not AI-generated URLs. */}
           {result.prediction.keyHeadlines?.length > 0 && (
             <div className="card-hover rounded-xl glass p-4">
-              <div className="mb-2 text-sm font-medium text-ink">Recent headlines Claude found</div>
+              <div className="mb-2 text-sm font-medium text-ink">Recent headlines</div>
               <ul className="space-y-2">
                 {result.prediction.keyHeadlines.map((hl, i) => (
                   <li key={i} className="border-b border-hairline pb-2 last:border-0">
@@ -213,7 +214,8 @@ export function PredictionWorkspace({ initial = "AMD" }: { initial?: string }) {
                     ) : (
                       <div className="text-sm text-ink-dim">{hl.title}</div>
                     )}
-                    <div className="text-xs text-ink-faint">{hl.takeaway}</div>
+                    {(hl as any).source && <span className="ml-1 text-[11px] text-ink-faint">· {(hl as any).source}</span>}
+                    {hl.takeaway && <div className="text-xs text-ink-faint">{hl.takeaway}</div>}
                   </li>
                 ))}
               </ul>

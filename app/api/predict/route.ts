@@ -122,13 +122,19 @@ export async function POST(req: NextRequest) {
   }
 
   // Gather all the live data we can for context.
-  const [quote, fin, profile, analyst, dcf] = await Promise.all([
+  const [quote, fin, profile, analyst, dcf, news] = await Promise.all([
     marketData.getQuote(symbol),
     marketData.getFinancials(symbol),
     marketData.getCompanyProfile(symbol),
     marketData.getAnalystData(symbol),
     marketData.getDcf(symbol),
+    marketData.getNews(symbol).catch(() => null),
   ]);
+  // Real, verified headlines from the news provider (with working URLs). We use
+  // these for display instead of AI-generated links, which can 404/hallucinate.
+  const realHeadlines = (news?.data ?? []).slice(0, 4).map((n) => ({
+    title: n.title, url: n.url, source: n.source, publishedAt: n.publishedAt,
+  }));
 
   // No hard block if the FMP feed is down — Claude searches the web for the
   // numbers instead. We just flag the source so the UI can show it.
@@ -159,6 +165,27 @@ export async function POST(req: NextRequest) {
     const end = cleaned.lastIndexOf("}");
     const jsonStr = start !== -1 && end !== -1 ? cleaned.slice(start, end + 1) : cleaned;
     const prediction = parseLooseJson(jsonStr);
+
+    // Replace AI-generated headline links (which can 404/hallucinate) with REAL
+    // verified headlines from the news provider. Keep the AI's per-headline
+    // takeaway when a title roughly matches; otherwise just show the real ones.
+    if (realHeadlines.length > 0) {
+      const aiTakeaways = new Map<string, string>(
+        (prediction?.keyHeadlines ?? [])
+          .filter((h: any) => h?.title && h?.takeaway)
+          .map((h: any) => [String(h.title).toLowerCase().slice(0, 40), String(h.takeaway)]),
+      );
+      prediction.keyHeadlines = realHeadlines.map((h) => ({
+        title: h.title,
+        url: h.url,
+        source: h.source,
+        takeaway: aiTakeaways.get(h.title.toLowerCase().slice(0, 40)) ?? "",
+      }));
+    } else if (Array.isArray(prediction?.keyHeadlines)) {
+      // No real news available → drop AI-invented links to avoid 404s; keep
+      // the title+takeaway text only (no clickable broken URLs).
+      prediction.keyHeadlines = prediction.keyHeadlines.map((h: any) => ({ title: h?.title ?? "", takeaway: h?.takeaway ?? "" }));
+    }
 
     const aiName = provider === "claude" ? "Claude" : "Gemini";
     const payload = {
