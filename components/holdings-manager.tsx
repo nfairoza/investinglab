@@ -360,8 +360,10 @@ export function HoldingsManager() {
                 {syncingEtrade ? "Syncing…" : "Refresh"}
               </button>
               {anySource && <DataBadge source={anySource} />}
-              {/* Source filter — only shown when there's more than one source */}
-              {presentSources.length > 1 && (
+              {/* Source filter — chips for a few sources, dropdown when many.
+                  Sources are derived from connected institutions, so this scales
+                  to any number of connected banks/brokerages. */}
+              {presentSources.length > 1 && presentSources.length <= 3 && (
                 <div className="flex items-center gap-1 rounded-lg border border-hairline bg-surface p-0.5">
                   {["all", ...presentSources].map((src) => {
                     const label = src === "all" ? "All" : src === "etrade" ? "E*TRADE" : src === "manual" ? "Manual" : src;
@@ -379,6 +381,20 @@ export function HoldingsManager() {
                     );
                   })}
                 </div>
+              )}
+              {presentSources.length > 3 && (
+                <select
+                  value={sourceFilter}
+                  onChange={(e) => setSourceFilter(e.target.value as typeof sourceFilter)}
+                  className="rounded-lg border border-hairline px-2.5 py-1.5 text-xs text-ink focus:outline-none"
+                  style={{ background: "var(--surface-solid)", color: "var(--text)" }}
+                >
+                  {["all", ...presentSources].map((src) => (
+                    <option key={src} value={src}>
+                      {src === "all" ? "All sources" : src === "etrade" ? "E*TRADE" : src === "manual" ? "Manual" : src}
+                    </option>
+                  ))}
+                </select>
               )}
             </div>
           </div>
