@@ -2,24 +2,23 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, TrendingUp, Scale, Sparkles, Plus } from "lucide-react";
+import { LayoutDashboard, TrendingUp, Scale, Search, Plus } from "lucide-react";
 import clsx from "clsx";
-import { useAlertsBadge } from "./use-alerts-badge";
 
-// Bottom tab bar (phones only): Overview · Invest · + · Money · Insights.
-// Invest sits left-of-center as the flagship; "+" is the central action button
-// (opens the global connect/add sheet), not a route.
+// Bottom tab bar (phones only): Overview · Invest · + · Money · Research.
+// AI-forward: Research gets a primary slot. Invest sits left-of-center; "+" is
+// the central action button (opens the global add sheet), not a route.
+// Insights/Alerts remain in the sidebar + Invest/Money sub-navs.
 const TABS = [
   { href: "/", label: "Overview", icon: LayoutDashboard, exact: true, match: ["/"] },
-  { href: "/holdings", label: "Invest", icon: TrendingUp, match: ["/holdings", "/watchlist", "/journal", "/research", "/rankings", "/map", "/predictions", "/portfolio-doctor", "/congress"] },
+  { href: "/holdings", label: "Invest", icon: TrendingUp, match: ["/holdings", "/watchlist", "/journal", "/rankings", "/map", "/predictions", "/portfolio-doctor", "/congress"] },
   // index 2 = the "+" action button (rendered specially)
-  { href: "/networth", label: "Money", icon: Scale, match: ["/networth", "/accounts", "/transactions", "/spending"] },
-  { href: "/advisor", label: "Insights", icon: Sparkles, match: ["/advisor", "/alerts"] },
+  { href: "/networth", label: "Money", icon: Scale, match: ["/networth", "/accounts", "/transactions", "/spending", "/advisor", "/alerts"] },
+  { href: "/research", label: "Research", icon: Search, match: ["/research"] },
 ];
 
 export function MobileTabBar() {
   const path = usePathname() || "/";
-  const alertsNew = useAlertsBadge();
 
   const isActive = (t: typeof TABS[number]) =>
     t.exact ? path === t.href : t.match.some((m) => path.startsWith(m));
@@ -31,12 +30,7 @@ export function MobileTabBar() {
       <Link key={t.href} href={t.href}
         className={clsx("flex flex-1 flex-col items-center justify-center gap-0.5 py-2 text-[10px] font-medium transition-colors", active ? "text-ink" : "text-ink-faint")}
         style={active ? { color: "var(--accent)" } : undefined}>
-        <span className="relative">
-          <Icon size={20} />
-          {t.href === "/advisor" && alertsNew && (
-            <span className="absolute -right-1 -top-0.5 h-2.5 w-2.5 rounded-full border-2 bg-rose-500" style={{ borderColor: "var(--surface-solid)" }} />
-          )}
-        </span>
+        <span className="relative"><Icon size={20} /></span>
         {t.label}
       </Link>
     );
