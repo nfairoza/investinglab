@@ -93,7 +93,15 @@ export function ResearchPanel({ symbol, autoRun = true }: { symbol: string; auto
             <h2 className="text-lg font-semibold text-ink">{symbol} — AI deep-dive memo</h2>
             <p className="text-[11px] text-ink-faint">Full written analysis (A–P sections, scenarios, action table) — generated automatically. The quick call is the AI prediction at the top of the page.</p>
           </div>
-          {data && <DataBadge source={data.source} />}
+          {/* While the memo is being written, show a "Researching" pill instead
+              of the data badge (which would read "Unavailable" pre-generation). */}
+          {generating && !report ? (
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-brand-500/40 bg-brand-500/10 px-2 py-0.5 text-[11px] font-medium text-brand-300">
+              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-brand-400" /> Researching…
+            </span>
+          ) : (
+            report && data && <DataBadge source={data.source} />
+          )}
         </div>
         <div className="flex items-center gap-2">
           <label className="flex items-center gap-1.5 text-[12px] text-ink-dim">

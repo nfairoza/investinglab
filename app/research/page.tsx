@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { ResearchWorkspace } from "@/components/research-workspace";
 
 export const metadata = { title: "Research" };
@@ -14,7 +15,9 @@ export default function Page({ searchParams }: { searchParams: { symbol?: string
           biggest risk before anything else.
         </p>
       </div>
-      <ResearchWorkspace initial={initial} />
+      <Suspense fallback={<div className="h-64 animate-pulse rounded-2xl bg-surface-raised" />}>
+        <ResearchWorkspace initial={initial} />
+      </Suspense>
     </div>
   );
 }

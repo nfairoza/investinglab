@@ -9,6 +9,7 @@ import clsx from "clsx";
 import { ThemeToggle } from "./theme-toggle";
 import { Blossom } from "./ui/primitives";
 import { AccountMenu } from "./account-menu";
+import { TopSearch } from "./top-search";
 import { useAlertsBadge } from "./use-alerts-badge";
 import { OVERVIEW, SECTIONS, ADMIN_SECTION, isPathActive } from "@/lib/nav";
 
@@ -92,6 +93,7 @@ function Footer() {
 
 export function Sidebar() {
   const [open, setOpen] = useState(false);
+  const [showSearch, setShowSearch] = useState(false);
 
   // The mobile bottom tab bar's "More" button opens this drawer via a global event.
   useEffect(() => {
@@ -103,23 +105,29 @@ export function Sidebar() {
   return (
     <>
       {/* Mobile top bar */}
-      <div className="sticky top-0 z-40 flex items-center justify-between border-b border-hairline px-4 py-3 md:hidden" style={{ background: "var(--surface-solid)" }}>
-        <div className="flex min-w-0 items-center gap-2">
-          <button onClick={() => setOpen(true)} aria-label="Open menu" className="shrink-0 rounded-md border border-hairline p-2 text-ink-dim hover:text-ink">
-            <Menu size={18} />
-          </button>
-          <Wordmark />
+      <div className="sticky top-0 z-40 md:hidden" style={{ background: "var(--surface-solid)" }}>
+        <div className="flex items-center justify-between border-b border-hairline px-4 py-3">
+          <div className="flex min-w-0 items-center gap-2">
+            <button onClick={() => setOpen(true)} aria-label="Open menu" className="shrink-0 rounded-md border border-hairline p-2 text-ink-dim hover:text-ink">
+              <Menu size={18} />
+            </button>
+            <Wordmark />
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowSearch((s) => !s)}
+              aria-label="Search"
+              className={`rounded-md border p-2 ${showSearch ? "border-brand-500/40 text-brand-300" : "border-hairline text-ink-dim hover:text-ink"}`}>
+              <Search size={18} />
+            </button>
+            <ThemeToggle compact />
+            <AccountMenu />
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => window.dispatchEvent(new KeyboardEvent("keydown", { key: "k", metaKey: true }))}
-            aria-label="Search"
-            className="rounded-md border border-hairline p-2 text-ink-dim hover:text-ink">
-            <Search size={18} />
-          </button>
-          <ThemeToggle compact />
-          <AccountMenu />
-        </div>
+        {/* Inline search row — appears under the bar on demand; no modal. */}
+        {showSearch && (
+          <div className="border-b border-hairline px-4 py-2"><TopSearch /></div>
+        )}
       </div>
 
       {/* Mobile drawer */}

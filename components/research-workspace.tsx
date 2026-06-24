@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { ScoreCard } from "./score-card";
 import { ResearchPanel } from "./research-panel";
 import { PriceHistoryChart } from "./charts/PriceHistoryChart";
@@ -15,6 +16,18 @@ import { MiniPrediction } from "./mini-prediction";
 export function ResearchWorkspace({ initial = "AMD" }: { initial?: string }) {
   const [draft, setDraft] = useState(initial);
   const [symbol, setSymbol] = useState(initial);
+
+  // Keep the active symbol in sync with the URL's ?symbol= param. Client-side
+  // navigations (e.g. clicking a ticker elsewhere) change the URL without
+  // remounting this component, so without this every child would keep showing
+  // the previously-researched ticker. We never show another ticker's data for
+  // the requested symbol.
+  const params = useSearchParams();
+  const urlSymbol = (params.get("symbol") ?? "").toUpperCase();
+  useEffect(() => {
+    if (urlSymbol && urlSymbol !== symbol) { setDraft(urlSymbol); setSymbol(urlSymbol); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [urlSymbol]);
 
   function go(s?: string) {
     const t = (s ?? draft).trim().toUpperCase();

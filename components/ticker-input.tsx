@@ -22,12 +22,18 @@ export function TickerInput({
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
   const boxRef = useRef<HTMLDivElement>(null);
+  // Only search + open the dropdown when the user is ACTIVELY typing. Programmatic
+  // value changes (a selection, or a symbol arriving via the URL/parent) must NOT
+  // pop the dropdown open.
+  const typing = useRef(false);
 
-  // Debounced fetch
+  // Debounced fetch — gated on active typing.
   useEffect(() => {
+    if (!typing.current) return;
     const q = value.trim();
-    if (q.length < 1) { setMatches([]); return; }
+    if (q.length < 1) { setMatches([]); setOpen(false); return; }
     const id = setTimeout(async () => {
+      if (!typing.current) return;
       try {
         const r = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
         const j = (await r.json()) as { matches: SymbolMatch[] };
@@ -49,6 +55,7 @@ export function TickerInput({
   }, []);
 
   function pick(m: SymbolMatch) {
+    typing.current = false; // selection is not typing → keep the dropdown closed
     onChange(m.symbol);
     setOpen(false);
     setMatches([]);
@@ -70,9 +77,8 @@ export function TickerInput({
     <div ref={boxRef} className="relative">
       <input
         value={value}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={(e) => { typing.current = true; onChange(e.target.value); }}
         onKeyDown={onKey}
-        onFocus={() => matches.length && setOpen(true)}
         placeholder={placeholder}
         autoComplete="off"
         className={className || "w-64 rounded-md border border-hairline bg-surface px-3 py-2 text-sm text-ink placeholder:text-ink-faint focus:border-brand-500 focus:outline-none"}
