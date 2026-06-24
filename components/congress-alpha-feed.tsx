@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import Link from "next/link";
 import useSWR from "swr";
 import { Landmark, TrendingUp, TrendingDown, ExternalLink, Info, Users, X } from "lucide-react";
@@ -107,6 +107,13 @@ export function CongressAlphaFeed() {
   }
   const [minTier, setMinTier] = useState<"HIGH" | "MEDIUM" | "ALL">("HIGH");
   const [selected, setSelected] = useState<string | null>(null);
+  const inspectorRef = useRef<HTMLDivElement | null>(null);
+  // Select a trade AND bring the Conflict Inspector into view. On narrow screens
+  // the inspector sits below the feed, so without scrolling "Inspect" looked dead.
+  const inspect = (id: string) => {
+    setSelected(id);
+    requestAnimationFrame(() => inspectorRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
+  };
   const [member, setMember] = useState<string | null>(null); // politician quick-filter
 
   // Window cutoff (client-side) using the trade date, with a safe fallback.
@@ -250,11 +257,11 @@ export function CongressAlphaFeed() {
                   )}
                   <span className="text-ink-faint">traded {r.txDate}</span>
                   <span className="ml-auto flex items-center gap-2">
-                    <button onClick={(e) => { e.stopPropagation(); setSelected(r.id); }}
+                    <button onClick={(e) => { e.stopPropagation(); inspect(r.id); }}
                       className="inline-flex items-center gap-1 rounded border border-hairline px-1.5 py-0.5 text-ink-dim hover:bg-surface hover:text-ink">
                       <Info size={11} /> Inspect
                     </button>
-                    {cardClickable && <span className="inline-flex items-center gap-1 text-brand-400 group-hover:underline">Source <ExternalLink size={11} /></span>}
+                    {cardClickable && <ExternalLink size={11} className="text-ink-faint group-hover:text-brand-400" />}
                   </span>
                 </div>
               </div>
@@ -288,7 +295,7 @@ export function CongressAlphaFeed() {
             )}
 
             {/* Module 2: Legislative Conflict Inspector */}
-            <div className="rounded-xl glass p-4">
+            <div ref={inspectorRef} className="scroll-mt-20 rounded-xl glass p-4">
               <div className="flex items-center gap-2 text-sm font-semibold text-ink">
                 <Info size={15} className="text-brand-400" /> Conflict Inspector
               </div>
