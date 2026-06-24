@@ -37,6 +37,27 @@ function Card({ href, title, children, className = "" }: { href: string; title: 
   );
 }
 
+// Compact KPI tile for the Overview big-picture strip.
+function Kpi({ label, value, delta, tone }: {
+  label: string; value: string;
+  delta?: { amount: number; pct: number | null; suffix?: string } | null;
+  tone?: "up" | "down";
+}) {
+  const toneCls = tone === "up" ? "text-emerald-400" : tone === "down" ? "text-rose-400" : "text-ink";
+  return (
+    <div className="rounded-2xl glass p-4">
+      <div className="text-[10px] uppercase tracking-wide text-ink-faint">{label}</div>
+      <div className={`mt-0.5 text-lg font-bold ${toneCls} md:text-xl`}>{value}</div>
+      {delta && (
+        <div className={`mt-0.5 inline-flex items-center gap-0.5 text-[11px] ${delta.amount >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+          {delta.amount >= 0 ? <ArrowUp size={11} /> : <ArrowDown size={11} />}
+          {money(Math.abs(delta.amount))}{delta.pct != null ? ` (${Math.abs(delta.pct)}%)` : ""} {delta.suffix ?? "this month"}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function Overview() {
   const { data: nw, isLoading: nwLoading } = useSWR<NetWorth>("/api/networth", fetchJson, { revalidateOnFocus: false, keepPreviousData: true });
   const { data: bal } = useSWR<Balances>("/api/plaid/accounts", fetchJson, { revalidateOnFocus: false, keepPreviousData: true });
@@ -140,6 +161,16 @@ export function Overview() {
         <p className="mt-0.5 text-sm text-ink-dim">Your whole financial life at a glance.</p>
       </div>
 
+      {/* KPI strip — the big-picture numbers up top */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <Kpi label="Net worth" value={money(nw?.netWorth ?? 0)}
+          delta={nw?.changeAmount != null ? { amount: nw.changeAmount, pct: nw.changePct } : null} />
+        <Kpi label="Investments" value={money(inv.value)}
+          delta={inv.count > 0 ? { amount: inv.day, pct: null, suffix: "today" } : null} />
+        <Kpi label="Cash" value={money(bal?.totalCash ?? 0)} />
+        <Kpi label="Saved this month" value={money(spend.net)} tone={spend.net >= 0 ? "up" : "down"} />
+      </div>
+
       {/* Net worth — top anchor (whole card → Net worth) */}
       <Card href="/networth" title="Net worth" className="bg-gradient-to-br from-brand-500/[0.08] to-transparent">
         <div className="flex flex-wrap items-end justify-between gap-2">
@@ -232,13 +263,34 @@ export function Overview() {
       </Card>
 
       {/* Banking (whole card → Spending) */}
-      <Card href="/spending" title="Banking">
+      <Card href="/spending" title="Banking — this month">
         <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm">
           <span className="text-ink-dim">Cash <span className="font-semibold text-ink">{money(bal?.totalCash ?? 0)}</span></span>
           <span className="text-ink-dim">Income <span className="text-emerald-400">{money(spend.income)}</span></span>
           <span className="text-ink-dim">Spent <span className="text-rose-400">{money(spend.expense)}</span></span>
           <span className="text-ink-dim">Net <span className={spend.net >= 0 ? "text-emerald-400" : "text-rose-400"}>{money(spend.net)}</span></span>
         </div>
+        {/* Income vs spending proportion bar */}
+        {(spend.income > 0 || spend.expense > 0) && (
+          <div className="mt-2.5">
+            <div className="flex h-2 overflow-hidden rounded-full bg-surface-raised">
+              {(() => {
+                const tot = Math.max(spend.income, spend.expense, 1);
+                return (
+                  <>
+                    <div className="bg-emerald-500/70" style={{ width: `${(spend.income / tot) * 100}%` }} />
+                  </>
+                );
+              })()}
+            </div>
+            <div className="mt-1 flex h-2 overflow-hidden rounded-full bg-surface-raised">
+              <div className="bg-rose-500/70" style={{ width: `${(spend.expense / Math.max(spend.income, spend.expense, 1)) * 100}%` }} />
+            </div>
+            <div className="mt-1 flex justify-between text-[10px] text-ink-faint">
+              <span>Income</span><span>Spending</span>
+            </div>
+          </div>
+        )}
         {spend.top.length > 0 && (
           <div className="mt-2 flex flex-wrap gap-1.5">
             {spend.top.map(([c, v]) => (
