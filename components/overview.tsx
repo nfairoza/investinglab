@@ -8,6 +8,7 @@ import { ArrowUp, ArrowDown, Plus, TrendingUp, Sparkles, Scale, ChevronRight } f
 const fetchJson = (u: string) => fetch(u).then((r) => r.json());
 const money = (n: number) => new Intl.NumberFormat(undefined, { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n);
 
+interface Me { fullName?: string | null; email?: string | null }
 interface NetWorth { netWorth: number; totalAssets: number; totalLiabilities: number; byType: Record<string, number>; changeAmount: number | null; changePct: number | null }
 interface AdvisorStep { id: string; title: string; status: string; mathSummary: string; explanationInput: string }
 interface AdvisorResp { result?: { steps: AdvisorStep[]; surplus: { available: boolean; surplus: number; destination: string }; avgMonthlyExpenses: number | null; liquidCash: number } }
@@ -36,6 +37,14 @@ export function Overview() {
   const { data: holdings, isLoading: holdingsLoading } = useSWR<Holding[]>("/api/holdings", fetchJson, { revalidateOnFocus: false, keepPreviousData: true });
   // Computed advisor (GET = no AI tokens) — drives the compact insight card.
   const { data: advisor } = useSWR<AdvisorResp>("/api/advisor", fetchJson, { revalidateOnFocus: false, keepPreviousData: true });
+  const { data: me } = useSWR<Me>("/api/me", fetchJson, { revalidateOnFocus: false });
+
+  // Local-time greeting (browser clock). First name only.
+  const greeting = (() => {
+    const h = new Date().getHours();
+    return h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening";
+  })();
+  const firstName = (me?.fullName || me?.email?.split("@")[0] || "").trim().split(" ")[0];
 
   const inv = useMemo(() => {
     const list = holdings ?? [];
@@ -108,6 +117,12 @@ export function Overview() {
 
   return (
     <div className="space-y-4">
+      {/* Greeting — local-time aware, lives on the home Overview */}
+      <div>
+        <h1 className="font-display text-2xl font-semibold text-ink md:text-3xl">{greeting}{firstName ? `, ${firstName}` : ""}</h1>
+        <p className="mt-0.5 text-sm text-ink-dim">Your whole financial life at a glance.</p>
+      </div>
+
       {/* Net worth — top anchor (whole card → Net worth) */}
       <Card href="/networth" title="Net worth" className="bg-gradient-to-br from-brand-500/[0.08] to-transparent">
         <div className="flex flex-wrap items-end justify-between gap-2">
@@ -185,12 +200,6 @@ export function Overview() {
           </p>
         )}
       </Card>
-
-      {/* Connect prompt */}
-      <button onClick={() => window.dispatchEvent(new Event("open-add"))}
-        className="flex w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-hairline-strong py-3 text-sm text-ink-dim hover:bg-surface hover:text-ink">
-        <Plus size={15} /> Connect another account or add a manual item
-      </button>
 
       <p className="text-[11px] text-ink-faint">Tap any card for the full view. Research and education, not financial advice.</p>
     </div>

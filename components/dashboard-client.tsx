@@ -140,8 +140,6 @@ export function DashboardClient() {
 
   const score = scoreRes?.data;
   const hasHoldings = holdings.length > 0;
-  const hour = new Date().getHours();
-  const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
 
   const firstLook = !hasHoldings ? null
     : score?.earningsInDays != null && score.earningsInDays >= 0 && score.earningsInDays <= 7
@@ -155,7 +153,7 @@ export function DashboardClient() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="font-display text-3xl font-semibold text-ink">{greeting}, Noor</h1>
+        <h1 className="font-display text-3xl font-semibold text-ink">Invest</h1>
         <p className="mt-1 text-sm text-ink-dim">Your portfolio at a glance — research and education, not financial advice.</p>
       </div>
 

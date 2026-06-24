@@ -3,7 +3,21 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { usePathname } from "next/navigation";
-import { Sparkles, X, Send, RotateCcw, Minus, Maximize2, Minimize2, ImagePlus, Square } from "lucide-react";
+import { X, Send, RotateCcw, Minus, Maximize2, Minimize2, ImagePlus, Square } from "lucide-react";
+
+// Rukmani mark: a speech bubble with a 4-point spark inside — signals "AI chat"
+// without the generic 4-pointed sparkle that reads as Gemini. White on the
+// brand disc so it's legible in both themes.
+function RukmaniMark() {
+  return (
+    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" className="relative" aria-hidden="true">
+      <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v7A2.5 2.5 0 0 1 17.5 15H10l-4 3.5V15H6.5A2.5 2.5 0 0 1 4 12.5v-7Z"
+        fill="white" fillOpacity="0.95" />
+      <path d="M12 6.2c.25 1.4.9 2.05 2.3 2.3-1.4.25-2.05.9-2.3 2.3-.25-1.4-.9-2.05-2.3-2.3 1.4-.25 2.05-.9 2.3-2.3Z"
+        fill="var(--nav-active, #16D27E)" />
+    </svg>
+  );
+}
 import useSWR from "swr";
 import type { Holding, WatchItem } from "@/lib/db";
 import type { DataResult, Quote } from "@/lib/providers/types";
@@ -334,8 +348,9 @@ export function ChatWidget() {
   // made it move on scroll). Anchored to the viewport, it stays bottom-right.
   return createPortal(
     <>
-      {/* Floating button — Rukmani AI. Gradient orb + sparkle + a soft pulse
-          ring so it reads as "AI assistant," not a generic chat bubble. */}
+      {/* Floating button — Rukmani. A solid brand-green disc with a chat-spark
+          glyph; reads clearly in both light and dark, and distinct from generic
+          AI sparkle logos. */}
       <button
         onClick={() => setOpen((o) => !o)}
         className="group flex items-center justify-center rounded-full shadow-lg transition-all duration-200 hover:scale-110 active:scale-95"
@@ -344,22 +359,15 @@ export function ChatWidget() {
           bottom: isMobile ? "calc(76px + env(safe-area-inset-bottom))" : "calc(20px + env(safe-area-inset-bottom))",
           right: "calc(20px + env(safe-area-inset-right))",
           left: "auto", zIndex: 50, width: 56, height: 56,
-          background: open ? "var(--surface-solid)" : "linear-gradient(135deg, var(--accent, #16D27E), #0EA6C9)",
+          background: open ? "var(--surface-solid)" : "var(--nav-active, #16D27E)",
           border: open ? "1px solid var(--hairline-strong)" : "none",
         }}
-        aria-label="Chat with Rukmani AI"
+        aria-label="Chat with Rukmani"
+        title="Ask Rukmani"
       >
-        {!open && (
-          <span className="absolute inset-0 rounded-full opacity-60 animate-ping" style={{ background: "var(--accent, #16D27E)", animationDuration: "2.4s" }} />
-        )}
         {open
           ? <X size={20} className="relative text-ink" />
-          : (
-            <span className="relative flex items-center justify-center">
-              <Sparkles size={22} className="text-white" />
-              <span className="absolute -bottom-2 text-[8px] font-bold uppercase tracking-wide text-white/90">AI</span>
-            </span>
-          )}
+          : <RukmaniMark />}
       </button>
 
       {/* Chat panel — scales up from the button. Positioning is INLINE (not
