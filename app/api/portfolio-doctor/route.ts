@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUserClient, readAiCache, writeAiCache } from "@/lib/supabase-data";
+import { logError } from "@/lib/error-log";
 import { marketData } from "@/lib/providers";
 import { computeScore } from "@/lib/scoring/score";
 import { resolveApiKey } from "@/lib/ai/anthropic";
@@ -324,9 +325,8 @@ export async function POST(req: NextRequest) {
     await writeAiCache(ctx, CACHE_KEY, { generatedAt, data: payload }).catch(() => {});
     return NextResponse.json({ cached: false, ...payload });
   } catch (e) {
-    return NextResponse.json(
-      { error: "generation_failed", message: e instanceof Error ? e.message : "Portfolio analysis failed" },
-      { status: 500 },
-    );
+    const msg = e instanceof Error ? e.message : "Portfolio analysis failed";
+    await logError({ message: msg, category: "ai", section: "portfolio-doctor", statusCode: 500, path: "/api/portfolio-doctor", userId: ctx.userId });
+    return NextResponse.json({ error: "generation_failed", message: msg }, { status: 500 });
   }
 }

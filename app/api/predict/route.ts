@@ -4,6 +4,7 @@ import { resolveApiKey } from "@/lib/ai/anthropic";
 import { geminiKey } from "@/lib/ai/gemini";
 import { routeText } from "@/lib/ai/router";
 import { getUserClient, readSharedPrediction, writeSharedPrediction } from "@/lib/supabase-data";
+import { logError } from "@/lib/error-log";
 
 export const dynamic = "force-dynamic";
 
@@ -206,9 +207,8 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ ...payload, cached: false, generatedAt });
   } catch (e) {
-    return NextResponse.json(
-      { error: "generation_failed", message: e instanceof Error ? e.message : "Prediction failed" },
-      { status: 500 },
-    );
+    const msg = e instanceof Error ? e.message : "Prediction failed";
+    await logError({ message: msg, category: "ai", section: "predict", statusCode: 500, path: `/api/predict?symbol=${symbol}`, userId: ctx.userId });
+    return NextResponse.json({ error: "generation_failed", message: msg }, { status: 500 });
   }
 }

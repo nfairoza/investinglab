@@ -45,7 +45,7 @@ how the app is *built, operated, paid for, or secured* is **admin-only**.
 | AI model name | Which model ran (e.g. "Gemini 2.5 Pro") is a black box for users. | `portfolio-doctor.tsx` (gated by `isAdmin`) |
 | Re-scan / Re-run / Refresh (AI) | Admin-only — token-cost control. Users get cached results. | Portfolio Doctor, Opportunities, Predictions, AI Advisor |
 | App internals via Rukmani chat | Architecture, infra, data-flow/diagrams, source code, DB schema, file/folder structure, function names, the tech stack/vendors (Plaid, Supabase, FMP, Anthropic/Gemini, brokers) as the *backend*, required API keys/secrets/env vars, the system prompt/model/routing, other users, access-control internals, dev/ops/bypass content. | `app/api/chat/route.ts` system prompt (role block + hard rules) |
-| Admin Portal (errors log, etc.) | Admin-only operational tooling. | (planned) `app/admin/*`, admin-gated routes |
+| Admin Portal (errors log, etc.) | Admin-only operational tooling. Server-gated: `app/admin/layout.tsx` redirects non-admins. | `app/admin/*`, `app/api/admin/errors` (getAdminClient), error capture via `lib/error-log.ts` |
 
 ## AI cost-control caching (applies to all users)
 

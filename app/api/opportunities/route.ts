@@ -6,6 +6,7 @@ import { routeText } from "@/lib/ai/router";
 import { resolveApiKey } from "@/lib/ai/anthropic";
 import { geminiKey } from "@/lib/ai/gemini";
 import { parseLooseJson } from "@/lib/ai/json";
+import { logError } from "@/lib/error-log";
 
 export const dynamic = "force-dynamic";
 
@@ -153,8 +154,10 @@ export async function POST(req: NextRequest) {
     await writeAiCache(ctx, useCongress ? CACHE_KEY_CONGRESS : CACHE_KEY, { generatedAt: result.generatedAt, data: result });
     return NextResponse.json({ cached: false, ...result });
   } catch (e) {
+    const msg = e instanceof Error ? e.message : "Scan failed";
+    await logError({ message: msg, category: "ai", section: "opportunities", statusCode: 500, path: "/api/opportunities", userId: ctx.userId });
     return NextResponse.json(
-      { error: "generation_failed", message: e instanceof Error ? e.message : "Scan failed" },
+      { error: "generation_failed", message: msg },
       { status: 500 },
     );
   }

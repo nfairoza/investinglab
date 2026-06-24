@@ -1,7 +1,7 @@
 import {
   LayoutDashboard, Wallet, Eye, NotebookPen, Search, Grid3x3, Trophy,
   Stethoscope, TrendingUp, Landmark, Scale, Receipt, PieChart, Sparkles, Bell,
-  Plug, Gauge, Coins, HeartPulse, type LucideIcon,
+  Plug, Gauge, Coins, HeartPulse, ShieldAlert, AlertTriangle, type LucideIcon,
 } from "lucide-react";
 
 // =============================================================================
@@ -62,8 +62,12 @@ export const SECTIONS: NavSection[] = [
 
 // Admin-only section (hidden from regular users via /api/me isAdmin).
 export const ADMIN_SECTION: NavSection = {
-  key: "admin", label: "Admin", href: "/connectors", icon: Plug,
-  items: [{ href: "/connectors", label: "Connectors & Keys", icon: Plug }],
+  key: "admin", label: "Admin", href: "/admin", icon: ShieldAlert,
+  items: [
+    { href: "/admin", label: "Admin Portal", icon: ShieldAlert },
+    { href: "/admin/errors", label: "Error log", icon: AlertTriangle },
+    { href: "/connectors", label: "Connectors & Keys", icon: Plug },
+  ],
 };
 
 // True when `path` is `href` or a sub-route of it, matching on SEGMENT

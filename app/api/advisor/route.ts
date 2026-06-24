@@ -4,6 +4,7 @@ import { resolveApiKey } from "@/lib/ai/anthropic";
 import { geminiKey } from "@/lib/ai/gemini";
 import { routeText } from "@/lib/ai/router";
 import { computeAdvisor, type AdvisorResult } from "@/lib/advisor/engine";
+import { logError } from "@/lib/error-log";
 
 export const dynamic = "force-dynamic";
 
@@ -90,7 +91,8 @@ async function narrate(result: AdvisorResult): Promise<{ narration: any; model: 
     const start = cleaned.indexOf("{"); const end = cleaned.lastIndexOf("}");
     const narration = JSON.parse(start !== -1 && end !== -1 ? cleaned.slice(start, end + 1) : cleaned);
     return { narration, model };
-  } catch {
+  } catch (e) {
+    await logError({ message: e instanceof Error ? e.message : "Advisor narration failed", category: "ai", section: "advisor", path: "/api/advisor" });
     return { narration: null, model: null };
   }
 }
