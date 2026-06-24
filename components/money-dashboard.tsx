@@ -23,6 +23,10 @@ const fetchJson = (u: string) => fetch(u).then((r) => r.json());
 const money = (n: number | null, c = "USD") => n == null ? "—" : new Intl.NumberFormat(undefined, { style: "currency", currency: c, maximumFractionDigits: 0 }).format(n);
 const COLORS = ["#16D27E", "#0EA6C9", "#11B4AE", "#34E0A1", "#60A5FA", "#F59E0B", "#FB7185", "#FBBF24", "#A78BFA", "#22D3EE"];
 
+function ask(prompt: string) {
+  window.dispatchEvent(new CustomEvent("ask-rukmani", { detail: { prompt } }));
+}
+
 export function MoneyDashboard() {
   const { data: bal, isLoading: balLoading, mutate: mutateBal } = useSWR<Balances>("/api/plaid/accounts", fetchJson, { revalidateOnFocus: false, keepPreviousData: true });
   const { data: txnData } = useSWR<{ transactions: Txn[]; configured?: boolean }>("/api/plaid/transactions?sync=0", fetchJson, { revalidateOnFocus: false, keepPreviousData: true });
@@ -122,12 +126,16 @@ export function MoneyDashboard() {
           </div>
           <div className="rounded-2xl glass p-5">
             <div className="text-sm font-semibold text-ink">Top categories</div>
-            <ul className="mt-3 space-y-2">
+            <p className="mt-0.5 text-[11px] text-ink-faint">Tap a category to ask Rukmani.</p>
+            <ul className="mt-2 space-y-1">
               {spend.cats.slice(0, 6).map((c, i) => (
-                <li key={c.name} className="flex items-center gap-3 text-sm">
-                  <span className="h-3 w-3 shrink-0 rounded-sm" style={{ background: COLORS[i % COLORS.length] }} />
-                  <span className="flex-1 truncate text-ink-dim">{c.name}</span>
-                  <span className="shrink-0 font-medium text-ink">{money(c.value)}</span>
+                <li key={c.name}>
+                  <button onClick={() => ask(`I spent ${money(c.value)} on ${c.name} this month. Is that a lot for this category, and where could I trim it?`)}
+                    className="flex w-full items-center gap-3 rounded-md px-1.5 py-1 text-sm transition-colors hover:bg-surface">
+                    <span className="h-3 w-3 shrink-0 rounded-sm" style={{ background: COLORS[i % COLORS.length] }} />
+                    <span className="flex-1 truncate text-left text-ink-dim">{c.name}</span>
+                    <span className="shrink-0 font-medium text-ink">{money(c.value)}</span>
+                  </button>
                 </li>
               ))}
             </ul>
@@ -155,9 +163,12 @@ export function MoneyDashboard() {
             </div>
             <ul className="mt-3 divide-y divide-hairline">
               {recurring.slice(0, 5).map((r) => (
-                <li key={r.merchant} className="flex items-center justify-between py-1.5 text-sm">
-                  <span className="truncate text-ink-dim">{r.merchant}<span className="text-ink-faint"> · {r.months} mo</span></span>
-                  <span className="shrink-0 font-medium text-ink">{money(r.amount)}/mo</span>
+                <li key={r.merchant}>
+                  <button onClick={() => ask(`I pay about ${money(r.amount)}/mo for ${r.merchant} (seen across ${r.months} months). Is this worth keeping, and are there ways to reduce it?`)}
+                    className="flex w-full items-center justify-between py-1.5 text-left text-sm transition-colors hover:text-ink">
+                    <span className="truncate text-ink-dim">{r.merchant}<span className="text-ink-faint"> · {r.months} mo</span></span>
+                    <span className="shrink-0 font-medium text-ink">{money(r.amount)}/mo</span>
+                  </button>
                 </li>
               ))}
             </ul>
