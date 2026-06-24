@@ -1,6 +1,7 @@
 import { emailLogin, oauthLogin } from "./actions";
 import { AuthShell, GoogleIcon } from "@/components/auth-shell";
 import { AuthSubmit, OAuthSubmit } from "@/components/auth-submit";
+import { InstallButton } from "@/components/install-button";
 
 export const metadata = { title: "Sign in" };
 
@@ -29,6 +30,10 @@ export default function LoginPage({
       </form>
 
       <p className="auth-foot">New here? <a href="/signup">Create an account</a></p>
+
+      <div className="mt-4 flex justify-center">
+        <InstallButton />
+      </div>
     </AuthShell>
   );
 }

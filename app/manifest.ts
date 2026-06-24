@@ -12,13 +12,13 @@ export default function manifest(): MetadataRoute.Manifest {
     background_color: "#0A0C0F",
     theme_color: "#0A0C0F",
     icons: [
-      // Scalable mark — preferred where SVG icons are supported.
-      { src: "/brand/rm-icon.svg", sizes: "any", type: "image/svg+xml" },
-      // Raster fallbacks (browsers downscale the 1254² source as needed).
-      { src: "/brand/ruk-app-icon.png", sizes: "192x192", type: "image/png", purpose: "any" },
-      { src: "/brand/ruk-app-icon.png", sizes: "512x512", type: "image/png", purpose: "any" },
-      // Maskable icon (safe-area aware) for Android adaptive icons.
-      { src: "/brand/ruk-app-icon.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
+      // Rounded RM mark — preferred where SVG icons are supported.
+      { src: "/brand/rm-icon-rounded.svg", sizes: "any", type: "image/svg+xml" },
+      // Raster fallbacks (rounded square PNG; browsers downscale as needed).
+      { src: "/brand/rm-icon-square.png", sizes: "192x192", type: "image/png", purpose: "any" },
+      { src: "/brand/rm-icon-square.png", sizes: "512x512", type: "image/png", purpose: "any" },
+      // Maskable icon for Android adaptive icons.
+      { src: "/brand/rm-icon-square.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
     ],
   };
 }
