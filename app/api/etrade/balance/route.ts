@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { etradeGet } from "@/lib/etrade/client";
-import type { EtradeAccount } from "@/lib/etrade/token-store";
+import type { EtradeAccount } from "@/lib/broker-store";
 import { getBrokerCtx, readBrokerConnection } from "@/lib/broker-store";
 
 export const dynamic = "force-dynamic";

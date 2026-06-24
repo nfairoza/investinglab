@@ -22,6 +22,16 @@ import { getUserClient } from "@/lib/supabase-data";
 
 export type BrokerProvider = "etrade" | "robinhood";
 
+// An E*TRADE account as returned by the accounts list, stored in the user's
+// broker_connections.data.accounts. (Moved here from the old lowdb token-store.)
+export interface EtradeAccount {
+  accountId: string;
+  accountIdKey: string;
+  accountName: string;
+  accountType: string;
+  institutionType: string;
+}
+
 export interface BrokerConnection {
   data: Record<string, any>;
   connectedAt: string | null;

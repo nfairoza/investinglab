@@ -1,13 +1,12 @@
 // =============================================================================
-// Persistent file-based database using lowdb (JSON file on disk).
-// Stored at data/db.json — gitignored so your data never goes to GitHub.
-// Works on your laptop, on EC2, anywhere — no external service needed.
+// Shared domain types + tiny id/time helpers.
+//
+// Persistence used to be a lowdb JSON file here; everything is now per-user in
+// Supabase (holdings, watchlist, journal, alerts, cash, AI cache via
+// supabase-data; broker OAuth tokens via broker-store). This module is kept only
+// for the shared TypeScript interfaces these routes/components import, plus the
+// two pure helpers. No filesystem, no lowdb.
 // =============================================================================
-
-import { join, dirname } from "path";
-import { existsSync } from "fs";
-import { LowSync } from "lowdb";
-import { JSONFileSync } from "lowdb/node";
 
 // ---- Types ------------------------------------------------------------------
 
@@ -80,20 +79,6 @@ export interface JournalEntry {
   updatedAt: string;
 }
 
-// E*TRADE OAuth + account state. Persisted (not in-memory) because Next.js dev
-// mode reloads route modules between requests, which would wipe module-level
-// state — breaking the connect → verify → select flow. Tokens are still LOCAL
-// (data/db.json is gitignored) and never sent to the browser.
-export interface EtradeState {
-  requestToken: string | null;
-  requestTokenSecret: string | null;
-  accessToken: string | null;
-  accessTokenSecret: string | null;
-  accounts: any[];
-  selectedAccountIdKey: string | null;
-  connectedAt: string | null;
-}
-
 // Available cash to deploy. `source` records where the number came from so the
 // UI can show "from E*TRADE" vs a manual entry.
 export interface CashState {
@@ -110,86 +95,7 @@ export interface AiCacheEntry {
   data: unknown;
 }
 
-interface Schema {
-  holdings: Holding[];
-  watchlist: WatchItem[];
-  journal: JournalEntry[];
-  alerts: Alert[];
-  cash: CashState;
-  aiCache?: Record<string, AiCacheEntry>;
-  etrade: EtradeState;
-}
-
-// ---- Singleton --------------------------------------------------------------
-
-const EMPTY_ETRADE: EtradeState = {
-  requestToken: null,
-  requestTokenSecret: null,
-  accessToken: null,
-  accessTokenSecret: null,
-  accounts: [],
-  selectedAccountIdKey: null,
-  connectedAt: null,
-};
-
-const EMPTY_CASH: CashState = { amount: 0, source: "manual", updatedAt: null };
-
-const DEFAULT: Schema = { holdings: [], watchlist: [], journal: [], alerts: [], cash: { ...EMPTY_CASH }, etrade: { ...EMPTY_ETRADE } };
-
-// Anchor the DB file to the project root. The dev server's cwd can vary (e.g.
-// if launched from a parent dir), which would split reads/writes across
-// different db.json files and lose data between requests. Walk up from cwd to
-// the dir that has package.json; allow an explicit DB_PATH override.
-const dbPath = (() => {
-  if (process.env.DB_PATH) return process.env.DB_PATH;
-  let dir = process.cwd();
-  for (let i = 0; i < 6; i++) {
-    if (existsSync(join(dir, "package.json"))) return join(dir, "data", "db.json");
-    const parent = dirname(dir);
-    if (parent === dir) break;
-    dir = parent;
-  }
-  return join(process.cwd(), "data", "db.json");
-})();
-const adapter = new JSONFileSync<Schema>(dbPath);
-const db = new LowSync<Schema>(adapter, DEFAULT);
-
-db.read();
-
-export { EMPTY_ETRADE };
-
-function ensureShape() {
-  if (!db.data.holdings) db.data.holdings = [];
-  if (!db.data.watchlist) db.data.watchlist = [];
-  if (!db.data.journal) db.data.journal = [];
-  if (!db.data.alerts) db.data.alerts = [];
-  if (!db.data.cash) db.data.cash = { ...EMPTY_CASH };
-  if (!db.data.aiCache) db.data.aiCache = {};
-  if (!db.data.etrade) db.data.etrade = { ...EMPTY_ETRADE };
-}
-
-export function getDb(): LowSync<Schema> {
-  db.read(); // refresh from disk on every call
-  ensureShape(); // backfill keys for older db.json files
-  return db;
-}
-
-// Serialize read-modify-write operations so overlapping requests can't clobber
-// each other's writes (last-writer-wins on the whole JSON file). Single-user
-// app, but a sync POST can overlap a manual add — this makes that safe.
-let writeChain: Promise<unknown> = Promise.resolve();
-
-export function withDbWrite<T>(fn: (db: LowSync<Schema>) => T): Promise<T> {
-  const run = writeChain.then(() => {
-    db.read();
-    const result = fn(db);
-    db.write();
-    return result;
-  });
-  // keep the chain alive regardless of individual failures
-  writeChain = run.catch(() => undefined);
-  return run;
-}
+// ---- Helpers ----------------------------------------------------------------
 
 export function newId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { EtradeAccount } from "@/lib/etrade/token-store";
+import type { EtradeAccount } from "@/lib/broker-store";
 
 interface Status {
   hasCredentials: boolean;
