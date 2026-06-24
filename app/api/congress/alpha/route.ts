@@ -9,6 +9,13 @@ import { routeText } from "@/lib/ai/router";
 
 export const dynamic = "force-dynamic";
 
+// Congress alpha is shared market data (not per-user) and expensive to compute
+// (AI thesis + options read on every call). Cache the full payload in-memory for
+// 12h, keyed by the window/limit. ?refresh=1 forces a rebuild. Cache resets on
+// deploy, which is fine for a 12h-fresh signal.
+const ALPHA_TTL_MS = 12 * 60 * 60 * 1000;
+const alphaCache = new Map<string, { at: number; payload: any }>();
+
 // The most-watched congressional traders (high volume / size / committee power).
 // We always pull their recent trades and merge them into the feed so they surface
 // even when they're outside the latest global disclosure pages.
@@ -71,6 +78,14 @@ export async function GET(req: NextRequest) {
   const limit = Math.min(400, Math.max(50, Number(req.nextUrl.searchParams.get("limit")) || 250));
   // How far back to consider (days). Default 90; the UI exposes a window slider.
   const windowDays = Math.min(365, Math.max(7, Number(req.nextUrl.searchParams.get("days")) || 90));
+  const force = req.nextUrl.searchParams.get("refresh") === "1";
+
+  // Serve from the 12h cache unless a refresh was requested.
+  const cacheKey = `${windowDays}:${limit}`;
+  const hit = alphaCache.get(cacheKey);
+  if (!force && hit && Date.now() - hit.at < ALPHA_TTL_MS) {
+    return NextResponse.json({ ...hit.payload, cached: true, generatedAt: new Date(hit.at).toISOString() });
+  }
 
   // Recent global stream + notable members' trades, merged & de-duped.
   const [recent, notable] = await Promise.all([
@@ -207,7 +222,8 @@ export async function GET(req: NextRequest) {
       .slice(0, 5),
   };
 
-  return NextResponse.json({
+  const generatedAt = new Date().toISOString();
+  const payload = {
     rows: scored,
     macro,
     windowDays,
@@ -218,6 +234,8 @@ export async function GET(req: NextRequest) {
     rosterNote: roster.note,
     optionsEstimated: true,
     aiProvider: ai === "none" ? null : `${ai === "claude" ? "Claude" : "Gemini"}${aiModel ? ` (${aiModel})` : ""}`,
-    generatedAt: new Date().toISOString(),
-  });
+    generatedAt,
+  };
+  alphaCache.set(cacheKey, { at: Date.parse(generatedAt), payload });
+  return NextResponse.json({ ...payload, cached: false });
 }

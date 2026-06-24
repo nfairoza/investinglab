@@ -1,7 +1,7 @@
 import {
   LayoutDashboard, Wallet, Eye, NotebookPen, Search, Grid3x3, Trophy,
   Stethoscope, TrendingUp, Landmark, Scale, Receipt, PieChart, Sparkles, Bell,
-  Plug, Gauge, Coins, type LucideIcon,
+  Plug, Gauge, Coins, HeartPulse, type LucideIcon,
 } from "lucide-react";
 
 // =============================================================================
@@ -45,6 +45,7 @@ export const SECTIONS: NavSection[] = [
       { href: "/accounts", label: "Accounts", icon: Landmark },
       { href: "/transactions", label: "Transactions", icon: Receipt },
       { href: "/spending", label: "Spending", icon: PieChart },
+      { href: "/accounts-doctor", label: "Accounts Doctor", icon: HeartPulse },
     ],
   },
   {

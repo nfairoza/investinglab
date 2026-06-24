@@ -48,6 +48,8 @@ interface AlphaResult {
   rosterNote?: string;
   optionsEstimated: boolean;
   aiProvider: string | null;
+  generatedAt?: string | null;
+  cached?: boolean;
 }
 
 const WINDOWS: { days: number; label: string }[] = [
@@ -93,6 +95,11 @@ export function CongressAlphaFeed() {
     revalidateOnFocus: false,
     keepPreviousData: true,
   });
+  // Force a fresh rebuild (bypasses the 12h server cache) then revalidate.
+  async function reanalyze() {
+    await fetch(`/api/congress/alpha?limit=300&days=${days}&refresh=1`).catch(() => {});
+    mutate();
+  }
   const [minTier, setMinTier] = useState<"HIGH" | "MEDIUM" | "ALL">("HIGH");
   const [selected, setSelected] = useState<string | null>(null);
 
@@ -141,10 +148,13 @@ export function CongressAlphaFeed() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {data?.generatedAt && (
+            <span className="text-[11px] text-ink-faint">Analyzed {new Date(data.generatedAt).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</span>
+          )}
           {data && <DataBadge source={data.source} />}
-          <button onClick={() => mutate()} disabled={isValidating}
+          <button onClick={reanalyze} disabled={isValidating}
             className="rounded-md border border-hairline px-2 py-1 text-xs text-ink-dim hover:bg-surface-raised disabled:opacity-50">
-            {isValidating ? "Refreshing…" : "Refresh"}
+            {isValidating ? "Re-analyzing…" : "Re-analyze"}
           </button>
         </div>
       </div>

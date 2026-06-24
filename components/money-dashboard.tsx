@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import useSWR from "swr";
 import Link from "next/link";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
-import { Landmark, ChevronDown, Receipt, PieChart as PieIcon, Scale, Sparkles, Scissors, ArrowRight, Eye, RefreshCw, Repeat, PiggyBank, Stethoscope, AlertTriangle, Lightbulb } from "lucide-react";
+import { Landmark, ChevronDown, Receipt, PieChart as PieIcon, Scale, ArrowRight, RefreshCw, Repeat, PiggyBank, Stethoscope } from "lucide-react";
 import { GradientStat } from "./dashboard-extras";
 
 interface Account { account_id: string; name: string; mask: string | null; type: string; subtype: string | null; current: number | null; available: number | null; currency: string }
@@ -12,8 +12,6 @@ interface Item { itemId: string; institution: string; accounts: Account[]; error
 interface Balances { items: Item[]; totalCash: number; configured?: boolean }
 interface Txn { id: string; date: string; amount: number; category: string; isTransfer: boolean; excluded: boolean }
 interface NetWorth { netWorth: number; totalAssets: number; totalLiabilities: number }
-interface Analysis { summary: string; cut: string[]; redirect: string[]; watch: string[]; alarming?: string[]; ideas?: string[] }
-interface DoctorResp { analysis: Analysis | null; model: string | null; generatedAt: string | null; cached?: boolean }
 interface AdvisorResp { result?: {
   liquidCash: number; avgMonthlyExpenses: number | null;
   surplus: { available: boolean; surplus: number; destination: string };
@@ -166,8 +164,17 @@ export function MoneyDashboard() {
         )}
       </div>
 
-      {/* AI spending analysis */}
-      <MoneyAnalysis />
+      {/* Accounts Doctor entry — full checkup lives on its own page */}
+      <Link href="/accounts-doctor" className="card-hover flex items-center gap-3 rounded-2xl glass p-5">
+        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl" style={{ background: "var(--accent-soft)" }}>
+          <Stethoscope size={20} className="text-brand-400" />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-sm font-semibold text-ink">Accounts Doctor</span>
+          <span className="block text-xs text-ink-dim">A full checkup — cash runway, savings rate, debt, recurring bills, and what to cut/where money should go.</span>
+        </span>
+        <ArrowRight size={16} className="shrink-0 text-ink-faint" />
+      </Link>
 
       {/* Sub-page links */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -178,98 +185,6 @@ export function MoneyDashboard() {
       </div>
 
       <p className="text-[11px] text-ink-faint">Based on your linked accounts. Educational insights only — not financial advice.</p>
-    </div>
-  );
-}
-
-// AI analysis: what to cut, where money can go, what to watch.
-// Money Doctor — the money-side counterpart to Portfolio Doctor. Auto-loads the
-// cached checkup on mount (cached 24h server-side to save tokens); a small
-// "Re-analyze" link forces a fresh run.
-function MoneyAnalysis() {
-  const [data, setData] = useState<DoctorResp | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
-  const ranAuto = useRef(false);
-
-  async function run() {
-    setBusy(true); setErr(null);
-    try {
-      const r = await fetch("/api/money/analysis", { method: "POST" });
-      const j = await r.json();
-      if (!r.ok || j.error) { setErr(j.message ?? "Couldn't run the checkup."); return; }
-      setData(j);
-    } catch (e) { setErr(e instanceof Error ? e.message : "Request failed"); }
-    finally { setBusy(false); }
-  }
-
-  // On mount: load the cached checkup; if there's none, leave the CTA showing
-  // (don't auto-spend tokens — the user taps to run the first one).
-  useEffect(() => {
-    if (ranAuto.current) return;
-    ranAuto.current = true;
-    (async () => {
-      try {
-        const j: DoctorResp = await fetch("/api/money/analysis").then((r) => r.json());
-        if (j.analysis) setData(j);
-      } catch { /* ignore — CTA stays */ }
-    })();
-  }, []);
-
-  const title = (
-    <div className="flex items-center gap-2 text-sm font-semibold text-ink"><Stethoscope size={16} className="text-brand-400" /> Money Doctor</div>
-  );
-
-  if (!data && !busy) {
-    return (
-      <div className="rounded-2xl glass p-5">
-        {title}
-        <p className="mt-1 text-sm text-ink-dim">A full checkup of your money — spending, recurring bills, cash runway, and debt — with what to cut, where money should go, anything alarming, and ideas. Computed from your real data.</p>
-        <button onClick={run} className="btn-gold mt-3 inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm"><Stethoscope size={15} /> Run my checkup</button>
-        {err && <p className="mt-2 text-xs text-rose-400">{err}</p>}
-      </div>
-    );
-  }
-  if (busy && !data) {
-    return <div className="rounded-2xl glass p-5"><div className="flex items-center gap-2 text-sm text-ink-dim"><RefreshCw size={14} className="animate-spin" /> Running your checkup…</div></div>;
-  }
-  const a = data!.analysis;
-  if (!a) {
-    return <div className="rounded-2xl glass p-5 text-sm text-ink-dim">Checkup unavailable right now. The charts above are computed from your real data.</div>;
-  }
-  const when = data!.generatedAt ? new Date(data!.generatedAt).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : null;
-  return (
-    <div className="rounded-2xl glass p-5 space-y-3">
-      <div className="flex items-center justify-between gap-2">
-        {title}
-        <div className="flex items-center gap-2">
-          {when && <span className="text-[10px] text-ink-faint">as of {when}</span>}
-          <button onClick={run} disabled={busy} className="inline-flex items-center gap-1 text-[11px] text-ink-faint hover:text-ink disabled:opacity-50"><RefreshCw size={11} className={busy ? "animate-spin" : ""} /> Re-analyze</button>
-        </div>
-      </div>
-      {a.summary && <p className="text-sm text-ink-dim">{a.summary}</p>}
-      {a.alarming && a.alarming.length > 0 && (
-        <div className="rounded-lg border border-rose-500/30 bg-rose-500/5 p-3">
-          <AnalysisBlock icon={AlertTriangle} title="Worth attention now" items={a.alarming} cls="text-rose-300" />
-        </div>
-      )}
-      <AnalysisBlock icon={Scissors} title="Where to consider cutting" items={a.cut} cls="text-amber-300" />
-      <AnalysisBlock icon={ArrowRight} title="Where the money could go" items={a.redirect} cls="text-emerald-300" />
-      <AnalysisBlock icon={Eye} title="Keep an eye on" items={a.watch} cls="text-sky-300" />
-      {a.ideas && a.ideas.length > 0 && <AnalysisBlock icon={Lightbulb} title="Ideas" items={a.ideas} cls="text-violet-300" />}
-      <p className="text-[11px] text-ink-faint">Numbers computed by rukMoney before narration{data!.model ? ` · narrated by ${data!.model}` : ""}. Cached for a day to save tokens. Educational only — not financial advice.</p>
-    </div>
-  );
-}
-
-function AnalysisBlock({ icon: Icon, title, items, cls }: { icon: typeof Scissors; title: string; items: string[]; cls: string }) {
-  if (!items?.length) return null;
-  return (
-    <div>
-      <div className={`flex items-center gap-1.5 text-xs font-semibold ${cls}`}><Icon size={13} /> {title}</div>
-      <ul className="mt-1.5 space-y-1">
-        {items.map((it, i) => <li key={i} className="text-sm text-ink-dim">• {it}</li>)}
-      </ul>
     </div>
   );
 }
