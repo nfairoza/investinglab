@@ -25,14 +25,14 @@ export const SECTIONS: NavSection[] = [
     items: [
       { href: "/dashboard", label: "Dashboard", icon: Gauge },
       { href: "/holdings", label: "Holdings", icon: Wallet },
-      { href: "/watchlist", label: "Watchlist", icon: Eye },
-      { href: "/journal", label: "Journal", icon: NotebookPen },
       { href: "/research", label: "Research", icon: Search },
       { href: "/rankings", label: "Rankings", icon: Trophy },
       { href: "/map", label: "Stock Map", icon: Grid3x3 },
       { href: "/predictions", label: "Predictions", icon: TrendingUp },
       { href: "/portfolio-doctor", label: "Portfolio Doctor", icon: Stethoscope },
       { href: "/congress", label: "Congress", icon: Landmark },
+      { href: "/watchlist", label: "Watchlist", icon: Eye },
+      { href: "/journal", label: "Journal", icon: NotebookPen },
     ],
   },
   {

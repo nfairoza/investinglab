@@ -49,7 +49,12 @@ function LinkButton({ label, onLinked }: { label: string; onLinked: () => void }
       });
       const j = await r.json();
       if (!r.ok || j.error) setErr(j.message ?? j.error ?? "Could not link account.");
-      else onLinked();
+      else {
+        onLinked();
+        // Kick a transactions sync in the background so Spending/Overview have
+        // data without waiting for the user to open the Transactions page.
+        fetch("/api/plaid/transactions").catch(() => {});
+      }
     } finally { setBusy(false); setToken(null); restoreScroll(); }
   }, [onLinked]);
 
