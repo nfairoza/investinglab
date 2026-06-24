@@ -10,6 +10,9 @@ import { AccountMenu } from "./account-menu";
 import { ThemeToggle } from "./theme-toggle";
 import { TopSearch } from "./top-search";
 import { MobileTabBar } from "./mobile-tab-bar";
+import { SectionSubnav } from "./section-subnav";
+import { AddSheet } from "./add-sheet";
+import { Plus } from "lucide-react";
 
 // Auth screens render with NO app chrome (no sidebar, chat, or command palette) —
 // just the page. Everything else gets the full shell.
@@ -29,12 +32,18 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
       <div className="relative flex min-h-screen flex-col md:flex-row">
         <Sidebar />
         <div className="flex min-w-0 flex-1 flex-col">
-          {/* Desktop top bar: search on the left, theme + account on the right. */}
+          {/* Desktop top bar: search left; + Add, theme, account right. */}
           <header className="sticky top-0 z-30 hidden items-center gap-3 border-b border-hairline px-6 py-2.5 md:flex" style={{ background: "color-mix(in oklab, var(--bg) 82%, transparent)", backdropFilter: "blur(8px)" }}>
             <div className="flex-1"><TopSearch /></div>
+            <button onClick={() => window.dispatchEvent(new Event("open-add"))}
+              className="btn-gold inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm">
+              <Plus size={15} /> Add
+            </button>
             <ThemeToggle compact />
             <AccountMenu />
           </header>
+          {/* Section sub-nav (Invest / Money) sits under the top bar. */}
+          <SectionSubnav />
           {/* pb on mobile leaves room for the fixed bottom tab bar. */}
           <main className="flex-1 px-5 py-6 pb-24 md:px-10 md:py-8 md:pb-8">
             <PageTransition>{children}</PageTransition>
@@ -42,6 +51,7 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
         </div>
       </div>
       <MobileTabBar />
+      <AddSheet />
       <ChatWidget />
       <CommandPalette />
     </>

@@ -4,55 +4,19 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
 import useSWR from "swr";
-import {
-  LayoutDashboard, Wallet, Eye, Search, Stethoscope, TrendingUp, Landmark,
-  Bell, Trophy, NotebookPen, Grid3x3, Menu, X, Receipt, PieChart, Scale, Sparkles,
-} from "lucide-react";
+import { Menu, X, Search } from "lucide-react";
 import clsx from "clsx";
 import { ThemeToggle } from "./theme-toggle";
 import { Blossom } from "./ui/primitives";
 import { AccountMenu } from "./account-menu";
 import { useAlertsBadge } from "./use-alerts-badge";
+import { OVERVIEW, SECTIONS, ADMIN_SECTION } from "@/lib/nav";
 
-// Grouped nav. An `adminOnly` group (or item) is hidden entirely from regular
-// users — they never see it exists.
-const GROUPS: { label: string; adminOnly?: boolean; items: { href: string; label: string; icon: any; adminOnly?: boolean }[] }[] = [
-  {
-    label: "Portfolio",
-    items: [
-      { href: "/", label: "Dashboard", icon: LayoutDashboard },
-      { href: "/holdings", label: "Holdings", icon: Wallet },
-      { href: "/watchlist", label: "Watchlist", icon: Eye },
-      { href: "/journal", label: "Journal", icon: NotebookPen },
-    ],
-  },
-  {
-    label: "Research",
-    items: [
-      { href: "/research", label: "Research", icon: Search },
-      { href: "/map", label: "Stock Map", icon: Grid3x3 },
-      { href: "/rankings", label: "Rankings", icon: Trophy },
-      { href: "/portfolio-doctor", label: "Portfolio Doctor", icon: Stethoscope },
-      { href: "/predictions", label: "Predictions", icon: TrendingUp },
-      { href: "/congress", label: "Congress", icon: Landmark },
-    ],
-  },
-  {
-    label: "Money",
-    items: [
-      { href: "/networth", label: "Net worth", icon: Scale },
-      { href: "/accounts", label: "Accounts", icon: Landmark },
-      { href: "/transactions", label: "Transactions", icon: Receipt },
-      { href: "/spending", label: "Spending", icon: PieChart },
-      { href: "/advisor", label: "AI Advisor", icon: Sparkles },
-    ],
-  },
-  {
-    label: "Alerts",
-    items: [{ href: "/alerts", label: "Alerts", icon: Bell }],
-  },
-  // Glossary lives in Help; Account/Settings/Reports/Admin live in the top-right
-  // account menu — none duplicated in the sidebar.
+// Desktop sidebar nav, driven by the four-section IA in lib/nav.ts:
+// Overview · Invest (flagship) · Money · Insights (+ admin-only group).
+const GROUPS = [
+  { label: "", items: [OVERVIEW] },
+  ...SECTIONS.map((s) => ({ label: s.label, items: s.items })),
 ];
 
 function NavList({ onNavigate }: { onNavigate?: () => void }) {
@@ -60,15 +24,15 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
   const { data: me } = useSWR<{ isAdmin?: boolean }>("/api/me", (u: string) => fetch(u).then((r) => r.json()), { revalidateOnFocus: false });
   const isAdmin = Boolean(me?.isAdmin);
   const alertsNew = useAlertsBadge();
+  const groups = isAdmin ? [...GROUPS, { label: ADMIN_SECTION.label, items: ADMIN_SECTION.items }] : GROUPS;
   return (
     <nav className="space-y-5">
-      {GROUPS.map((group) => {
-        if (group.adminOnly && !isAdmin) return null;
-        const items = group.items.filter((it) => !it.adminOnly || isAdmin);
+      {groups.map((group, gi) => {
+        const items = group.items;
         if (!items.length) return null;
         return (
-        <div key={group.label}>
-          <div className="px-3 pb-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-ink-faint">{group.label}</div>
+        <div key={group.label || `g${gi}`}>
+          {group.label && <div className="px-3 pb-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-ink-faint">{group.label}</div>}
           <div className="space-y-0.5">
             {items.map(({ href, label, icon: Icon }) => {
               const active = href === "/" ? path === "/" : path.startsWith(href);
