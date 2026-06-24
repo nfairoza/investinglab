@@ -1,100 +1,78 @@
 import { NextResponse } from "next/server";
 import { getUserClient } from "@/lib/supabase-data";
-import { getPlaid, plaidConfigured } from "@/lib/plaid";
-import { marketData } from "@/lib/providers";
+import { computeNetWorth, currentMonth } from "@/lib/networth";
 
 export const dynamic = "force-dynamic";
 
-// GET /api/networth — unified net worth across every connected source:
-//   • Plaid bank/credit/loan balances (assets vs debts)
-//   • Plaid investment holdings (value)
-//   • manual + E*TRADE holdings (live-priced)
-//   • manual cash row
-// Persists a daily snapshot and returns the recent trend.
+// GET /api/networth — computes net worth (assets − liabilities) across Plaid +
+// holdings + manual items, with type breakdown and liquid/illiquid split. Upserts
+// the current month's snapshot ONLY when balances changed or none exists yet
+// (write discipline — no write on every render). Returns the monthly trend.
 export async function GET() {
   const ctx = await getUserClient();
   if (!ctx) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
-  const breakdown: { label: string; kind: "asset" | "debt"; amount: number; source: string }[] = [];
-  let plaidInvestmentValue = 0;
+  const nw = await computeNetWorth(ctx);
+  const month = currentMonth();
 
-  // ── Plaid balances (depository = cash asset, credit/loan = debt) ──
-  if (plaidConfigured()) {
-    const { data: items } = await ctx.supabase.from("plaid_items").select("institution_name, access_token");
-    const plaid = getPlaid();
-    for (const it of items ?? []) {
-      try {
-        const resp = await plaid.accountsBalanceGet({ access_token: it.access_token });
-        for (const a of resp.data.accounts ?? []) {
-          const v = a.balances?.current ?? 0;
-          if (!v) continue;
-          if (a.type === "credit" || a.type === "loan") {
-            breakdown.push({ label: `${it.institution_name ?? "Bank"} · ${a.name}`, kind: "debt", amount: v, source: "plaid" });
-          } else if (a.type === "depository") {
-            breakdown.push({ label: `${it.institution_name ?? "Bank"} · ${a.name}`, kind: "asset", amount: v, source: "plaid" });
-          }
-          // investment-type balances are captured via holdings below
-        }
-      } catch { /* skip */ }
-    }
-    // Plaid investment holdings value
-    const { data: items2 } = await ctx.supabase.from("plaid_items").select("institution_name, access_token");
-    for (const it of items2 ?? []) {
-      try {
-        const resp = await plaid.investmentsHoldingsGet({ access_token: it.access_token });
-        let v = 0;
-        for (const h of resp.data.holdings ?? []) v += h.institution_value ?? 0;
-        if (v) { plaidInvestmentValue += v; breakdown.push({ label: `${it.institution_name ?? "Brokerage"} · investments`, kind: "asset", amount: v, source: "plaid" }); }
-      } catch { /* skip */ }
-    }
+  // Write discipline: only upsert if this month's snapshot is missing or the
+  // source balances changed since it was captured.
+  const { data: existing } = await ctx.supabase
+    .from("net_worth_snapshots")
+    .select("net_worth, by_type")
+    .eq("month", month)
+    .maybeSingle();
+
+  const changed = !existing
+    || Math.round(Number(existing.net_worth)) !== Math.round(nw.netWorth)
+    || (existing.by_type as any)?.__hash !== nw.sourceHash;
+
+  if (changed) {
+    try {
+      await ctx.supabase.from("net_worth_snapshots").upsert(
+        {
+          user_id: ctx.userId,
+          month,
+          total_assets: nw.totalAssets,
+          total_liabilities: nw.totalLiabilities,
+          net_worth: nw.netWorth,
+          by_type: { ...nw.byType, __hash: nw.sourceHash },
+          captured_at: new Date().toISOString(),
+        },
+        { onConflict: "user_id,month" },
+      );
+    } catch { /* snapshot is best-effort */ }
   }
 
-  // ── Manual + E*TRADE holdings (live-priced) ──
-  const { data: hRows } = await ctx.supabase.from("holdings").select("symbol, shares, market_value");
-  let holdingsValue = 0;
-  if (hRows?.length) {
-    const symbols = Array.from(new Set(hRows.map((h: any) => String(h.symbol).toUpperCase())));
-    const quotes: Record<string, number> = {};
-    await Promise.all(symbols.map(async (s) => {
-      try { const q = await marketData.getQuote(s); if (q.data?.price) quotes[s] = q.data.price; } catch { /* ignore */ }
-    }));
-    for (const h of hRows) {
-      const sym = String(h.symbol).toUpperCase();
-      const px = quotes[sym];
-      const val = px != null ? px * Number(h.shares) : (h.market_value != null ? Number(h.market_value) : 0);
-      holdingsValue += val;
-    }
-    if (holdingsValue) breakdown.push({ label: "Stock holdings (manual / E*TRADE)", kind: "asset", amount: holdingsValue, source: "holdings" });
-  }
+  // Trend: monthly snapshots ascending.
+  const { data: trendRows } = await ctx.supabase
+    .from("net_worth_snapshots")
+    .select("month, net_worth, total_assets, total_liabilities")
+    .order("month", { ascending: true });
 
-  // ── Manual cash row (only if not already covered by Plaid depository) ──
-  const { data: cashRow } = await ctx.supabase.from("cash").select("amount, source").maybeSingle();
-  const manualCash = cashRow && cashRow.source !== "plaid" ? Number(cashRow.amount) : 0;
-  if (manualCash) breakdown.push({ label: "Cash (manual)", kind: "asset", amount: manualCash, source: "cash" });
-
-  const assets = breakdown.filter((b) => b.kind === "asset").reduce((s, b) => s + b.amount, 0);
-  const debts = breakdown.filter((b) => b.kind === "debt").reduce((s, b) => s + b.amount, 0);
-  const net = assets - debts;
-
-  // ── Persist today's snapshot, then read the trend ──
-  try {
-    await ctx.supabase.from("networth_snapshots").upsert(
-      { user_id: ctx.userId, assets: +assets.toFixed(2), debts: +debts.toFixed(2), net: +net.toFixed(2) },
-      { onConflict: "user_id,as_of" },
-    );
-  } catch { /* snapshot is best-effort */ }
-
-  const { data: trend } = await ctx.supabase
-    .from("networth_snapshots")
-    .select("as_of, net, assets, debts")
-    .order("as_of", { ascending: true })
-    .limit(180);
+  // Change vs last month.
+  const trend = (trendRows ?? []).map((t: any) => ({
+    month: t.month,
+    netWorth: Number(t.net_worth),
+    assets: Number(t.total_assets),
+    liabilities: Number(t.total_liabilities),
+  }));
+  const prev = trend.length >= 2 ? trend[trend.length - 2] : null;
+  const changeAmount = prev ? nw.netWorth - prev.netWorth : null;
+  const changePct = prev && prev.netWorth !== 0 ? (changeAmount! / Math.abs(prev.netWorth)) * 100 : null;
 
   return NextResponse.json({
-    assets: +assets.toFixed(2),
-    debts: +debts.toFixed(2),
-    net: +net.toFixed(2),
-    breakdown: breakdown.sort((a, b) => b.amount - a.amount),
-    trend: (trend ?? []).map((t: any) => ({ date: t.as_of, net: Number(t.net), assets: Number(t.assets), debts: Number(t.debts) })),
+    asOf: new Date().toISOString(),
+    totalAssets: nw.totalAssets,
+    totalLiabilities: nw.totalLiabilities,
+    netWorth: nw.netWorth,
+    liquid: nw.liquid,
+    illiquid: nw.illiquid,
+    byType: nw.byType,
+    items: nw.items,
+    excluded: nw.excluded,
+    trend,
+    changeAmount: changeAmount != null ? +changeAmount.toFixed(2) : null,
+    changePct: changePct != null ? +changePct.toFixed(1) : null,
   });
 }
