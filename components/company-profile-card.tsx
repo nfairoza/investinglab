@@ -2,7 +2,7 @@
 
 import useSWR from "swr";
 import Link from "next/link";
-import { DataBadge } from "./data-state";
+import { DataBadge, DataNote } from "./data-state";
 import type { DataResult, CompanyProfile } from "@/lib/providers/types";
 
 async function get(url: string): Promise<DataResult<CompanyProfile>> {
@@ -37,7 +37,7 @@ export function CompanyProfileCard({ symbol }: { symbol: string }) {
       {isLoading && <div className="mt-4 h-24 animate-pulse rounded bg-surface-raised" />}
 
       {!isLoading && !p && (
-        <p className="mt-3 text-sm text-ink-faint">{data?.note ?? "Profile unavailable."}</p>
+        <DataNote note={data?.note} fallback="Profile unavailable." className="mt-3 block text-sm text-ink-faint" />
       )}
 
       {p && (

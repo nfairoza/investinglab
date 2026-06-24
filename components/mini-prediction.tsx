@@ -3,6 +3,8 @@
 import { useState, useEffect, useRef } from "react";
 import { TrendingUp, TrendingDown, Minus, ArrowRight } from "lucide-react";
 import { AiThinking } from "./ai-thinking";
+import { friendlyMessage } from "./data-state";
+import { useIsAdmin } from "./use-is-admin";
 
 // Compact AI-prediction widget for the top of the Research page. Research and
 // Predictions go hand-in-hand: this gives a quick buy/sell + magnitude + horizon
@@ -42,6 +44,7 @@ function fmtPct(n: number | undefined): string | null {
 }
 
 export function MiniPrediction({ symbol, autoRun = false }: { symbol: string; autoRun?: boolean }) {
+  const isAdmin = useIsAdmin();
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<Result | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -124,8 +127,8 @@ export function MiniPrediction({ symbol, autoRun = false }: { symbol: string; au
 
       {error && (
         <div className="mt-2 text-xs text-rose-300">
-          {error}{" "}
-          {(error.includes("Connectors") || error.includes("Claude") || error.includes("key")) && (
+          {isAdmin ? error : friendlyMessage(error)}{" "}
+          {isAdmin && (error.includes("Connectors") || error.includes("Claude") || error.includes("key")) && (
             <span
               role="link" tabIndex={0}
               onClick={(e) => { e.preventDefault(); e.stopPropagation(); window.location.href = "/connectors"; }}

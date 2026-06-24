@@ -4,7 +4,7 @@ import useSWR from "swr";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from "recharts";
-import { DataBadge, DataTimestamp } from "@/components/data-state";
+import { DataBadge, DataTimestamp, DataNote } from "@/components/data-state";
 import type { DataResult, Technicals } from "@/lib/providers/types";
 
 async function getTechnicals(url: string): Promise<DataResult<Technicals>> {
@@ -57,10 +57,7 @@ export function PriceHistoryChart({ symbol }: { symbol: string }) {
 
       {!isLoading && !chartable && (
         <div className="mt-4 flex h-48 items-center justify-center rounded-lg border border-hairline text-sm text-ink-faint">
-          <div className="text-center">
-            <DataBadge source="unavailable" />
-            <p className="mt-2">Price history unavailable — add a stock-data key in Connectors.</p>
-          </div>
+          <DataNote note={data?.note} fallback="Moving averages aren’t available right now." className="px-6 text-center" />
         </div>
       )}
 

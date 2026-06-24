@@ -1,7 +1,7 @@
 "use client";
 
 import useSWR from "swr";
-import { DataBadge } from "./data-state";
+import { DataBadge, DataNote } from "./data-state";
 import type { DataResult, AnalystData } from "@/lib/providers/types";
 
 async function get(url: string): Promise<DataResult<AnalystData>> {
@@ -31,7 +31,7 @@ export function AnalystPanel({ symbol }: { symbol: string }) {
 
       {isLoading && <div className="mt-4 h-20 animate-pulse rounded bg-surface-raised" />}
       {!isLoading && !a && (
-        <p className="mt-3 text-sm text-ink-faint">{data?.note ?? "Analyst data unavailable."}</p>
+        <DataNote note={data?.note} fallback="Analyst data unavailable." className="mt-3 block text-sm text-ink-faint" />
       )}
 
       {a && (

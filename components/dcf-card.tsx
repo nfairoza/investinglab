@@ -1,7 +1,7 @@
 "use client";
 
 import useSWR from "swr";
-import { DataBadge } from "./data-state";
+import { DataBadge, DataNote } from "./data-state";
 import type { DataResult, DcfValue } from "@/lib/providers/types";
 
 async function get(url: string): Promise<DataResult<DcfValue>> {
@@ -34,7 +34,7 @@ export function DcfCard({ symbol }: { symbol: string }) {
 
       {isLoading && <div className="mt-4 h-16 animate-pulse rounded bg-surface-raised" />}
       {!isLoading && !d && (
-        <p className="mt-3 text-sm text-ink-faint">{data?.note ?? "DCF data unavailable."}</p>
+        <DataNote note={data?.note} fallback="DCF data unavailable." className="mt-3 block text-sm text-ink-faint" />
       )}
 
       {d && (
