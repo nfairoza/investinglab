@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import clsx from "clsx";
-import { sectionForPath } from "@/lib/nav";
+import { sectionForPath, isPathActive } from "@/lib/nav";
 
 // Sub-navigation for the active section (Invest gets the richest one). Shown
 // under the top bar; horizontally scrollable on phones so every sub-area is one
@@ -18,7 +18,7 @@ export function SectionSubnav() {
     <div className="border-b border-hairline bg-[color:var(--bg)]/60">
       <div className="flex gap-1 overflow-x-auto whitespace-nowrap px-5 py-2 md:px-10 [&::-webkit-scrollbar]:hidden">
         {section.items.map(({ href, label, icon: Icon }) => {
-          const active = path === href || (href !== "/" && path.startsWith(href));
+          const active = isPathActive(path, href);
           return (
             <Link key={href} href={href}
               className={clsx(

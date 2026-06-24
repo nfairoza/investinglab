@@ -10,7 +10,7 @@ import { ThemeToggle } from "./theme-toggle";
 import { Blossom } from "./ui/primitives";
 import { AccountMenu } from "./account-menu";
 import { useAlertsBadge } from "./use-alerts-badge";
-import { OVERVIEW, SECTIONS, ADMIN_SECTION } from "@/lib/nav";
+import { OVERVIEW, SECTIONS, ADMIN_SECTION, isPathActive } from "@/lib/nav";
 
 // Desktop sidebar nav, driven by the four-section IA in lib/nav.ts:
 // Overview · Invest (flagship) · Money · Insights (+ admin-only group).
@@ -35,7 +35,7 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
           {group.label && <div className="px-3 pb-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-ink-faint">{group.label}</div>}
           <div className="space-y-0.5">
             {items.map(({ href, label, icon: Icon }) => {
-              const active = href === "/" ? path === "/" : path.startsWith(href);
+              const active = isPathActive(path ?? "/", href);
               return (
                 <Link
                   key={href}

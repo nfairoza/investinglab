@@ -21,7 +21,7 @@ interface AdvisorStep { id: string; title: string; status: string; mathSummary: 
 interface AdvisorResp { result?: { steps: AdvisorStep[]; surplus: { available: boolean; surplus: number; destination: string }; avgMonthlyExpenses: number | null; liquidCash: number } }
 interface Balances { totalCash: number; items: { accounts: { account_id: string; type: string; current: number | null }[] }[] }
 interface Txn { date: string; amount: number; category: string; isTransfer: boolean; excluded: boolean; accountId?: string }
-interface Holding { symbol: string; shares: number; marketValue?: number; daysGain?: number }
+interface Holding { symbol: string; shares: number; marketValue?: number; daysGain?: number; daysGainPct?: number }
 
 // Whole-card link: the entire card is clickable (no separate "→" button).
 function Card({ href, title, children, className = "" }: { href: string; title: string; children: React.ReactNode; className?: string }) {
@@ -116,6 +116,34 @@ export function Overview() {
     return { credit, debit, show: hasCredit && hasDebit && credit + debit > 0 };
   }, [txnData, bal]);
 
+  // Top movers across all holdings today (biggest absolute % moves).
+  const movers = useMemo(() => {
+    return (holdings ?? [])
+      .filter((h) => h.daysGainPct != null && Math.abs(h.daysGainPct) >= 0.01)
+      .map((h) => ({ symbol: h.symbol, pct: h.daysGainPct as number }))
+      .sort((a, b) => Math.abs(b.pct) - Math.abs(a.pct))
+      .slice(0, 5);
+  }, [holdings]);
+
+  // "What changed this week" — a few computed, glanceable signals pulled from
+  // data we already have (no extra fetch). Each is a short headline + tone.
+  const weekly = useMemo(() => {
+    const out: { text: string; tone: "up" | "down" | "flat" }[] = [];
+    if (nw?.changeAmount != null && nw.changeAmount !== 0) {
+      out.push({ text: `Net worth ${nw.changeAmount >= 0 ? "up" : "down"} ${money(Math.abs(nw.changeAmount))} this month`, tone: nw.changeAmount >= 0 ? "up" : "down" });
+    }
+    if (inv.count > 0 && inv.day !== 0) {
+      out.push({ text: `Investments ${inv.day >= 0 ? "up" : "down"} ${money(Math.abs(inv.day))} today`, tone: inv.day >= 0 ? "up" : "down" });
+    }
+    if (spend.income > 0 || spend.expense > 0) {
+      out.push({ text: spend.net >= 0 ? `Saving ${money(spend.net)} this month so far` : `Spending ${money(-spend.net)} more than income this month`, tone: spend.net >= 0 ? "up" : "down" });
+    }
+    if (movers[0]) {
+      out.push({ text: `${movers[0].symbol} ${movers[0].pct >= 0 ? "+" : ""}${movers[0].pct.toFixed(1)}% — your biggest mover today`, tone: movers[0].pct >= 0 ? "up" : "down" });
+    }
+    return out.slice(0, 4);
+  }, [nw, inv, spend, movers]);
+
   // Top advisor insight: the highest-priority step needing attention, plus the
   // surplus destination. Computed server-side — we only pick what to surface.
   const insight = useMemo(() => {
@@ -191,18 +219,28 @@ export function Overview() {
         <Kpi label="Saved this month" value={money(spend.net)} tone={spend.net >= 0 ? "up" : "down"} />
       </div>
 
-      {/* Net worth — top anchor (whole card → Net worth) */}
-      <Card href="/networth" title="Net worth" className="bg-gradient-to-br from-brand-500/[0.08] to-transparent">
-        <div className="flex flex-wrap items-end justify-between gap-2">
-          <div className="text-3xl font-bold text-ink md:text-4xl">{money(nw?.netWorth ?? 0)}</div>
-          {nw?.changeAmount != null && (
-            <span className={`inline-flex items-center gap-1 text-sm ${nw.changeAmount >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
-              {nw.changeAmount >= 0 ? <ArrowUp size={14} /> : <ArrowDown size={14} />}
-              {money(Math.abs(nw.changeAmount))}{nw.changePct != null ? ` (${Math.abs(nw.changePct)}%)` : ""} this month
-            </span>
-          )}
+      {/* What changed — glanceable signals from data we already have */}
+      {weekly.length > 0 && (
+        <div className="rounded-2xl glass p-4">
+          <div className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-ink-faint">What changed</div>
+          <div className="flex flex-wrap gap-2">
+            {weekly.map((w, i) => (
+              <span key={i} className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs ${
+                w.tone === "up" ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
+                : w.tone === "down" ? "border-rose-500/30 bg-rose-500/10 text-rose-300"
+                : "border-hairline bg-surface text-ink-dim"}`}>
+                {w.tone === "up" ? <ArrowUp size={12} /> : w.tone === "down" ? <ArrowDown size={12} /> : null}
+                {w.text}
+              </span>
+            ))}
+          </div>
         </div>
-        <div className="mt-1 flex gap-4 text-xs text-ink-dim">
+      )}
+
+      {/* Net worth trend — the headline number lives in the KPI strip; this card
+          adds the assets/liabilities split + the trend chart (no repeat). */}
+      <Card href="/networth" title="Net worth trend" className="bg-gradient-to-br from-brand-500/[0.08] to-transparent">
+        <div className="flex gap-4 text-xs text-ink-dim">
           <span>Assets <span className="text-emerald-400">{money(nw?.totalAssets ?? 0)}</span></span>
           <span>Liabilities <span className="text-rose-400">{money(nw?.totalLiabilities ?? 0)}</span></span>
         </div>
@@ -259,16 +297,9 @@ export function Overview() {
         </Card>
       )}
 
-      {/* Investments — hero (whole card → Invest dashboard) */}
+      {/* Investments — quick jumps (value/day live in the KPI strip) */}
       <Card href="/dashboard" title="Investments">
-        <div className="flex flex-wrap items-end justify-between gap-2">
-          <div className="text-2xl font-bold text-ink">{money(inv.value)}</div>
-          {inv.count > 0 && (
-            <span className={`inline-flex items-center gap-1 text-sm ${inv.day >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
-              {inv.day >= 0 ? <ArrowUp size={14} /> : <ArrowDown size={14} />} {money(Math.abs(inv.day))} today
-            </span>
-          )}
-        </div>
+        <p className="text-xs text-ink-dim">{inv.count} position{inv.count !== 1 ? "s" : ""} · open the dashboard for the full breakdown.</p>
         {/* These chips deep-link past the dashboard — stopPropagation so they don't double-fire the card link. */}
         <div className="mt-3 grid grid-cols-3 gap-2">
           {[
@@ -321,6 +352,22 @@ export function Overview() {
           </div>
         )}
       </Card>
+
+      {/* Top movers across all holdings today */}
+      {movers.length > 0 && (
+        <Card href="/holdings" title="Top movers today">
+          <ul className="space-y-2">
+            {movers.map((m) => (
+              <li key={m.symbol} className="flex items-center justify-between text-sm">
+                <span className="font-mono font-medium text-ink">{m.symbol}</span>
+                <span className={`inline-flex items-center gap-1 font-mono ${m.pct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                  {m.pct >= 0 ? <ArrowUp size={13} /> : <ArrowDown size={13} />} {Math.abs(m.pct).toFixed(1)}%
+                </span>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
 
       {/* Credit vs debit spending — only when both account types are linked */}
       {payMix.show && (

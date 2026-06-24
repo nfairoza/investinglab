@@ -66,10 +66,18 @@ export const ADMIN_SECTION: NavSection = {
   items: [{ href: "/connectors", label: "Connectors & Keys", icon: Plug }],
 };
 
+// True when `path` is `href` or a sub-route of it, matching on SEGMENT
+// boundaries so "/accounts-doctor" does NOT match "/accounts". Root "/" only
+// matches itself.
+export function isPathActive(path: string, href: string): boolean {
+  if (href === "/") return path === "/";
+  return path === href || path.startsWith(href + "/");
+}
+
 // Which section a pathname belongs to (for active highlighting + Invest sub-nav).
 export function sectionForPath(path: string): NavSection | null {
   for (const s of SECTIONS) {
-    if (s.items.some((it) => it.href === "/" ? path === "/" : path.startsWith(it.href))) return s;
+    if (s.items.some((it) => isPathActive(path, it.href))) return s;
   }
   return null;
 }
