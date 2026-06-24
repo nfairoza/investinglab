@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import useSWR from "swr";
 import { DataBadge } from "./data-state";
 import type { DataResult } from "@/lib/providers/types";
@@ -62,7 +63,7 @@ function RankRow({ s, i, horizon }: { s: StockScore; i: number; horizon: Horizon
     <li className="rounded-lg border border-hairline bg-black/15 px-3 py-2 hover:bg-white/[0.03]">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
         <span className="w-4 shrink-0 text-right text-xs text-ink-faint">{i + 1}</span>
-        <a href={`/research?symbol=${s.symbol}`} className="w-12 shrink-0 font-semibold text-brand-300 hover:underline">{s.symbol}</a>
+        <Link href={`/research?symbol=${s.symbol}`} className="w-12 shrink-0 font-semibold text-brand-300 hover:underline">{s.symbol}</Link>
         {/* today's REAL move */}
         <span className={`shrink-0 text-xs ${today == null ? "text-ink-faint" : today >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
           {pct(today)} <span className="text-ink-faint">today</span>
@@ -175,7 +176,7 @@ export function Rankings() {
           {avoid.length === 0 && <li className="text-sm text-ink-faint">Nothing flagged.</li>}
           {avoid.map((s) => (
             <li key={s.symbol} className="flex items-center gap-3 text-sm">
-              <a href={`/research?symbol=${s.symbol}`} className="w-16 shrink-0 font-medium text-brand-300 hover:underline">{s.symbol}</a>
+              <Link href={`/research?symbol=${s.symbol}`} className="w-16 shrink-0 font-medium text-brand-300 hover:underline">{s.symbol}</Link>
               <span className="truncate text-xs text-rose-300/90">{s.majorRisk}</span>
             </li>
           ))}
@@ -191,7 +192,7 @@ export function Rankings() {
           <ul className="mt-3 space-y-1">
             {portfolio.map(({ s, flag }) => (
               <li key={s.symbol} className="flex items-center gap-3 text-sm">
-                <a href={`/research?symbol=${s.symbol}`} className="w-16 shrink-0 font-medium text-brand-300 hover:underline">{s.symbol}</a>
+                <Link href={`/research?symbol=${s.symbol}`} className="w-16 shrink-0 font-medium text-brand-300 hover:underline">{s.symbol}</Link>
                 <span className="w-10 shrink-0 text-ink-dim">{Math.round(s.overall)}</span>
                 <span className="text-xs text-ink-dim">{flag}</span>
               </li>

@@ -41,7 +41,12 @@ export const viewport: Viewport = {
 };
 
 // No-FOUC theme init: set the class on <html> before first paint.
-const themeInit = `(function(){try{var t=localStorage.getItem('theme');if(!t){t=window.matchMedia('(prefers-color-scheme: light)').matches?'light':'dark';}var d=document.documentElement;d.classList.remove('light','dark');d.classList.add(t);d.style.colorScheme=t;}catch(e){document.documentElement.classList.add('dark');}})();`;
+// No-FOUC theme init. The theme is a deliberate user choice: we read the saved
+// value and ONLY fall back to the OS preference the very first time (no saved
+// value yet), then persist it so it never changes on its own afterward. This
+// makes the theme stable across full-page loads — it only changes when the user
+// clicks the toggle (which writes 'theme').
+const themeInit = `(function(){try{var t=localStorage.getItem('theme');if(t!=='light'&&t!=='dark'){t=window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches?'light':'dark';localStorage.setItem('theme',t);}var d=document.documentElement;d.classList.remove('light','dark');d.classList.add(t);d.style.colorScheme=t;}catch(e){document.documentElement.classList.add('dark');}})();`;
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
