@@ -16,25 +16,54 @@ const money = (n: number) => new Intl.NumberFormat(undefined, { style: "currency
 
 const COLORS = ["#16D27E", "#0EA6C9", "#11B4AE", "#34E0A1", "#60A5FA", "#F59E0B", "#FB7185", "#FBBF24", "#A78BFA", "#22D3EE"];
 
-function startOfPeriod(days: number): string {
-  // Build a YYYY-MM-DD `days` ago without Date.now-in-render issues (client only).
-  const d = new Date();
-  d.setDate(d.getDate() - days);
-  return d.toISOString().slice(0, 10);
+const iso = (d: Date) => d.toISOString().slice(0, 10);
+
+type PresetKey = "thisMonth" | "lastMonth" | "30d" | "90d" | "ytd" | "custom";
+
+// Resolve a preset to a {from, to} YYYY-MM-DD range (client-side only).
+function presetRange(key: Exclude<PresetKey, "custom">): { from: string; to: string } {
+  const now = new Date();
+  const to = iso(now);
+  switch (key) {
+    case "thisMonth": return { from: iso(new Date(now.getFullYear(), now.getMonth(), 1)), to };
+    case "lastMonth": {
+      const start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const end = new Date(now.getFullYear(), now.getMonth(), 0);
+      return { from: iso(start), to: iso(end) };
+    }
+    case "30d": { const d = new Date(now); d.setDate(d.getDate() - 30); return { from: iso(d), to }; }
+    case "90d": { const d = new Date(now); d.setDate(d.getDate() - 90); return { from: iso(d), to }; }
+    case "ytd": return { from: iso(new Date(now.getFullYear(), 0, 1)), to };
+  }
 }
 
+const PRESETS: { key: Exclude<PresetKey, "custom">; label: string }[] = [
+  { key: "thisMonth", label: "This month" },
+  { key: "lastMonth", label: "Last month" },
+  { key: "30d", label: "30d" },
+  { key: "90d", label: "90d" },
+  { key: "ytd", label: "YTD" },
+];
+
 export function SpendingView() {
-  const [days, setDays] = useState(30);
+  const [preset, setPreset] = useState<PresetKey>("thisMonth");
+  const [customFrom, setCustomFrom] = useState("");
+  const [customTo, setCustomTo] = useState("");
   const { data, isLoading } = useSWR<{ transactions: Txn[]; configured?: boolean }>(
     "/api/plaid/transactions", fetchJson, { revalidateOnFocus: false },
   );
 
   const txns = data?.transactions ?? [];
 
+  const range = useMemo(() => {
+    if (preset === "custom") return { from: customFrom || "0000-00-00", to: customTo || "9999-12-31" };
+    return presetRange(preset);
+  }, [preset, customFrom, customTo]);
+
   const stats = useMemo(() => {
-    const since = startOfPeriod(days);
+    const { from, to } = range;
     // Plaid convention: positive amount = money out (expense), negative = money in.
-    const inPeriod = txns.filter((t) => t.date >= since && !t.excluded && !t.isTransfer);
+    const inPeriod = txns.filter((t) => t.date >= from && t.date <= to && !t.excluded && !t.isTransfer);
     let income = 0, expenses = 0;
     const byCat = new Map<string, number>();
     const byMerchant = new Map<string, number>();
@@ -50,7 +79,7 @@ export function SpendingView() {
     const cats = [...byCat.entries()].map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
     const merchants = [...byMerchant.entries()].map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value).slice(0, 6);
     return { income, expenses, net: income - expenses, cats, merchants, count: inPeriod.length };
-  }, [txns, days]);
+  }, [txns, range]);
 
   if (data?.configured === false) {
     return <Empty>Bank connections aren&apos;t available yet.</Empty>;
@@ -61,14 +90,27 @@ export function SpendingView() {
 
   return (
     <div className="space-y-5">
-      {/* Period selector */}
-      <div className="flex items-center gap-1.5">
-        {[7, 30, 90].map((d) => (
-          <button key={d} onClick={() => setDays(d)}
-            className={`rounded-md border px-3 py-1.5 text-xs font-medium ${days === d ? "tab-active" : "border-hairline text-ink-dim hover:bg-surface"}`}>
-            {d}d
+      {/* Period selector: presets + custom range */}
+      <div className="flex flex-wrap items-center gap-1.5">
+        {PRESETS.map((p) => (
+          <button key={p.key} onClick={() => setPreset(p.key)}
+            className={`rounded-md border px-3 py-1.5 text-xs font-medium ${preset === p.key ? "tab-active" : "border-hairline text-ink-dim hover:bg-surface"}`}>
+            {p.label}
           </button>
         ))}
+        <button onClick={() => setPreset("custom")}
+          className={`rounded-md border px-3 py-1.5 text-xs font-medium ${preset === "custom" ? "tab-active" : "border-hairline text-ink-dim hover:bg-surface"}`}>
+          Custom
+        </button>
+        {preset === "custom" && (
+          <div className="flex items-center gap-1.5">
+            <input type="date" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)}
+              className="rounded-md border border-hairline px-2 py-1 text-xs text-ink focus:outline-none" style={{ background: "var(--surface-solid)", color: "var(--text)" }} />
+            <span className="text-xs text-ink-faint">to</span>
+            <input type="date" value={customTo} onChange={(e) => setCustomTo(e.target.value)}
+              className="rounded-md border border-hairline px-2 py-1 text-xs text-ink focus:outline-none" style={{ background: "var(--surface-solid)", color: "var(--text)" }} />
+          </div>
+        )}
       </div>
 
       {/* Income / expenses / net */}
@@ -128,7 +170,7 @@ export function SpendingView() {
       </div>
 
       <p className="text-[11px] text-ink-faint">
-        Based on your linked accounts over the last {days} days. Transfers and excluded transactions are not counted.
+        Based on your linked accounts from {range.from} to {range.to}. Transfers and excluded transactions are not counted.
       </p>
     </div>
   );

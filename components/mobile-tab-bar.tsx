@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, TrendingUp, Scale, Search, Plus } from "lucide-react";
+import { LayoutDashboard, TrendingUp, Coins, Search, Plus } from "lucide-react";
 import clsx from "clsx";
 
 // Bottom tab bar (phones only): Overview · Invest · + · Money · Research.
@@ -13,7 +13,7 @@ const TABS = [
   { href: "/", label: "Overview", icon: LayoutDashboard, exact: true, match: ["/"] },
   { href: "/holdings", label: "Invest", icon: TrendingUp, match: ["/holdings", "/watchlist", "/journal", "/rankings", "/map", "/predictions", "/portfolio-doctor", "/congress"] },
   // index 2 = the "+" action button (rendered specially)
-  { href: "/networth", label: "Money", icon: Scale, match: ["/networth", "/accounts", "/transactions", "/spending", "/advisor", "/alerts"] },
+  { href: "/money", label: "Money", icon: Coins, match: ["/money", "/networth", "/accounts", "/transactions", "/spending"] },
   { href: "/research", label: "Research", icon: Search, match: ["/research"] },
 ];
 

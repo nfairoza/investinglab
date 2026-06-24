@@ -1,8 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import useSWR from "swr";
 import Link from "next/link";
-import { Landmark, RefreshCw } from "lucide-react";
+import { Landmark, RefreshCw, ChevronDown } from "lucide-react";
 
 interface Account { account_id: string; name: string; mask: string | null; type: string; subtype: string | null; current: number | null; available: number | null; currency: string }
 interface Item { itemId: string; institution: string; accounts: Account[]; error?: string }
@@ -51,31 +52,54 @@ export function AccountsView() {
       )}
 
       {items.map((it) => (
-        it.accounts.length > 0 && (
-          <div key={it.itemId} className="rounded-2xl glass p-5">
-            <div className="mb-3 flex items-center gap-2">
-              <Landmark size={16} className="text-brand-400" />
-              <span className="font-medium text-ink">{it.institution ?? "Bank"}</span>
-            </div>
-            <ul className="divide-y divide-hairline">
-              {it.accounts.map((a) => (
-                <li key={a.account_id} className="flex items-center justify-between py-2.5">
-                  <div className="min-w-0">
-                    <div className="truncate text-sm text-ink">{a.name}{a.mask ? <span className="text-ink-faint"> ••{a.mask}</span> : null}</div>
-                    <div className="text-[11px] text-ink-faint">{TYPE_LABEL[a.type] ?? a.type}{a.subtype ? ` · ${a.subtype}` : ""}</div>
-                  </div>
-                  <div className="shrink-0 text-right">
-                    <div className="text-sm font-semibold text-ink">{money(a.current, a.currency)}</div>
-                    {a.available != null && a.available !== a.current && (
-                      <div className="text-[11px] text-ink-faint">{money(a.available, a.currency)} avail</div>
-                    )}
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )
+        it.accounts.length > 0 && <InstitutionCard key={it.itemId} item={it} />
       ))}
+    </div>
+  );
+}
+
+// One institution: collapsible. Header shows name, account count, and the
+// institution's net balance; click to expand the per-account list.
+function InstitutionCard({ item }: { item: Item }) {
+  const [open, setOpen] = useState(true);
+  const net = item.accounts.reduce((s, a) => {
+    const v = a.current ?? 0;
+    return s + ((a.type === "credit" || a.type === "loan") ? -v : v);
+  }, 0);
+  const currency = item.accounts[0]?.currency ?? "USD";
+
+  return (
+    <div className="rounded-2xl glass">
+      <button onClick={() => setOpen((o) => !o)} className="flex w-full items-center gap-3 px-5 py-4 text-left" aria-expanded={open}>
+        <ChevronDown size={16} className={`shrink-0 text-ink-faint transition-transform ${open ? "rotate-180" : ""}`} />
+        <Landmark size={16} className="shrink-0 text-brand-400" />
+        <span className="min-w-0 flex-1">
+          <span className="block truncate font-medium text-ink">{item.institution ?? "Bank"}</span>
+          <span className="block text-[11px] text-ink-faint">{item.accounts.length} account{item.accounts.length !== 1 ? "s" : ""}</span>
+        </span>
+        <span className="shrink-0 text-right">
+          <span className="block text-sm font-semibold text-ink">{money(net, currency)}</span>
+          <span className="block text-[10px] uppercase tracking-wide text-ink-faint">net</span>
+        </span>
+      </button>
+      {open && (
+        <ul className="divide-y divide-hairline border-t border-hairline px-5 pb-1">
+          {item.accounts.map((a) => (
+            <li key={a.account_id} className="flex items-center justify-between py-2.5">
+              <div className="min-w-0">
+                <div className="truncate text-sm text-ink">{a.name}{a.mask ? <span className="text-ink-faint"> ••{a.mask}</span> : null}</div>
+                <div className="text-[11px] text-ink-faint">{TYPE_LABEL[a.type] ?? a.type}{a.subtype ? ` · ${a.subtype}` : ""}</div>
+              </div>
+              <div className="shrink-0 text-right">
+                <div className="text-sm font-semibold text-ink">{money(a.current, a.currency)}</div>
+                {a.available != null && a.available !== a.current && (
+                  <div className="text-[11px] text-ink-faint">{money(a.available, a.currency)} avail</div>
+                )}
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

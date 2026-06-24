@@ -212,28 +212,6 @@ export function HoldingsManager() {
         </div>
       )}
 
-      {/* Manual add — secondary, collapsed by default */}
-      <div className="rounded-xl border border-hairline bg-surface">
-        <button onClick={() => setShowAdd((s) => !s)}
-          className="flex w-full items-center justify-between px-4 py-2.5 text-sm text-ink-dim hover:text-ink">
-          <span className="flex items-center gap-2"><Plus size={14} /> Add a holding manually</span>
-          <ChevronDown size={15} className={`transition-transform ${showAdd ? "rotate-180" : ""}`} />
-        </button>
-        {showAdd && (
-          <div className="border-t border-hairline p-4">
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-5">
-              <TickerInput value={symbol} onChange={setSymbol} onSelect={setSymbol} placeholder="Search ticker…" className={`${inputCls} w-full`} />
-              <input value={shares} onChange={(e) => setShares(e.target.value)} placeholder="Shares" inputMode="decimal" className={inputCls} />
-              <input value={avgCost} onChange={(e) => setAvgCost(e.target.value)} placeholder="Avg cost $" inputMode="decimal" className={inputCls} />
-              <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Note (optional)" className={inputCls} />
-              <button onClick={addHolding} className="rounded-md bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-500">
-                Add holding
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-
       {allHoldings.length > 0 && (
         <>
           {/* Portfolio summary: value, day's gain, total gain */}
@@ -381,6 +359,29 @@ export function HoldingsManager() {
           {quotes && <DataTimestamp asOf={Object.values(quotes)[0]?.asOf ?? null} />}
         </>
       )}
+
+      {/* Manual add — secondary, collapsed by default, lives at the bottom.
+          Anything manual is not the focus; sync is the primary path. */}
+      <div className="rounded-xl border border-hairline bg-surface">
+        <button onClick={() => setShowAdd((s) => !s)}
+          className="flex w-full items-center justify-between px-4 py-2.5 text-sm text-ink-dim hover:text-ink">
+          <span className="flex items-center gap-2"><Plus size={14} /> Add a holding manually</span>
+          <ChevronDown size={15} className={`transition-transform ${showAdd ? "rotate-180" : ""}`} />
+        </button>
+        {showAdd && (
+          <div className="border-t border-hairline p-4">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-5">
+              <TickerInput value={symbol} onChange={setSymbol} onSelect={setSymbol} placeholder="Search ticker…" className={`${inputCls} w-full`} />
+              <input value={shares} onChange={(e) => setShares(e.target.value)} placeholder="Shares" inputMode="decimal" className={inputCls} />
+              <input value={avgCost} onChange={(e) => setAvgCost(e.target.value)} placeholder="Avg cost $" inputMode="decimal" className={inputCls} />
+              <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Note (optional)" className={inputCls} />
+              <button onClick={addHolding} className="rounded-md bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-500">
+                Add holding
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
 
       <p className="text-[11px] text-ink-faint">
         Saved securely to your account — private to you and synced across devices. Research and educational analysis, not financial advice.

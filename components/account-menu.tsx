@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import useSWR from "swr";
-import { User, FileText, Settings as SettingsIcon, HelpCircle, LogOut, Shield, ChevronDown, Plug } from "lucide-react";
+import { User, FileText, Settings as SettingsIcon, HelpCircle, LogOut, Shield, Plug } from "lucide-react";
 
 interface Me {
   authenticated?: boolean;
@@ -53,14 +53,12 @@ export function AccountMenu() {
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-2 rounded-full border border-hairline bg-surface/60 py-1 pl-1 pr-2.5 transition-colors hover:bg-surface"
+        className="flex items-center rounded-full transition-opacity hover:opacity-80"
         title="Account"
         aria-haspopup="menu"
         aria-expanded={open}
       >
         <Avatar avatarUrl={me.avatarUrl} initial={initial} />
-        <span className="hidden max-w-[120px] truncate text-sm font-medium text-ink sm:inline">{name}</span>
-        <ChevronDown size={14} className={`text-ink-faint transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
 
       {open && (

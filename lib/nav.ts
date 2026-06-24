@@ -1,7 +1,7 @@
 import {
   LayoutDashboard, Wallet, Eye, NotebookPen, Search, Grid3x3, Trophy,
   Stethoscope, TrendingUp, Landmark, Scale, Receipt, PieChart, Sparkles, Bell,
-  Plug, Gauge, type LucideIcon,
+  Plug, Gauge, Coins, type LucideIcon,
 } from "lucide-react";
 
 // =============================================================================
@@ -38,9 +38,10 @@ export const SECTIONS: NavSection[] = [
   {
     key: "money",
     label: "Money",
-    href: "/networth",
-    icon: Scale,
+    href: "/money",
+    icon: Coins,
     items: [
+      { href: "/money", label: "Overview", icon: Coins },
       { href: "/networth", label: "Net worth", icon: Scale },
       { href: "/accounts", label: "Accounts", icon: Landmark },
       { href: "/transactions", label: "Transactions", icon: Receipt },
