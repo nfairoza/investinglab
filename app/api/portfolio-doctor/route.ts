@@ -1,5 +1,5 @@
-import { NextResponse } from "next/server";
-import { getUserClient } from "@/lib/supabase-data";
+import { NextRequest, NextResponse } from "next/server";
+import { getUserClient, readAiCache, writeAiCache } from "@/lib/supabase-data";
 import { marketData } from "@/lib/providers";
 import { computeScore } from "@/lib/scoring/score";
 import { resolveApiKey } from "@/lib/ai/anthropic";
@@ -7,6 +7,25 @@ import { callGemini, geminiKey } from "@/lib/ai/gemini";
 import { routeText } from "@/lib/ai/router";
 
 export const dynamic = "force-dynamic";
+
+const CACHE_KEY = "portfolio_doctor";
+const TTL_MS = 24 * 60 * 60 * 1000; // once a day
+
+// A stable signature of the holdings set — diagnosis re-runs automatically when
+// a ticker is added/removed (or shares change), even within the daily window.
+function holdingsHash(rows: { symbol: string; shares: number }[]): string {
+  return rows.map((h) => `${h.symbol}:${h.shares}`).sort().join("|");
+}
+
+// GET — return today's cached diagnosis (no AI tokens). The user view relies on
+// this; the POST (re-run) is gated to admins or stale/changed state.
+export async function GET() {
+  const ctx = await getUserClient();
+  if (!ctx) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  const cached = await readAiCache(ctx, CACHE_KEY);
+  if (cached) return NextResponse.json({ cached: true, ...(cached.data as object), generatedAt: cached.generatedAt });
+  return NextResponse.json({ cached: false, data: null });
+}
 
 function isNetErr(e: unknown): boolean {
   const m = e instanceof Error ? e.message : String(e);
@@ -143,15 +162,7 @@ Return JSON with EXACTLY this shape:
 Include all five horizons. For each horizon, sells should come from current holdings; buys may include current holdings (Add) or brand-new tickers (isNew:true). Keep each list to the 1-4 highest-conviction moves.`;
 }
 
-export async function POST() {
-  const key = resolveApiKey();
-  if (!key && !geminiKey()) {
-    return NextResponse.json(
-      { error: "no_key", message: "Add a Claude or Gemini API key in Connectors to run the Portfolio Doctor." },
-      { status: 400 },
-    );
-  }
-
+export async function POST(req: NextRequest) {
   const ctx = await getUserClient();
   if (!ctx) return NextResponse.json({ error: "unauthorized", message: "Sign in to run the Portfolio Doctor." }, { status: 401 });
   const { data: rows } = await ctx.supabase.from("holdings").select("*");
@@ -162,6 +173,29 @@ export async function POST() {
   if (!holdings.length) {
     return NextResponse.json(
       { error: "no_holdings", message: "Add holdings (or sync a broker) first — the doctor needs a portfolio to examine." },
+      { status: 400 },
+    );
+  }
+
+  // Cost controls. A fresh run is allowed when: (a) the caller is an admin and
+  // explicitly forced it, (b) there's no cached diagnosis, (c) the cache is
+  // older than a day, or (d) the holdings set changed since the cache. Regular
+  // users can't force a re-run — they get the cached diagnosis to save tokens.
+  const force = req.nextUrl.searchParams.get("force") === "1" && ctx.isAdmin;
+  const hash = holdingsHash(holdings);
+  const cached = await readAiCache(ctx, CACHE_KEY);
+  const cachedHash = (cached?.data as any)?.holdingsHash;
+  const fresh = cached && Date.now() - new Date(cached.generatedAt).getTime() < TTL_MS;
+  if (!force && cached && fresh && cachedHash === hash) {
+    return NextResponse.json({ cached: true, ...(cached.data as object), generatedAt: cached.generatedAt });
+  }
+
+  const key = resolveApiKey();
+  if (!key && !geminiKey()) {
+    // No key but a cached diagnosis exists → still serve it.
+    if (cached) return NextResponse.json({ cached: true, ...(cached.data as object), generatedAt: cached.generatedAt });
+    return NextResponse.json(
+      { error: "no_key", message: "Add a Claude or Gemini API key in Connectors to run the Portfolio Doctor." },
       { status: 400 },
     );
   }
@@ -258,7 +292,8 @@ export async function POST() {
     }
 
     const aiName = ai === "claude" ? "Claude" : "Gemini";
-    return NextResponse.json({
+    const generatedAt = new Date().toISOString();
+    const payload = {
       analysis,
       // Ground-truth portfolio facts (deterministic) so the UI can show real numbers.
       portfolio: {
@@ -281,8 +316,13 @@ export async function POST() {
       dataSource: anyLive ? "live" : "demo",
       sourceLabel: anyLive ? `FMP live data + ${aiName} web search` : `${aiName} web search (FMP feed unavailable)`,
       model: usedModel,
-      generatedAt: new Date().toISOString(),
-    });
+      holdingsHash: hash,
+      generatedAt,
+    };
+    // Cache today's diagnosis so users get it without spending tokens; re-runs
+    // are admin-forced or auto on staleness/holdings change.
+    await writeAiCache(ctx, CACHE_KEY, { generatedAt, data: payload }).catch(() => {});
+    return NextResponse.json({ cached: false, ...payload });
   } catch (e) {
     return NextResponse.json(
       { error: "generation_failed", message: e instanceof Error ? e.message : "Portfolio analysis failed" },

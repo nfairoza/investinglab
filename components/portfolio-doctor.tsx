@@ -1,10 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
+import Link from "next/link";
 import useSWR from "swr";
 import { usePersistedState } from "@/lib/use-persisted-state";
 import { Stethoscope, TrendingUp, TrendingDown, ArrowRight } from "lucide-react";
-import { DataBadge } from "./data-state";
+import { DataBadge, friendlyMessage } from "./data-state";
+import { useIsAdmin } from "./use-is-admin";
 import { AllocationDonut } from "./charts/AllocationDonut";
 import { MotionLoader } from "./motion-loader";
 import type { Holding } from "@/lib/db";
@@ -65,6 +67,7 @@ function money(n: number): string {
 }
 
 export function PortfolioDoctor() {
+  const isAdmin = useIsAdmin();
   const { data: holdings = [] } = useSWR<Holding[]>("/api/holdings", (u: string) => fetch(u).then((r) => r.json()));
   const [busy, setBusy] = useState(false);
   // Persisted so the diagnosis survives navigation/reload until you re-run.
@@ -72,11 +75,28 @@ export function PortfolioDoctor() {
   const [error, setError] = useState<string | null>(null);
   const [activeHorizon, setActiveHorizon] = useState(0);
 
-  async function run() {
+  // On mount: load the cached daily diagnosis (no tokens). POST only re-runs
+  // when allowed (admin force, stale, or holdings changed) — for regular users
+  // this just refreshes/serves the cached one and never lets them spend tokens.
+  const ranAuto = useRef(false);
+  useEffect(() => {
+    if (ranAuto.current) return;
+    ranAuto.current = true;
+    (async () => {
+      try {
+        const j = await fetch("/api/portfolio-doctor").then((r) => r.json());
+        if (j?.analysis) setResult(j as Result);
+        else run(); // no cache yet → generate the first one (auto-runs on holdings change too)
+      } catch { /* ignore */ }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function run(force = false) {
     if (busy) return;
     setBusy(true); setError(null); // keep the previous result visible until the new one lands
     try {
-      const r = await fetch("/api/portfolio-doctor", { method: "POST" });
+      const r = await fetch(`/api/portfolio-doctor${force ? "?force=1" : ""}`, { method: "POST" });
       const j = await r.json();
       if (!r.ok || j.error) { setError(j.message ?? "Analysis failed."); return; }
       setResult(j as Result);
@@ -99,15 +119,20 @@ export function PortfolioDoctor() {
             <Stethoscope size={20} className="text-brand-400" />
             <h2 className="text-lg font-semibold text-ink">Portfolio check-up</h2>
           </div>
-          <button onClick={run} disabled={busy || holdings.length === 0}
-            className="btn-gold rounded-md px-4 py-2 text-sm disabled:opacity-50">
-            {busy ? "Examining…" : result ? "Re-run diagnosis" : "Run full diagnosis"}
-          </button>
+          {/* Re-run is admin-only (token control). Users see the daily cached
+              diagnosis, which auto-refreshes when their holdings change. */}
+          {(isAdmin || !result) && (
+            <button onClick={() => run(isAdmin)} disabled={busy || holdings.length === 0}
+              className="btn-gold rounded-md px-4 py-2 text-sm disabled:opacity-50">
+              {busy ? "Examining…" : result ? "Re-run diagnosis" : "Run full diagnosis"}
+            </button>
+          )}
         </div>
         <p className="mt-2 text-sm text-ink-dim">
           The doctor reads all {holdings.length} of your holdings and their weights, scores and researches each,
           checks concentration & sector risk, then recommends specific buy/sell amounts — across 1-day, 1-month,
           6-month, 1-year and 5-year horizons. It can also suggest new positions from the whole market.
+          {!isAdmin && result && <span className="text-ink-faint"> Refreshed daily and whenever your holdings change.</span>}
         </p>
         {holdings.length === 0 && (
           <p className="mt-2 text-sm text-amber-300">
@@ -125,7 +150,8 @@ export function PortfolioDoctor() {
 
       {error && (
         <div className="rounded-lg border border-rose-500/30 bg-rose-500/5 p-4 text-sm text-rose-300">
-          {error}{(error.includes("Connectors") || error.includes("key") || error.includes("Claude")) && (
+          {isAdmin ? error : friendlyMessage(error)}
+          {isAdmin && (error.includes("Connectors") || error.includes("key") || error.includes("Claude")) && (
             <a href="/connectors" className="ml-1 underline">Open Connectors</a>
           )}
         </div>
@@ -149,7 +175,7 @@ export function PortfolioDoctor() {
               <div className="flex flex-col items-end gap-1">
                 <div className="flex items-center gap-2">
                   <DataBadge source={result.dataSource} />
-                  <span className="text-[11px] text-ink-faint">{result.model}</span>
+                  {isAdmin && <span className="text-[11px] text-ink-faint">{result.model}</span>}
                 </div>
                 <span className="text-[11px] text-ink-faint">As of {new Date(result.generatedAt).toLocaleString()}</span>
               </div>
@@ -244,7 +270,7 @@ export function PortfolioDoctor() {
                           return (
                             <tr key={i} className="align-top hover:bg-surface">
                               <td className="px-3 py-2.5">
-                                <a href={`/research?symbol=${m.symbol}`} className="font-semibold text-brand-300 hover:underline">{m.symbol}</a>
+                                <Link href={`/research?symbol=${m.symbol}`} className="font-semibold text-brand-300 hover:underline">{m.symbol}</Link>
                                 {m.isNew && <span className="ml-1 rounded bg-brand-500/15 px-1 text-[9px] text-brand-300">NEW</span>}
                               </td>
                               <td className="px-3 py-2.5">
@@ -281,13 +307,14 @@ export function PortfolioDoctor() {
                     <th className="px-3 py-2">Today</th>
                     <th className="px-3 py-2">Score</th>
                     <th className="px-3 py-2">Sector</th>
-                    <th className="px-3 py-2"></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5">
                   {result.portfolio.positions.map((p) => (
                     <tr key={p.symbol} className="hover:bg-surface">
-                      <td className="px-3 py-2 font-semibold text-brand-300">{p.symbol}</td>
+                      <td className="px-3 py-2 font-semibold">
+                        <Link href={`/research?symbol=${p.symbol}`} className="text-brand-300 hover:underline" title={`Research ${p.symbol}`}>{p.symbol}</Link>
+                      </td>
                       <td className="px-3 py-2 text-ink-dim">{p.value != null ? money(p.value) : "—"}</td>
                       <td className="px-3 py-2 text-ink-dim">{p.weightPct.toFixed(1)}%</td>
                       <td className={`px-3 py-2 ${p.changePct == null ? "text-ink-faint" : p.changePct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
@@ -295,11 +322,6 @@ export function PortfolioDoctor() {
                       </td>
                       <td className="px-3 py-2 text-ink-dim">{p.score != null ? `${Math.round(p.score)} ${p.scoreLabel ?? ""}` : "—"}</td>
                       <td className="px-3 py-2 text-ink-dim">{p.sector}</td>
-                      <td className="px-3 py-2">
-                        <a href={`/research?symbol=${p.symbol}`} className="flex items-center gap-1 text-xs text-brand-400 hover:underline">
-                          Research <ArrowRight size={12} />
-                        </a>
-                      </td>
                     </tr>
                   ))}
                 </tbody>
