@@ -1,0 +1,208 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
+
+// =============================================================================
+// Money insights — DETERMINISTIC detection of personal spending patterns from
+// the user's own transaction history. No AI here; the math is exact. The AI
+// layer (Accounts Doctor / Money analysis) only narrates these computed facts.
+//
+// Three kinds of insight:
+//   1. categoryAnomalies — a category you spent NON-TRIVIALLY more (or less) on
+//      this month vs your own trailing average. "You spent a lot on X this
+//      month — usually you spend less."
+//   2. billChanges — a recurring merchant whose charge was STABLE for a while
+//      then stepped up/down (a price hike or drop). "Netflix went from $15.49
+//      to $17.99 — first increase in 8 months."
+//   3. billTrends — a recurring/variable bill's month-by-month series (utilities
+//      like water/electric) so the UI can plot it.
+// =============================================================================
+
+interface TxnRow { amount: number; plaid_category: string | null; merchant: string | null; name: string; date: string; removed: boolean }
+
+export interface CategoryAnomaly {
+  category: string;
+  thisMonth: number;
+  typicalMonth: number;   // trailing average of prior complete months
+  deltaPct: number;       // signed % vs typical
+  deltaAmount: number;    // signed $ vs typical
+  isNew: boolean;         // no spend in this category in prior months
+  direction: "up" | "down";
+}
+
+export interface BillChange {
+  merchant: string;
+  previousAmount: number; // the stable charge before the change
+  newAmount: number;      // the latest charge
+  deltaPct: number;
+  deltaAmount: number;
+  stableMonths: number;   // how many months it was steady before the change
+  changedOn: string;      // YYYY-MM-DD of the new charge
+  direction: "up" | "down";
+}
+
+export interface BillTrendPoint { month: string; amount: number }
+export interface BillTrend {
+  merchant: string;
+  points: BillTrendPoint[]; // chronological, last ~12 months
+  latest: number;
+  min: number;
+  max: number;
+  avg: number;
+}
+
+export interface MoneyInsights {
+  available: boolean;
+  monthsOfData: number;
+  categoryAnomalies: CategoryAnomaly[];
+  billChanges: BillChange[];
+  billTrends: BillTrend[];
+}
+
+const monthKey = (iso: string) => iso.slice(0, 7);
+const round = (n: number) => +n.toFixed(2);
+
+function prevMonthKeys(count: number): string[] {
+  // Build the last `count` month keys ending with the current month (UTC-safe
+  // enough for grouping; we never compute "now" inside React render here).
+  const now = new Date();
+  const out: string[] = [];
+  for (let i = count - 1; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    out.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
+  }
+  return out;
+}
+
+export async function computeMoneyInsights(ctx: { supabase: SupabaseClient }): Promise<MoneyInsights> {
+  // ~13 months of history so we have a full trailing year + the current month.
+  const since = new Date();
+  since.setMonth(since.getMonth() - 13);
+  const { data } = await ctx.supabase
+    .from("plaid_transactions")
+    .select("amount, plaid_category, merchant, name, date, removed")
+    .gte("date", since.toISOString().slice(0, 10));
+
+  const txns = ((data ?? []) as TxnRow[]).filter((t) => !t.removed && Number(t.amount) > 0); // expenses only
+  if (txns.length === 0) {
+    return { available: false, monthsOfData: 0, categoryAnomalies: [], billChanges: [], billTrends: [] };
+  }
+
+  const months = prevMonthKeys(13);
+  const thisMonth = months[months.length - 1];
+  const priorMonths = months.slice(0, -1);
+  const observedMonths = new Set(txns.map((t) => monthKey(t.date)));
+  const monthsOfData = [...observedMonths].length;
+
+  // ── 1. Category anomalies: this month vs trailing average of prior months ──
+  const catByMonth = new Map<string, Map<string, number>>(); // category → month → $
+  for (const t of txns) {
+    const cat = t.plaid_category ?? "Other";
+    const mk = monthKey(t.date);
+    const m = catByMonth.get(cat) ?? new Map<string, number>();
+    m.set(mk, (m.get(mk) ?? 0) + Number(t.amount));
+    catByMonth.set(cat, m);
+  }
+
+  const categoryAnomalies: CategoryAnomaly[] = [];
+  for (const [cat, byMonth] of catByMonth) {
+    const thisAmt = byMonth.get(thisMonth) ?? 0;
+    const priorVals = priorMonths.map((mk) => byMonth.get(mk) ?? 0).filter((_, i) => observedMonths.has(priorMonths[i]));
+    const priorWithSpend = priorVals.filter((v) => v > 0);
+    const typical = priorVals.length ? priorVals.reduce((s, v) => s + v, 0) / priorVals.length : 0;
+    const isNew = priorWithSpend.length === 0 && thisAmt > 0;
+    const deltaAmount = thisAmt - typical;
+
+    // Non-trivial gate: at least $40 swing AND >=35% vs typical (or brand-new
+    // category with >=$40 spent). Avoids noise on tiny categories.
+    if (isNew && thisAmt >= 40) {
+      categoryAnomalies.push({ category: cat, thisMonth: round(thisAmt), typicalMonth: 0, deltaPct: 100, deltaAmount: round(thisAmt), isNew: true, direction: "up" });
+      continue;
+    }
+    if (typical <= 0 || thisAmt <= 0) continue;
+    const deltaPct = (deltaAmount / typical) * 100;
+    if (Math.abs(deltaAmount) >= 40 && Math.abs(deltaPct) >= 35) {
+      categoryAnomalies.push({
+        category: cat, thisMonth: round(thisAmt), typicalMonth: round(typical),
+        deltaPct: +deltaPct.toFixed(0), deltaAmount: round(deltaAmount), isNew: false,
+        direction: deltaAmount >= 0 ? "up" : "down",
+      });
+    }
+  }
+  categoryAnomalies.sort((a, b) => Math.abs(b.deltaAmount) - Math.abs(a.deltaAmount));
+
+  // ── Per-merchant monthly charge series (for bill changes + trends) ──
+  // Group by merchant → month → { total, count } so we can use the per-charge
+  // amount (total/count) to detect a price step even with one charge per month.
+  const merchByMonth = new Map<string, Map<string, { total: number; count: number }>>();
+  for (const t of txns) {
+    const m = (t.merchant ?? t.name ?? "Unknown").trim();
+    if (!m || m === "Unknown") continue;
+    const mk = monthKey(t.date);
+    const byM = merchByMonth.get(m) ?? new Map();
+    const cell = byM.get(mk) ?? { total: 0, count: 0 };
+    cell.total += Number(t.amount); cell.count += 1;
+    byM.set(mk, cell); merchByMonth.set(m, byM);
+  }
+
+  const billChanges: BillChange[] = [];
+  const billTrends: BillTrend[] = [];
+
+  for (const [merchant, byMonth] of merchByMonth) {
+    // Recurring = charged in >= 3 distinct months.
+    const monthsHit = [...byMonth.keys()].sort();
+    if (monthsHit.length < 3) continue;
+
+    // Per-charge amount each month (handles both fixed subs and variable bills).
+    const series: BillTrendPoint[] = monthsHit.map((mk) => {
+      const c = byMonth.get(mk)!;
+      return { month: mk, amount: round(c.total / Math.max(1, c.count)) };
+    });
+    const amounts = series.map((p) => p.amount);
+    const min = Math.min(...amounts), max = Math.max(...amounts);
+    const avg = amounts.reduce((s, v) => s + v, 0) / amounts.length;
+
+    // Variable bill (utility-like): meaningful month-to-month variation → expose
+    // a trend to plot. Coefficient of variation > 12% and >= 4 months.
+    const variation = avg > 0 ? (max - min) / avg : 0;
+    if (series.length >= 4 && variation > 0.12) {
+      billTrends.push({ merchant, points: series.slice(-12), latest: amounts[amounts.length - 1], min: round(min), max: round(max), avg: round(avg) });
+    }
+
+    // Bill change (price hike/drop): a run of near-constant charges, then a step.
+    // Compare the latest charge to the modal/most-recent-stable prior charge.
+    const latest = series[series.length - 1];
+    const prior = series.slice(0, -1);
+    if (prior.length >= 2) {
+      // "Stable prior" = the most recent prior amount, and count how many
+      // consecutive months before the change were within 1% of it.
+      const priorAmt = prior[prior.length - 1].amount;
+      let stable = 0;
+      for (let i = prior.length - 1; i >= 0; i--) {
+        if (Math.abs(prior[i].amount - priorAmt) <= Math.max(0.5, priorAmt * 0.01)) stable++;
+        else break;
+      }
+      const deltaAmount = latest.amount - priorAmt;
+      const deltaPct = priorAmt > 0 ? (deltaAmount / priorAmt) * 100 : 0;
+      // Step is real if it was stable >= 2 months, the change is >= 5% AND >= $2,
+      // and it isn't just normal variable-bill noise (skip ones already flagged
+      // as variable trends — those are expected to move).
+      const isVariable = billTrends.some((b) => b.merchant === merchant);
+      if (!isVariable && stable >= 2 && Math.abs(deltaPct) >= 5 && Math.abs(deltaAmount) >= 2) {
+        billChanges.push({
+          merchant, previousAmount: round(priorAmt), newAmount: round(latest.amount),
+          deltaPct: +deltaPct.toFixed(0), deltaAmount: round(deltaAmount), stableMonths: stable,
+          changedOn: monthsHit[monthsHit.length - 1], direction: deltaAmount >= 0 ? "up" : "down",
+        });
+      }
+    }
+  }
+  billChanges.sort((a, b) => Math.abs(b.deltaAmount) - Math.abs(a.deltaAmount));
+  billTrends.sort((a, b) => (b.max - b.min) - (a.max - a.min));
+
+  return {
+    available: true,
+    monthsOfData,
+    categoryAnomalies: categoryAnomalies.slice(0, 6),
+    billChanges: billChanges.slice(0, 6),
+    billTrends: billTrends.slice(0, 4),
+  };
+}

@@ -6,6 +6,7 @@ import Link from "next/link";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { Landmark, ChevronDown, Receipt, PieChart as PieIcon, Scale, ArrowRight, RefreshCw, Repeat, PiggyBank, Stethoscope } from "lucide-react";
 import { GradientStat } from "./dashboard-extras";
+import { MoneyInsights } from "./money-insights";
 
 interface Account { account_id: string; name: string; mask: string | null; type: string; subtype: string | null; current: number | null; available: number | null; currency: string }
 interface Item { itemId: string; institution: string; accounts: Account[]; error?: string }
@@ -163,6 +164,10 @@ export function MoneyDashboard() {
           </div>
         )}
       </div>
+
+      {/* Deterministic spending insights: bill changes, variable-bill trends,
+          and category anomalies (tap any to ask Rukmani). */}
+      <MoneyInsights />
 
       {/* Accounts Doctor entry — full checkup lives on its own page */}
       <Link href="/accounts-doctor" className="card-hover flex items-center gap-3 rounded-2xl glass p-5">

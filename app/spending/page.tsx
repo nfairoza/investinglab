@@ -1,4 +1,5 @@
 import { SpendingView } from "@/components/spending-view";
+import { MoneyInsights } from "@/components/money-insights";
 
 export const metadata = { title: "Spending" };
 
@@ -10,6 +11,7 @@ export default function Page() {
         <p className="mt-1 text-sm text-ink-dim">Income vs expenses, by category and merchant.</p>
       </div>
       <SpendingView />
+      <MoneyInsights />
     </div>
   );
 }
