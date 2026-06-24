@@ -219,7 +219,7 @@ export async function syncFmpCongress(pages = 3): Promise<{ ingested: number; no
 
 // Recompute trade-count windows + latest disclosure per person from the
 // normalized table. Simple and correct; fine for the current data volume.
-async function refreshPersonCounts(sb: SupabaseClient): Promise<void> {
+export async function refreshPersonCounts(sb: SupabaseClient): Promise<void> {
   const { data: people } = await sb.from("power_people").select("id");
   if (!people) return;
   const now = Date.now();

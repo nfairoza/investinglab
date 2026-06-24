@@ -26,7 +26,7 @@ export function sourceRegistry(): SourceDef[] {
   return [
     { source: "fmp_congress", label: "Congressional (House + Senate) via FMP", built: true,  enabled: flag("POWER_TRADES_ENABLE_CONGRESS", true) },
     { source: "quiver",       label: "Quiver (politician/insider) — optional", built: false, enabled: flag("POWER_TRADES_ENABLE_QUIVER") },
-    { source: "sec_form_4",   label: "SEC Form 4 (EDGAR) — corporate insiders", built: false, enabled: flag("POWER_TRADES_ENABLE_SEC_FORM4") },
+    { source: "sec_form_4",   label: "SEC Form 4 (EDGAR) — corporate insiders", built: true,  enabled: flag("POWER_TRADES_ENABLE_SEC_FORM4") },
     { source: "executive_oge",label: "Executive / OGE disclosures",              built: false, enabled: flag("POWER_TRADES_ENABLE_EXECUTIVE") },
     { source: "fec",          label: "FEC (OpenFEC) — Influence Context",        built: false, enabled: flag("POWER_TRADES_ENABLE_FEC") },
     { source: "opensecrets",  label: "OpenSecrets — Influence Context",          built: false, enabled: flag("POWER_TRADES_ENABLE_OPENSECRETS") },

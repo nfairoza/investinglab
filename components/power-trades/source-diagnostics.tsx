@@ -29,7 +29,14 @@ export function SourceDiagnostics() {
     try {
       const r = await fetch("/api/power-trades/sync", { method: "POST" });
       const j = await r.json();
-      setSyncMsg(j.error ? `Error: ${j.error}` : `Ingested ${j.ingested}, normalized ${j.normalized}, errors ${j.errors}${j.note ? ` · ${j.note}` : ""}`);
+      if (j.error) {
+        setSyncMsg(`Error: ${j.error}`);
+      } else {
+        const per = j.sources
+          ? Object.entries(j.sources).map(([s, v]: [string, any]) => `${s}: ${v.normalized ?? 0} new${v.note ? ` (${v.note})` : ""}`).join(" · ")
+          : "";
+        setSyncMsg(`Ingested ${j.ingested}, normalized ${j.normalized}, errors ${j.errors}${per ? ` — ${per}` : ""}`);
+      }
       mutate();
     } catch (e) { setSyncMsg(e instanceof Error ? e.message : "sync failed"); }
     finally { setSyncing(false); }

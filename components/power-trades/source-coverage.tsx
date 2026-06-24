@@ -41,8 +41,10 @@ export function SourceCoverage() {
           ))}
         </ul>
         <p className="mt-3 text-[11px] text-ink-faint">
-          SEC Form 4 (EDGAR), Executive/OGE, FEC, and OpenSecrets are planned. Quiver is an optional
-          future add. FEC/OpenSecrets are <span className="text-ink-dim">influence context</span> — never rendered as trades.
+          SEC Form 4 (EDGAR) corporate-insider trades are built — an admin enables them by setting
+          <span className="text-ink-dim"> POWER_TRADES_ENABLE_SEC_FORM4</span> and
+          <span className="text-ink-dim"> SEC_USER_AGENT</span>. Executive/OGE, FEC, and OpenSecrets are planned;
+          Quiver is an optional future add. FEC/OpenSecrets are <span className="text-ink-dim">influence context</span> — never rendered as trades.
         </p>
       </div>
     </div>

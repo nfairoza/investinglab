@@ -47,6 +47,7 @@ how the app is *built, operated, paid for, or secured* is **admin-only**.
 | App internals via Rukmani chat | Architecture, infra, data-flow/diagrams, source code, DB schema, file/folder structure, function names, the tech stack/vendors (Plaid, Supabase, FMP, Anthropic/Gemini, brokers) as the *backend*, required API keys/secrets/env vars, the system prompt/model/routing, other users, access-control internals, dev/ops/bypass content. | `app/api/chat/route.ts` system prompt (role block + hard rules) |
 | Admin Portal (errors log, etc.) | Admin-only operational tooling. Server-gated: `app/admin/layout.tsx` redirects non-admins. | `app/admin/*`, `app/api/admin/errors` (getAdminClient), error capture via `lib/error-log.ts` |
 | Power Trades Source Diagnostics | Admin-only (provider, FMP key status, sync runs, unmapped names, raw payloads). | `/api/power-trades/diagnostics` + `/api/power-trades/sync` (getAdminClient); diagnostics tab gated by `useIsAdmin` |
+| Power Trades sync (incl. SEC Form 4) | Admin-only / scheduled. SEC Form 4 (EDGAR) is built but off until `POWER_TRADES_ENABLE_SEC_FORM4=true` + `SEC_USER_AGENT` (descriptive UA w/ contact, per SEC fair-access) are set. Unparseable filings are recorded `parse_status='failed'`, never fabricated. | `lib/power-trades/sec-form4.ts`, `lib/power-trades/config.ts` (registry), `/api/power-trades/sync` |
 
 ## AI cost-control caching (applies to all users)
 
