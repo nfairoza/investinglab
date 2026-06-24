@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import Link from "next/link";
 import useSWR from "swr";
-import { ArrowUp, ArrowDown, RefreshCw, Plus, ChevronDown } from "lucide-react";
+import { ArrowUp, ArrowDown, RefreshCw, Plus, ChevronDown, ChevronRight } from "lucide-react";
 import { DataBadge, DataTimestamp } from "./data-state";
 import { TickerInput } from "./ticker-input";
 import { Sparkline } from "./charts/Sparkline";
@@ -68,9 +68,15 @@ export function HoldingsManager() {
 
   // Merge DB holdings (manual + E*TRADE) with Plaid brokerage holdings into one
   // unified list. Plaid rows are read-only and carry their own price/value.
+  // De-dup: if the same brokerage is connected BOTH via E*TRADE sync and Plaid,
+  // drop the Plaid copy of that institution and keep the E*TRADE-sourced rows
+  // (E*TRADE wins). Manual entries are never de-duped — they're separate data.
   const allHoldings: Holding[] = useMemo(() => {
+    const haveEtrade = dbHoldings.some((h) => h.source === "etrade");
+    const isEtradeInstitution = (name: string) => /e[\s*]*trade|morgan stanley/i.test(name);
     const plaidRows: Holding[] = (plaidInv?.holdings ?? [])
       .filter((p) => p.symbol && p.symbol !== "—")
+      .filter((p) => !(haveEtrade && isEtradeInstitution(p.institution))) // E*TRADE wins
       .map((p) => ({
         id: `plaid:${p.institution}:${p.symbol}`,
         symbol: String(p.symbol).toUpperCase(),
@@ -104,6 +110,13 @@ export function HoldingsManager() {
   // Inline sorting (null = insertion order).
   type SortKey = "symbol" | "shares" | "avgCost" | "price" | "value" | "day" | "total" | "weight";
   const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" } | null>(null);
+  // Which summed/multi-account symbols are expanded to show per-account rows.
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const toggleExpand = (sym: string) => setExpanded((prev) => {
+    const next = new Set(prev);
+    next.has(sym) ? next.delete(sym) : next.add(sym);
+    return next;
+  });
   function toggleSort(key: SortKey) {
     setSort((prev) => {
       if (prev?.key === key) {
@@ -224,6 +237,29 @@ export function HoldingsManager() {
     });
   })();
 
+  // Group rows by symbol so the same stock held in multiple accounts collapses
+  // into one summed parent row (expandable). Group order follows the first
+  // appearance in the sorted list. A group with a single row renders flat.
+  type Valued = typeof valued[number];
+  const groupedRows = useMemo(() => {
+    const map = new Map<string, Valued[]>();
+    for (const v of sortedValued) {
+      const arr = map.get(v.h.symbol) ?? [];
+      arr.push(v);
+      map.set(v.h.symbol, arr);
+    }
+    return [...map.entries()].map(([symbol, rows]) => {
+      const shares = rows.reduce((s, v) => s + v.h.shares, 0);
+      const value = rows.reduce((s, v) => s + (v.value ?? 0), 0) || null;
+      const daysGain = rows.some((v) => v.daysGain != null) ? rows.reduce((s, v) => s + (v.daysGain ?? 0), 0) : null;
+      const totalGain = rows.some((v) => v.totalGain != null) ? rows.reduce((s, v) => s + (v.totalGain ?? 0), 0) : null;
+      const cost = rows.reduce((s, v) => s + v.h.avgCost * v.h.shares, 0);
+      const totalGainPct = totalGain != null && cost > 0 ? (totalGain / cost) * 100 : null;
+      const price = rows.find((v) => v.price != null)?.price ?? null;
+      return { symbol, rows, shares, value, daysGain, totalGain, totalGainPct, price };
+    });
+  }, [sortedValued]);
+
   const inputCls = "rounded-md border border-hairline bg-surface px-3 py-2 text-sm text-ink placeholder:text-ink-faint focus:border-brand-500 focus:outline-none";
 
   return (
@@ -330,51 +366,50 @@ export function HoldingsManager() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/5">
-                {sortedValued.map(({ h, price, value, totalGain, totalGainPct, daysGain, daysGainPct }) => {
-                  const weight = value != null && total > 0 ? (value / total) * 100 : null;
-                  const tUp = (totalGain ?? 0) >= 0;
-                  const dUp = (daysGain ?? 0) >= 0;
+                {groupedRows.map((g) => {
+                  // Single-account symbol (or a filter that matched one account):
+                  // render it as a plain row, no collapsing.
+                  if (g.rows.length === 1) {
+                    return <HoldingRow key={g.rows[0].h.id} v={g.rows[0]} total={total} sparks={sparks} onRemove={removeHolding} />;
+                  }
+                  // Multiple accounts hold this symbol → summed, collapsible parent.
+                  const open = expanded.has(g.symbol);
+                  const tUp = (g.totalGain ?? 0) >= 0;
+                  const weight = g.value != null && total > 0 ? (g.value / total) * 100 : null;
                   return (
-                    <tr key={h.id} className="hover:bg-surface">
-                      <td className="px-3 py-2 font-medium">
-                        <Link href={`/holdings/${h.symbol}`} className="text-brand-400 hover:underline">{h.symbol}</Link>
-                        {h.source === "etrade" && <span className="ml-1 text-[10px] text-ink-faint">E*T</span>}
-                        {(h as any).readOnly && h.source && <span className="ml-1 rounded bg-surface-raised px-1 text-[9px] text-ink-faint">{h.source}</span>}
-                        {h.assetType === "crypto" && <span className="ml-1 rounded bg-lime-500/15 px-1 text-[9px] text-lime-300">CRYPTO</span>}
-                      </td>
-                      <td className="px-3 py-2">
-                        <div className="h-7 w-16">
-                          {(sparks?.[h.symbol]?.length ?? 0) > 1
-                            ? <Sparkline data={sparks![h.symbol]} height={28} />
-                            : <span className="block pt-2 text-xs text-ink-faint">—</span>}
-                        </div>
-                      </td>
-                      {/* Price */}
-                      <td className="px-3 py-2 text-right text-ink-dim">{price != null ? `$${price.toFixed(2)}` : "—"}</td>
-                      {/* Day's gain $ + % */}
-                      <td className={`px-3 py-2 text-right ${daysGain == null ? "text-ink-faint" : dUp ? "text-emerald-400" : "text-rose-400"}`}>
-                        {daysGain == null
-                          ? (daysGainPct != null ? `${daysGainPct >= 0 ? "▲" : "▼"} ${Math.abs(daysGainPct).toFixed(2)}%` : "—")
-                          : `${dUp ? "▲" : "▼"} $${Math.abs(daysGain).toFixed(0)}${daysGainPct != null ? ` (${Math.abs(daysGainPct).toFixed(2)}%)` : ""}`}
-                      </td>
-                      {/* Value */}
-                      <td className="px-3 py-2 text-right text-ink-dim">{value != null ? `$${value.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : "—"}</td>
-                      {/* Total gain $ + % */}
-                      <td className={`px-3 py-2 text-right ${totalGain == null || totalGainPct == null ? "text-ink-faint" : tUp ? "text-emerald-400" : "text-rose-400"}`}>
-                        {totalGain == null || totalGainPct == null ? "—" : `${tUp ? "▲" : "▼"} $${Math.abs(totalGain).toFixed(0)} (${Math.abs(totalGainPct).toFixed(1)}%)`}
-                      </td>
-                      {/* Shares */}
-                      <td className="px-3 py-2 text-right text-ink-dim">{h.shares}</td>
-                      {/* Avg cost */}
-                      <td className="px-3 py-2 text-right text-ink-dim">{h.avgCost > 0 ? `$${h.avgCost.toFixed(2)}` : "—"}</td>
-                      {/* Weight */}
-                      <td className="px-3 py-2 text-right text-ink-dim">{weight != null ? `${weight.toFixed(1)}%` : "—"}</td>
-                      <td className="px-3 py-2 text-right">
-                        {(h as any).readOnly
-                          ? <span className="text-[10px] text-ink-faint">linked</span>
-                          : <button onClick={() => removeHolding(h.id)} className="text-xs text-ink-faint hover:text-rose-300">Remove</button>}
-                      </td>
-                    </tr>
+                    <React.Fragment key={`grp-${g.symbol}`}>
+                      <tr className="cursor-pointer hover:bg-surface" onClick={() => toggleExpand(g.symbol)}>
+                        <td className="px-3 py-2 font-medium">
+                          <button className="inline-flex items-center gap-1 align-middle" aria-expanded={open}>
+                            {open ? <ChevronDown size={13} className="text-ink-faint" /> : <ChevronRight size={13} className="text-ink-faint" />}
+                            <span className="text-brand-400">{g.symbol}</span>
+                          </button>
+                          <span className="ml-1.5 rounded bg-surface-raised px-1 text-[9px] text-ink-faint">{g.rows.length} accounts</span>
+                        </td>
+                        <td className="px-3 py-2">
+                          <div className="h-7 w-16">
+                            {(sparks?.[g.symbol]?.length ?? 0) > 1
+                              ? <Sparkline data={sparks![g.symbol]} height={28} />
+                              : <span className="block pt-2 text-xs text-ink-faint">—</span>}
+                          </div>
+                        </td>
+                        <td className="px-3 py-2 text-right text-ink-dim">{g.price != null ? `$${g.price.toFixed(2)}` : "—"}</td>
+                        <td className={`px-3 py-2 text-right ${g.daysGain == null ? "text-ink-faint" : g.daysGain >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                          {g.daysGain == null ? "—" : `${g.daysGain >= 0 ? "▲" : "▼"} $${Math.abs(g.daysGain).toFixed(0)}`}
+                        </td>
+                        <td className="px-3 py-2 text-right font-medium text-ink">{g.value != null ? `$${g.value.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : "—"}</td>
+                        <td className={`px-3 py-2 text-right ${g.totalGain == null ? "text-ink-faint" : tUp ? "text-emerald-400" : "text-rose-400"}`}>
+                          {g.totalGain == null ? "—" : `${tUp ? "▲" : "▼"} $${Math.abs(g.totalGain).toFixed(0)}${g.totalGainPct != null ? ` (${Math.abs(g.totalGainPct).toFixed(1)}%)` : ""}`}
+                        </td>
+                        <td className="px-3 py-2 text-right text-ink-dim">{g.shares}</td>
+                        <td className="px-3 py-2 text-right text-ink-faint">—</td>
+                        <td className="px-3 py-2 text-right text-ink-dim">{weight != null ? `${weight.toFixed(1)}%` : "—"}</td>
+                        <td className="px-3 py-2 text-right text-[10px] text-ink-faint">{open ? "hide" : "details"}</td>
+                      </tr>
+                      {open && g.rows.map((v) => (
+                        <HoldingRow key={v.h.id} v={v} total={total} sparks={sparks} onRemove={removeHolding} child />
+                      ))}
+                    </React.Fragment>
                   );
                 })}
               </tbody>
@@ -412,6 +447,57 @@ export function HoldingsManager() {
         Saved securely to your account — private to you and synced across devices. Research and educational analysis, not financial advice.
       </p>
     </div>
+  );
+}
+
+// One holding row (leaf). `child` indents it under a collapsible group parent.
+function HoldingRow({ v, total, sparks, onRemove, child }: {
+  v: { h: Holding; price: number | null; value: number | null; totalGain: number | null; totalGainPct: number | null; daysGain: number | null; daysGainPct: number | null };
+  total: number;
+  sparks: Record<string, { v: number }[]> | undefined;
+  onRemove: (id: string) => void;
+  child?: boolean;
+}) {
+  const { h, price, value, totalGain, totalGainPct, daysGain, daysGainPct } = v;
+  const weight = value != null && total > 0 ? (value / total) * 100 : null;
+  const tUp = (totalGain ?? 0) >= 0;
+  const dUp = (daysGain ?? 0) >= 0;
+  return (
+    <tr className={child ? "bg-surface/40 hover:bg-surface" : "hover:bg-surface"}>
+      <td className={`px-3 py-2 font-medium ${child ? "pl-8" : ""}`}>
+        {child
+          ? <span className="text-ink-dim">{(h as any).readOnly && h.source ? h.source : h.source === "etrade" ? "E*TRADE" : "Manual"}</span>
+          : <Link href={`/holdings/${h.symbol}`} className="text-brand-400 hover:underline">{h.symbol}</Link>}
+        {!child && h.source === "etrade" && <span className="ml-1 text-[10px] text-ink-faint">E*T</span>}
+        {!child && (h as any).readOnly && h.source && <span className="ml-1 rounded bg-surface-raised px-1 text-[9px] text-ink-faint">{h.source}</span>}
+        {h.assetType === "crypto" && <span className="ml-1 rounded bg-lime-500/15 px-1 text-[9px] text-lime-300">CRYPTO</span>}
+      </td>
+      <td className="px-3 py-2">
+        <div className="h-7 w-16">
+          {!child && (sparks?.[h.symbol]?.length ?? 0) > 1
+            ? <Sparkline data={sparks![h.symbol]} height={28} />
+            : <span className="block pt-2 text-xs text-ink-faint">—</span>}
+        </div>
+      </td>
+      <td className="px-3 py-2 text-right text-ink-dim">{price != null ? `$${price.toFixed(2)}` : "—"}</td>
+      <td className={`px-3 py-2 text-right ${daysGain == null ? "text-ink-faint" : dUp ? "text-emerald-400" : "text-rose-400"}`}>
+        {daysGain == null
+          ? (daysGainPct != null ? `${daysGainPct >= 0 ? "▲" : "▼"} ${Math.abs(daysGainPct).toFixed(2)}%` : "—")
+          : `${dUp ? "▲" : "▼"} $${Math.abs(daysGain).toFixed(0)}${daysGainPct != null ? ` (${Math.abs(daysGainPct).toFixed(2)}%)` : ""}`}
+      </td>
+      <td className="px-3 py-2 text-right text-ink-dim">{value != null ? `$${value.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : "—"}</td>
+      <td className={`px-3 py-2 text-right ${totalGain == null || totalGainPct == null ? "text-ink-faint" : tUp ? "text-emerald-400" : "text-rose-400"}`}>
+        {totalGain == null || totalGainPct == null ? "—" : `${tUp ? "▲" : "▼"} $${Math.abs(totalGain).toFixed(0)} (${Math.abs(totalGainPct).toFixed(1)}%)`}
+      </td>
+      <td className="px-3 py-2 text-right text-ink-dim">{h.shares}</td>
+      <td className="px-3 py-2 text-right text-ink-dim">{h.avgCost > 0 ? `$${h.avgCost.toFixed(2)}` : "—"}</td>
+      <td className="px-3 py-2 text-right text-ink-dim">{weight != null ? `${weight.toFixed(1)}%` : "—"}</td>
+      <td className="px-3 py-2 text-right">
+        {(h as any).readOnly
+          ? <span className="text-[10px] text-ink-faint">linked</span>
+          : <button onClick={() => onRemove(h.id)} className="text-xs text-ink-faint hover:text-rose-300">Remove</button>}
+      </td>
+    </tr>
   );
 }
 
