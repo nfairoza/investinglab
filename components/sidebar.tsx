@@ -162,7 +162,9 @@ export function Sidebar() {
               <PanelLeftClose size={16} />
             </button>
           </div>
-          <NavList />
+          {/* Auto-collapse the sidebar when a nav item is clicked, so the page
+              gets full width immediately. Reopen via the top-bar wordmark. */}
+          <NavList onNavigate={() => setCollapsed(true)} />
           <Footer />
         </aside>
       )}
