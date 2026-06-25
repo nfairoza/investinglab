@@ -77,10 +77,11 @@ export function ScreenerListDetail({ presetKey }: { presetKey: string }) {
     <div className="space-y-4">
       <Link href="/screeners" className="inline-flex items-center gap-1.5 text-sm text-ink-dim hover:text-ink"><ArrowLeft size={15} /> Trending lists</Link>
 
-      {/* You might also like — related lists at the top (closest to what they're
-          viewing), as clickable chips with their thumbnail. */}
+      {/* You might also like — on MOBILE this sits at the top (chips, closest to
+          what they're viewing). On desktop it moves into the right rail below
+          "Your lists" (see aside). */}
       {related.length > 0 && (
-        <div className="rounded-xl glass p-3">
+        <div className="rounded-xl glass p-3 lg:hidden">
           <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-ink">
             <Sparkles size={14} className="text-brand-400" /> You might also like
           </div>
@@ -239,6 +240,26 @@ export function ScreenerListDetail({ presetKey }: { presetKey: string }) {
               {(lists ?? []).length === 0 && <p className="px-2 py-3 text-xs text-ink-faint">No lists yet. Follow a trending list or create one in Watchlist.</p>}
             </div>
           </div>
+
+          {/* You might also like — desktop only; sits below Your lists. (Mobile
+              shows this as chips at the top instead.) */}
+          {related.length > 0 && (
+            <div className="mt-4 hidden rounded-xl glass p-4 lg:block">
+              <div className="mb-2 flex items-center gap-1.5 text-sm font-semibold text-ink">
+                <Sparkles size={15} className="text-brand-400" /> You might also like
+              </div>
+              <div className="space-y-1">
+                {related.map((p) => (
+                  <Link key={p.key} href={`/screeners/${p.key}`} className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 text-sm hover:bg-surface">
+                    <span className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-md bg-surface-raised">
+                      <img src={p.image} alt="" className="h-full w-full object-cover" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
+                    </span>
+                    <span className="min-w-0 flex-1 truncate text-ink-dim">{p.label}</span>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
         </aside>
       </div>
 
