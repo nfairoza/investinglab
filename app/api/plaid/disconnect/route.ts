@@ -37,7 +37,22 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // 2) Plaid confirmed — now purge the item (and its cached data) locally.
+  // 2) Plaid confirmed — purge ALL data derived from this item, for security and
+  //    freshness: once disconnected, nothing from it should linger. Order:
+  //    overrides (keyed by transaction_id) → transactions → the item row.
+  const { data: txns } = await ctx.supabase
+    .from("plaid_transactions")
+    .select("transaction_id")
+    .eq("item_id", itemId);
+  const txnIds = (txns ?? []).map((t: { transaction_id: string }) => t.transaction_id);
+  if (txnIds.length) {
+    // Delete user's manual overrides for those transactions (chunk to stay under
+    // any URL/IN-list limits).
+    for (let i = 0; i < txnIds.length; i += 200) {
+      await ctx.supabase.from("plaid_txn_overrides").delete().in("transaction_id", txnIds.slice(i, i + 200));
+    }
+  }
+  await ctx.supabase.from("plaid_transactions").delete().eq("item_id", itemId);
   await ctx.supabase.from("plaid_items").delete().eq("item_id", itemId);
   return NextResponse.json({ ok: true });
 }

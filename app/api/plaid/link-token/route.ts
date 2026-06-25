@@ -23,16 +23,17 @@ export async function POST() {
     const resp = await getPlaid().linkTokenCreate({
       user: { client_user_id: ctx.userId },
       client_name: "rukMoney",
-      // Block NOTHING. `products: []` + `required_if_supported_products` means:
-      // for EACH institution, request a product only if that institution
-      // supports it, and never reject the link when it doesn't. So a checking-
-      // only bank (Chase), a credit card, a pure brokerage (Robinhood), and a
-      // retirement provider (Fidelity/Vanguard) all link — each contributing
-      // whatever data it has. (Listing Investments in `products` is what made
-      // Plaid reject banks with no brokerage account; requiring Transactions
-      // would conversely block pure-brokerage institutions. This avoids both.)
-      products: [],
-      required_if_supported_products: [Products.Transactions, Products.Investments, Products.Liabilities],
+      // Transactions is the base product (Plaid requires at least one entry in
+      // `products` — an empty array errors with "at least one product must be
+      // specified"). It's supported by essentially all banks, cards, and
+      // depository accounts. Investments + Liabilities are
+      // required_if_supported: initialized when the institution supports them,
+      // but their ABSENCE never blocks the link — so a checking-only bank
+      // (Chase), a credit card, and a brokerage/retirement provider all link,
+      // each contributing whatever data it has. (Listing Investments in
+      // `products` is what made Plaid reject banks with no brokerage account.)
+      products: [Products.Transactions],
+      required_if_supported_products: [Products.Investments, Products.Liabilities],
       country_codes: [CountryCode.Us],
       language: "en",
       // Required for bank OAuth flows (Chase, etc.). Must exactly match an
