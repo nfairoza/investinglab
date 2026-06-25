@@ -1,22 +1,26 @@
-// Generate one image per screener preset via Gemini (AI Studio).
-// Run once (admin): node scripts/generate-preset-images.mjs
-// Requires GEMINI_API_KEY in env or .env.local (gitignored).
+// Generate preset imagery via Gemini (AI Studio), in TWO sizes:
+//   public/images/presets/<key>.jpg       256px square thumbnail (screener tiles)
+//   public/images/presets-hero/<key>.jpg  768px square hero (list detail page)
 //
-// Writes public/images/presets/<key>.jpg. SKIPS files that already exist, so a
-// re-run only fills in newly-added presets. Uses gemini-2.5-flash-image (returns
-// inline base64). The app NEVER calls the image API at request time — this is a
-// one-time build step; commit the resulting images.
+// Run once (admin): node scripts/generate-preset-images.mjs
+// Requires GEMINI_API_KEY in env or .env.local (gitignored), and `sharp`
+// (npm install --no-save sharp). SKIPS a preset only if BOTH outputs exist, so a
+// re-run fills in newly-added presets. Uses gemini-2.5-flash-image (returns
+// inline base64). The app NEVER calls the image API at request time.
 //
 // Preset keys + prompts are read from lib/screener/presets.ts. Since that's TS,
 // we parse the key/imagePrompt pairs out of the source rather than importing.
 
-import { writeFileSync, mkdirSync, readFileSync, existsSync } from "fs";
+import { mkdirSync, readFileSync, existsSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
+import sharp from "sharp";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const OUT = join(root, "public", "images", "presets");
-mkdirSync(OUT, { recursive: true });
+const THUMB = join(root, "public", "images", "presets");
+const HERO = join(root, "public", "images", "presets-hero");
+mkdirSync(THUMB, { recursive: true });
+mkdirSync(HERO, { recursive: true });
 
 let KEY = process.env.GEMINI_API_KEY;
 if (!KEY) {
@@ -46,8 +50,9 @@ if (entries.length === 0) { console.error("No presets parsed from presets.ts"); 
 console.log(`Found ${entries.length} presets.`);
 
 async function gen(prompt, key) {
-  const file = join(OUT, `${key}.jpg`);
-  if (existsSync(file)) { console.log(`• ${key} (exists, skip)`); return; }
+  const thumb = join(THUMB, `${key}.jpg`);
+  const hero = join(HERO, `${key}.jpg`);
+  if (existsSync(thumb) && existsSync(hero)) { console.log(`• ${key} (exists, skip)`); return; }
   const r = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`,
     { method: "POST", headers: { "Content-Type": "application/json", "X-goog-api-key": KEY },
@@ -57,7 +62,10 @@ async function gen(prompt, key) {
   const j = await r.json();
   const img = (j.candidates?.[0]?.content?.parts || []).find((p) => p.inlineData?.data);
   if (!img) { console.error(`${key}: no image in response`); return; }
-  writeFileSync(file, Buffer.from(img.inlineData.data, "base64"));
+  const raw = Buffer.from(img.inlineData.data, "base64");
+  // Hero: 768px, higher quality (shown large). Thumb: 256px (shown tiny).
+  await sharp(raw).resize(768, 768, { fit: "cover" }).jpeg({ quality: 86, mozjpeg: true }).toFile(hero);
+  await sharp(raw).resize(256, 256, { fit: "cover" }).jpeg({ quality: 80, mozjpeg: true }).toFile(thumb);
   console.log(`✓ ${key}`);
 }
 
