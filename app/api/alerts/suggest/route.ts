@@ -69,7 +69,7 @@ export async function POST() {
   }
   const [{ data: holdings }, { data: wl }] = await Promise.all([
     ctx.supabase.from("holdings").select("symbol"),
-    ctx.supabase.from("watchlist").select("symbol"),
+    ctx.supabase.from("watch_list_items").select("symbol"),
   ]);
   const holdingSyms = (holdings ?? []).map((h: any) => h.symbol);
   const watchlist = (wl ?? []).map((w: any) => w.symbol);

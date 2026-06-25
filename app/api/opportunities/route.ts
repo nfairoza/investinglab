@@ -143,7 +143,7 @@ export async function POST(req: NextRequest) {
   const [{ data: cashRow }, { data: holdings }, { data: wl }] = await Promise.all([
     ctx.supabase.from("cash").select("amount").maybeSingle(),
     ctx.supabase.from("holdings").select("symbol,shares,avg_cost"),
-    ctx.supabase.from("watchlist").select("symbol"),
+    ctx.supabase.from("watch_list_items").select("symbol"),
   ]);
   const cash = Number(cashRow?.amount ?? 0);
   const holdingList = (holdings ?? []).map((h: any) => ({ symbol: h.symbol, shares: h.shares, avgCost: h.avg_cost }));

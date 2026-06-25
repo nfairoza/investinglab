@@ -51,8 +51,12 @@ const ACTION_STYLE: Record<string, string> = {
   "Avoid": "border-rose-500/40 text-rose-300",
 };
 
-export function WatchlistManager() {
-  const { data: items = [], mutate } = useSWR<WatchItem[]>("/api/watchlist", fetchJson, { revalidateOnFocus: true });
+export function WatchlistManager({ listId }: { listId?: string } = {}) {
+  // When a listId is given, read/write that specific list via the multi-list
+  // endpoints; otherwise fall back to the flat default-list compat endpoint.
+  const itemsUrl = listId ? `/api/watchlists/${listId}` : "/api/watchlist";
+  const { data: raw, mutate } = useSWR<any>(itemsUrl, fetchJson, { revalidateOnFocus: true });
+  const items: WatchItem[] = listId ? (raw?.items ?? []) : (raw ?? []);
 
   const [symbol, setSymbol] = useState("");
   const [idealBuy, setIdealBuy] = useState("");
@@ -88,17 +92,16 @@ export function WatchlistManager() {
       } catch { /* fail open */ }
     }
     const target = Number(idealBuy);
-    await fetch("/api/watchlist", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ symbol: s, idealBuy: Number.isFinite(target) && target > 0 ? target : undefined, note: note.trim() || undefined }),
-    });
+    const body = JSON.stringify({ symbol: s, idealBuy: Number.isFinite(target) && target > 0 ? target : undefined, note: note.trim() || undefined });
+    if (listId) await fetch(`/api/watchlists/${listId}/items`, { method: "POST", headers: { "Content-Type": "application/json" }, body });
+    else await fetch("/api/watchlist", { method: "POST", headers: { "Content-Type": "application/json" }, body });
     setSymbol(""); setIdealBuy(""); setNote("");
     mutate();
   }
 
   async function removeItem(id: string) {
-    await fetch(`/api/watchlist?id=${id}`, { method: "DELETE" });
+    if (listId) await fetch(`/api/watchlists/${listId}/items?itemId=${id}`, { method: "DELETE" });
+    else await fetch(`/api/watchlist?id=${id}`, { method: "DELETE" });
     mutate();
   }
 
@@ -106,7 +109,9 @@ export function WatchlistManager() {
   const [dragId, setDragId] = useState<string | null>(null);
 
   async function persistOrder(ordered: WatchItem[]) {
-    // Optimistic: show the new order immediately, then persist.
+    // Reordering is only persisted for the default list (compat PATCH). For a
+    // specific custom list, reflect locally but don't persist (no endpoint yet).
+    if (listId) { mutate({ ...(raw ?? {}), items: ordered }, { revalidate: false }); return; }
     mutate(ordered, { revalidate: false });
     await fetch("/api/watchlist", {
       method: "PATCH",

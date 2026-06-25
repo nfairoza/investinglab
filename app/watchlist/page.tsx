@@ -1,4 +1,4 @@
-import { WatchlistManager } from "@/components/watchlist-manager";
+import { WatchlistPage } from "@/components/watchlist-page";
 
 export const metadata = { title: "Watchlist" };
 
@@ -8,11 +8,11 @@ export default function Page() {
       <div>
         <h1 className="font-display text-3xl font-semibold text-ink">Watchlist</h1>
         <p className="mt-1 max-w-2xl text-sm text-ink-dim">
-          Track stocks you&apos;re considering. Set an ideal buy price and the app shows whether
+          Organize stocks into lists, follow trending lists, and set an ideal buy price to see when
           today&apos;s price is at or below your target.
         </p>
       </div>
-      <WatchlistManager />
+      <WatchlistPage />
     </div>
   );
 }

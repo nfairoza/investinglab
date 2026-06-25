@@ -13,7 +13,7 @@ export async function POST() {
   if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
   // Remove the user's rows (RLS scopes these to them).
-  for (const t of ["watchlist", "holdings", "journal", "alerts", "cash", "broker_connections", "user_prefs"]) {
+  for (const t of ["watch_list_items", "watch_lists", "watchlist", "holdings", "journal", "alerts", "cash", "broker_connections", "user_prefs"]) {
     await supabase.from(t).delete().eq("user_id", user.id);
   }
 

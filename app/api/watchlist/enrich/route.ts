@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
   if (!ctx) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const body = await req.json().catch(() => ({}));
   const id = String(body?.id ?? "");
-  const { data: item } = await ctx.supabase.from("watchlist").select("*").eq("id", id).maybeSingle();
+  const { data: item } = await ctx.supabase.from("watch_list_items").select("*").eq("id", id).maybeSingle();
   if (!item) return NextResponse.json({ error: "watch item not found" }, { status: 404 });
 
   const symbol = item.symbol;
@@ -72,7 +72,7 @@ Return JSON exactly:
     if (parsed.catalyst) patch.catalyst = parsed.catalyst;
     if (parsed.aiAction) patch.ai_action = parsed.aiAction;
     if (parsed.note) patch.note = parsed.note;
-    const { data: updated } = await ctx.supabase.from("watchlist").update(patch).eq("id", id).select("*").maybeSingle();
+    const { data: updated } = await ctx.supabase.from("watch_list_items").update(patch).eq("id", id).select("*").maybeSingle();
     return NextResponse.json({ item: updated, source: quote.source });
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : "analysis failed" }, { status: 500 });

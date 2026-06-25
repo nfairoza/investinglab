@@ -7,7 +7,6 @@ import { SlidersHorizontal, RefreshCw, ChevronDown, Sparkles, TrendingUp, Scale,
 import { DataBadge } from "./data-state";
 import { useIsAdmin } from "./use-is-admin";
 import type { DataResult, ScreenerRow, ScreenerFilters } from "@/lib/providers/types";
-import { relatedPresets, presetByKey } from "@/lib/screener/presets";
 
 const fetchJson = (u: string) => fetch(u).then((r) => r.json() as Promise<DataResult<ScreenerRow[]>>);
 const fetchJsonRaw = (u: string) => fetch(u).then((r) => r.json());
@@ -59,22 +58,21 @@ const CAT_ICON: Record<string, LucideIcon> = {
   sector: LayoutGrid, size: Boxes, volatility: Activity, quality: Gem, speculative: Flame,
 };
 
-// Robinhood-style "trending list" pill: a small circular thumbnail (AI image, or
-// a tinted category icon fallback) + the label. Theme-neutral — sits on the app's
-// own surface, so it looks right in BOTH light and dark.
-function PresetPill({ p, active, onClick }: { p: PresetCard; active: boolean; onClick: () => void }) {
+// Robinhood-style "trending list" pill: small circular thumbnail + label. Tapping
+// it NAVIGATES to the list's detail page (hero, items, follow, disclosures).
+function PresetPill({ p }: { p: PresetCard }) {
   const [imgOk, setImgOk] = useState(true);
   const Icon = CAT_ICON[p.category] ?? LayoutGrid;
   return (
-    <button onClick={onClick} title={p.blurb}
-      className={`group inline-flex shrink-0 items-center gap-2 rounded-full border py-1.5 pl-1.5 pr-3.5 text-sm transition-colors ${active ? "border-brand-500 bg-brand-500/10 text-ink" : "border-hairline bg-surface text-ink-dim hover:border-brand-500/50 hover:text-ink"}`}>
+    <Link href={`/screeners/${p.key}`} title={p.blurb}
+      className="group inline-flex shrink-0 items-center gap-2 rounded-full border border-hairline bg-surface py-1.5 pl-1.5 pr-3.5 text-sm text-ink-dim transition-colors hover:border-brand-500/50 hover:text-ink">
       <span className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full bg-surface-raised">
         {imgOk
           ? <img src={p.image} alt="" onError={() => setImgOk(false)} className="h-full w-full object-cover" />
           : <Icon size={15} className={CAT_TINT[p.category] ?? "text-brand-400"} />}
       </span>
       <span className="font-medium">{p.label}</span>
-    </button>
+    </Link>
   );
 }
 
@@ -85,7 +83,6 @@ export function Screener() {
   // NOT refetch until you press Run, so we don't hammer FMP's quota per keystroke.
   const [applied, setApplied] = useState<Filters>(EMPTY);
   const [live, setLive] = useState(false); // opt-in polling (off by default to save quota)
-  const [activePreset, setActivePreset] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(false);
   const [reranking, setReranking] = useState(false);
 
@@ -95,23 +92,11 @@ export function Screener() {
   const orderedPresets = useMemo(() => {
     const order = presetData?.rankedKeys ?? [];
     const ranked = order.map((k) => presetMap.get(k)).filter(Boolean) as PresetCard[];
-    // include any catalog presets not in the ranking, at the end
     const extra = (presetData?.presets ?? []).filter((p) => !order.includes(p.key));
     return [...ranked, ...extra];
   }, [presetData, presetMap]);
   const TOP_N = 8;
   const visiblePresets = showAll ? orderedPresets : orderedPresets.slice(0, TOP_N);
-  const related = activePreset ? relatedPresets(activePreset, 6) : [];
-
-  // Click a preset → apply its filters AND run immediately (no Run click).
-  function pickPreset(key: string) {
-    const p = presetMap.get(key) ?? (presetByKey(key) ? { ...presetByKey(key)!, image: "" } as any : null);
-    if (!p) return;
-    const next = presetToFilters(p.filters);
-    setFilters(next);
-    setApplied(next);
-    setActivePreset(key);
-  }
 
   async function rerank() {
     setReranking(true);
@@ -145,8 +130,8 @@ export function Screener() {
   const rows = data?.data ?? [];
   const set = (k: keyof Filters) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setFilters((f) => ({ ...f, [k]: e.target.value }));
-  const run = () => { setApplied(filters); setActivePreset(null); };
-  const reset = () => { setFilters(EMPTY); setApplied(EMPTY); setActivePreset(null); };
+  const run = () => setApplied(filters);
+  const reset = () => { setFilters(EMPTY); setApplied(EMPTY); };
 
   const inputCls = "w-full rounded-md border border-hairline bg-surface px-2.5 py-1.5 text-sm text-ink placeholder:text-ink-faint focus:border-brand-500 focus:outline-none";
 
@@ -167,7 +152,7 @@ export function Screener() {
         )}
         <div className="flex flex-wrap gap-2">
           {visiblePresets.map((p) => (
-            <PresetPill key={p.key} p={p} active={activePreset === p.key} onClick={() => pickPreset(p.key)} />
+            <PresetPill key={p.key} p={p} />
           ))}
         </div>
         {orderedPresets.length > TOP_N && (
@@ -175,20 +160,6 @@ export function Screener() {
             <ChevronDown size={13} className={showAll ? "rotate-180 transition-transform" : "transition-transform"} />
             {showAll ? "Show less" : "Show more"}
           </button>
-        )}
-
-        {/* Related lists appear after picking one ("more like this"). */}
-        {activePreset && related.length > 0 && (
-          <div className="mt-3">
-            <div className="mb-1.5 text-[11px] text-ink-faint">More like this</div>
-            <div className="flex flex-wrap gap-2">
-              {related.map((rp) => {
-                const card = presetMap.get(rp.key);
-                if (!card) return null;
-                return <PresetPill key={rp.key} p={card} active={false} onClick={() => pickPreset(rp.key)} />;
-              })}
-            </div>
-          </div>
         )}
       </div>
 
