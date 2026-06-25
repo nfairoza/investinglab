@@ -9,6 +9,7 @@ import type { DataResult, Quote, PriceHistory } from "@/lib/providers/types";
 import type { StockScore } from "@/lib/scoring/score";
 import { describeAlert, formatTriggerValue } from "@/lib/alerts/evaluate";
 import { DataBadge } from "./data-state";
+import { ConnectEmptyState } from "./connect-empty-state";
 import { QuoteProbe } from "./quote-probe";
 import { Sparkline } from "./charts/Sparkline";
 import { AllocationDonut } from "./charts/AllocationDonut";
@@ -159,11 +160,7 @@ export function DashboardClient() {
       </div>
 
       {!hasHoldings ? (
-        <EmptyState
-          title="Add your first holding to bring this dashboard to life"
-          hint="Add positions in Holdings — or sync E*TRADE / Robinhood — and you'll see live value, a trend line, allocation, and what to watch."
-          action={<Link href="/holdings"><Button variant="gold">Add holdings</Button></Link>}
-        />
+        <ConnectEmptyState variant="invest" />
       ) : (
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1fr_320px]">
           {/* Main column */}

@@ -7,6 +7,7 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { Landmark, ChevronDown, Receipt, PieChart as PieIcon, Scale, ArrowRight, RefreshCw, Repeat, PiggyBank, Stethoscope } from "lucide-react";
 import { GradientStat } from "./dashboard-extras";
 import { MoneyInsights } from "./money-insights";
+import { ConnectEmptyState } from "./connect-empty-state";
 
 interface Account { account_id: string; name: string; mask: string | null; type: string; subtype: string | null; current: number | null; available: number | null; currency: string }
 interface Item { itemId: string; institution: string; accounts: Account[]; error?: string }
@@ -69,13 +70,7 @@ export function MoneyDashboard() {
     return <Empty>Bank connections aren&apos;t available yet.</Empty>;
   }
   if (!balLoading && !hasAccounts) {
-    return (
-      <Empty>
-        No accounts connected yet.{" "}
-        <button onClick={() => window.dispatchEvent(new Event("open-add"))} className="text-brand-400 underline">Connect a bank</button>{" "}
-        to see balances, spending, and analysis here.
-      </Empty>
-    );
+    return <ConnectEmptyState variant="money" onLinked={() => mutateBal()} />;
   }
 
   return (

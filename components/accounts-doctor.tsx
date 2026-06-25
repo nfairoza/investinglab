@@ -62,9 +62,17 @@ export function AccountsDoctor() {
   const debtStep = r?.steps.find((s) => s.id === "high_interest_debt");
   const efStep = r?.steps.find((s) => s.id === "emergency_fund");
 
-  // Simple health grade from the computed facts (deterministic, not AI).
+  // Whether we have ANY real financial signal to grade. With nothing connected,
+  // there's no cash, no runway, no income — so a health score is meaningless and
+  // we show "—" instead of a misleading default.
+  const hasData = Boolean(
+    r && (r.liquidCash > 0 || (r.avgMonthlyExpenses ?? 0) > 0 || (r.spending?.available && r.spending.monthIncome > 0) || runway != null || savingsRate != null),
+  );
+
+  // Simple health grade from the computed facts (deterministic, not AI). Only
+  // when there's real data — otherwise null (renders "—", not a fake 70).
   const grade = (() => {
-    if (!r) return null;
+    if (!r || !hasData) return null;
     let score = 70;
     if (runway != null) score += runway >= 6 ? 15 : runway >= 3 ? 5 : -20;
     if (savingsRate != null) score += savingsRate >= 20 ? 10 : savingsRate >= 0 ? 0 : -15;
@@ -86,12 +94,10 @@ export function AccountsDoctor() {
             <div className="flex items-center gap-2 text-brand-300"><Stethoscope size={15} /><span className="text-xs font-medium uppercase tracking-wide">Accounts checkup</span></div>
             <h2 className="mt-1 text-lg font-semibold text-ink">Your money health</h2>
           </div>
-          {grade != null && (
-            <div className="shrink-0 text-right">
-              <div className={`text-3xl font-bold ${gradeColor}`}>{grade}</div>
-              <div className="text-[10px] uppercase tracking-wide text-ink-faint">health</div>
-            </div>
-          )}
+          <div className="shrink-0 text-right">
+            <div className={`text-3xl font-bold ${grade != null ? gradeColor : "text-ink-faint"}`}>{grade != null ? grade : "—"}</div>
+            <div className="text-[10px] uppercase tracking-wide text-ink-faint">health</div>
+          </div>
         </div>
         <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
           <Vital icon={Wallet} label="Cash on hand" value={money(r?.liquidCash)} />

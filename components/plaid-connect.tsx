@@ -34,8 +34,9 @@ const TYPE_LABEL: Record<string, string> = {
 
 const fetchJson = (u: string) => fetch(u).then((r) => r.json());
 
-// Inner button: fetches a link token then opens Plaid Link.
-function LinkButton({ label, onLinked }: { label: string; onLinked: () => void }) {
+// Reusable Plaid "connect" button — fetches a link token then opens Plaid Link.
+// Exported so empty states across Invest/Money can nudge users to connect.
+export function LinkButton({ label, onLinked }: { label: string; onLinked?: () => void }) {
   const [token, setToken] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -50,7 +51,7 @@ function LinkButton({ label, onLinked }: { label: string; onLinked: () => void }
       const j = await r.json();
       if (!r.ok || j.error) setErr(j.message ?? j.error ?? "Could not link account.");
       else {
-        onLinked();
+        onLinked?.();
         // Kick a transactions sync in the background so Spending/Overview have
         // data without waiting for the user to open the Transactions page.
         fetch("/api/plaid/transactions").catch(() => {});

@@ -5,6 +5,7 @@ import Link from "next/link";
 import useSWR from "swr";
 import { ArrowUp, ArrowDown, RefreshCw, Plus, ChevronDown, ChevronRight, Lock } from "lucide-react";
 import { DataBadge, DataTimestamp } from "./data-state";
+import { ConnectEmptyState } from "./connect-empty-state";
 import { TickerInput } from "./ticker-input";
 import { Sparkline } from "./charts/Sparkline";
 import type { DataResult, Quote } from "@/lib/providers/types";
@@ -316,9 +317,7 @@ export function HoldingsManager() {
   return (
     <div className="space-y-4">
       {allHoldings.length === 0 && (
-        <div className="rounded-lg border border-hairline bg-surface p-6 text-center text-sm text-ink-faint">
-          No holdings yet. Sync from E*TRADE in Settings, or add one manually below.
-        </div>
+        <ConnectEmptyState variant="invest" />
       )}
 
       {securities.length > 0 && (
