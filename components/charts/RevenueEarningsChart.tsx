@@ -54,8 +54,8 @@ export function RevenueEarningsChart({ symbol, financials }: { symbol: string; f
 
 
       {rows.length > 0 && (
-        <div className="mt-4">
-          <ResponsiveContainer width="100%" height={200}>
+        <div className="mt-4 aspect-[2/1] max-h-64 w-full">
+          <ResponsiveContainer width="100%" height="100%">
             <BarChart data={rows} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
               <XAxis dataKey="period" tick={{ fill: "var(--chart-axis)", fontSize: 10 }} tickLine={false} />
