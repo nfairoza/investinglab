@@ -3,6 +3,7 @@
 import { useState } from "react";
 import useSWR from "swr";
 import { Wallet, Pencil, Check, RefreshCw } from "lucide-react";
+import { useIsAdmin } from "./use-is-admin";
 import type { CashState } from "@/lib/db";
 
 async function fetchJson<T>(url: string): Promise<T> {
@@ -16,8 +17,11 @@ async function fetchJson<T>(url: string): Promise<T> {
 // via /api/etrade/status so the Sync link shows even before the first sync.
 export function CashCard() {
   const { data: cash, mutate } = useSWR<CashState>("/api/cash", fetchJson);
-  const { data: etrade } = useSWR<{ connected?: boolean; selectedAccountIdKey?: string | null }>("/api/etrade/status", fetchJson, { revalidateOnFocus: false });
-  const etradeConnected = Boolean(etrade?.connected && etrade?.selectedAccountIdKey);
+  // E*TRADE cash sync is admin-only now (regular users use Plaid); don't even
+  // poll the status endpoint for non-admins.
+  const isAdmin = useIsAdmin();
+  const { data: etrade } = useSWR<{ connected?: boolean; selectedAccountIdKey?: string | null }>(isAdmin ? "/api/etrade/status" : null, fetchJson, { revalidateOnFocus: false });
+  const etradeConnected = Boolean(isAdmin && etrade?.connected && etrade?.selectedAccountIdKey);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);

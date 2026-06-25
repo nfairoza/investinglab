@@ -7,6 +7,7 @@ import { ArrowUp, ArrowDown, RefreshCw, Plus, ChevronDown, ChevronRight, Lock } 
 import { DataBadge, DataTimestamp } from "./data-state";
 import { ConnectEmptyState } from "./connect-empty-state";
 import { TickerInput } from "./ticker-input";
+import { useIsAdmin } from "./use-is-admin";
 import { Sparkline } from "./charts/Sparkline";
 import type { DataResult, Quote } from "@/lib/providers/types";
 import type { Holding } from "@/lib/db";
@@ -90,6 +91,8 @@ export function HoldingsManager() {
   const [note, setNote] = useState("");
   const [syncingEtrade, setSyncingEtrade] = useState(false);
   const [syncMsg, setSyncMsg] = useState<string | null>(null);
+  // E*TRADE token sync is admin-only now; regular users get brokerages via Plaid.
+  const isAdmin = useIsAdmin();
   const [sourceFilter, setSourceFilter] = useState<string>("all");
   // Manual entry is secondary (most holdings come from E*TRADE/Plaid sync), so
   // the form is collapsed behind a toggle rather than dominating the top.
@@ -224,6 +227,7 @@ export function HoldingsManager() {
   const autoSynced = useRef(false);
   useEffect(() => {
     if (autoSynced.current) return;
+    if (!isAdmin) return; // E*TRADE sync is admin-only
     autoSynced.current = true;
     (async () => {
       try {
@@ -359,15 +363,18 @@ export function HoldingsManager() {
               )}
             </div>
             <div className="flex items-center gap-2">
-              {/* Subtle refresh — re-syncs the user's connected E*TRADE + live prices */}
-              <button
-                onClick={() => { syncFromEtrade(); }}
-                disabled={syncingEtrade}
-                title="Refresh from your connected E*TRADE account"
-                className="flex items-center gap-1 rounded-md border border-hairline px-2 py-1 text-[11px] text-ink-dim hover:bg-surface hover:text-ink disabled:opacity-50">
-                <RefreshCw size={12} className={syncingEtrade ? "animate-spin" : ""} />
-                {syncingEtrade ? "Syncing…" : "Refresh"}
-              </button>
+              {/* Subtle refresh — re-syncs the connected E*TRADE + live prices.
+                  Admin-only: regular users get brokerages through Plaid. */}
+              {isAdmin && (
+                <button
+                  onClick={() => { syncFromEtrade(); }}
+                  disabled={syncingEtrade}
+                  title="Refresh from your connected E*TRADE account"
+                  className="flex items-center gap-1 rounded-md border border-hairline px-2 py-1 text-[11px] text-ink-dim hover:bg-surface hover:text-ink disabled:opacity-50">
+                  <RefreshCw size={12} className={syncingEtrade ? "animate-spin" : ""} />
+                  {syncingEtrade ? "Syncing…" : "Refresh"}
+                </button>
+              )}
               {anySource && <DataBadge source={anySource} />}
               {/* Source filter — derived from connected institutions, so it
                   scales to any number of banks/brokerages. On phones (and when
