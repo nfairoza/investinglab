@@ -23,14 +23,16 @@ export async function POST() {
     const resp = await getPlaid().linkTokenCreate({
       user: { client_user_id: ctx.userId },
       client_name: "rukMoney",
-      // Only Transactions is REQUIRED — that lets ANY bank/credit/depository
-      // institution link. Investments + Liabilities are OPTIONAL: pulled when the
-      // institution/account actually has them, but they never block linking a
-      // plain checking/savings/credit account. (Listing Investments as required
-      // caused Plaid to reject banks with no brokerage account — "none of your
-      // accounts are investment accounts".)
-      products: [Products.Transactions],
-      optional_products: [Products.Investments, Products.Liabilities],
+      // Block NOTHING. `products: []` + `required_if_supported_products` means:
+      // for EACH institution, request a product only if that institution
+      // supports it, and never reject the link when it doesn't. So a checking-
+      // only bank (Chase), a credit card, a pure brokerage (Robinhood), and a
+      // retirement provider (Fidelity/Vanguard) all link — each contributing
+      // whatever data it has. (Listing Investments in `products` is what made
+      // Plaid reject banks with no brokerage account; requiring Transactions
+      // would conversely block pure-brokerage institutions. This avoids both.)
+      products: [],
+      required_if_supported_products: [Products.Transactions, Products.Investments, Products.Liabilities],
       country_codes: [CountryCode.Us],
       language: "en",
       // Required for bank OAuth flows (Chase, etc.). Must exactly match an
