@@ -139,33 +139,59 @@ export function ScreenerListDetail({ presetKey }: { presetKey: string }) {
         <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-sm text-amber-200">List data unavailable{data.note ? `: ${data.note}` : ""}.</div>
       )}
       {rows.length > 0 && (
-        <div className="overflow-x-auto rounded-2xl border border-hairline">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-surface text-xs uppercase tracking-wide text-ink-faint">
-              <tr>
-                <th className="px-3 py-2">Name</th><th className="px-3 py-2">Symbol</th>
-                <th className="px-3 py-2 text-right">Price</th><th className="px-3 py-2 text-right">Today</th>
-                <th className="px-3 py-2 text-right">Mkt cap</th><th className="px-3 py-2"></th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-white/5">
-              {visible.map((r) => (
-                <tr key={r.symbol} className="hover:bg-surface">
-                  <td className="px-3 py-2 max-w-[18rem] truncate"><Link href={`/research?symbol=${r.symbol}`} className="text-ink hover:text-brand-300">{r.name ?? r.symbol}</Link></td>
-                  <td className="px-3 py-2"><Link href={`/research?symbol=${r.symbol}`} className="font-mono font-semibold text-brand-300 hover:underline">{r.symbol}</Link></td>
-                  <td className="px-3 py-2 text-right text-ink-dim">{r.price != null ? `$${r.price.toFixed(2)}` : "—"}</td>
-                  <td className={`px-3 py-2 text-right ${r.changePct == null ? "text-ink-faint" : r.changePct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
-                    {r.changePct == null ? "—" : `${r.changePct >= 0 ? "+" : ""}${r.changePct.toFixed(2)}%`}
-                  </td>
-                  <td className="px-3 py-2 text-right text-ink-dim">{compact(r.marketCap)}</td>
-                  <td className="px-3 py-2 text-right">
-                    <button onClick={() => setAddSymbol(r.symbol)} title={`Add ${r.symbol} to a list`} className="rounded-md p-1 text-ink-faint hover:bg-surface-raised hover:text-brand-300"><Plus size={15} /></button>
-                  </td>
+        <>
+          {/* Desktop / tablet: full table. */}
+          <div className="hidden overflow-x-auto rounded-2xl border border-hairline sm:block">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-surface text-xs uppercase tracking-wide text-ink-faint">
+                <tr>
+                  <th className="px-3 py-2">Name</th><th className="px-3 py-2">Symbol</th>
+                  <th className="px-3 py-2 text-right">Price</th><th className="px-3 py-2 text-right">Today</th>
+                  <th className="px-3 py-2 text-right">Mkt cap</th><th className="px-3 py-2"></th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="divide-y divide-white/5">
+                {visible.map((r) => (
+                  <tr key={r.symbol} className="hover:bg-surface">
+                    <td className="px-3 py-2 max-w-[18rem] truncate"><Link href={`/research?symbol=${r.symbol}`} className="text-ink hover:text-brand-300">{r.name ?? r.symbol}</Link></td>
+                    <td className="px-3 py-2"><Link href={`/research?symbol=${r.symbol}`} className="font-mono font-semibold text-brand-300 hover:underline">{r.symbol}</Link></td>
+                    <td className="px-3 py-2 text-right text-ink-dim">{r.price != null ? `$${r.price.toFixed(2)}` : "—"}</td>
+                    <td className={`px-3 py-2 text-right ${r.changePct == null ? "text-ink-faint" : r.changePct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                      {r.changePct == null ? "—" : `${r.changePct >= 0 ? "+" : ""}${r.changePct.toFixed(2)}%`}
+                    </td>
+                    <td className="px-3 py-2 text-right text-ink-dim">{compact(r.marketCap)}</td>
+                    <td className="px-3 py-2 text-right">
+                      <button onClick={() => setAddSymbol(r.symbol)} title={`Add ${r.symbol} to a list`} className="rounded-md p-1 text-ink-faint hover:bg-surface-raised hover:text-brand-300"><Plus size={15} /></button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Mobile: stacked rows — symbol + price/change on one line, name +
+              mkt cap below, so nothing overflows the viewport. */}
+          <div className="divide-y divide-white/5 rounded-2xl border border-hairline sm:hidden">
+            {visible.map((r) => (
+              <div key={r.symbol} className="flex items-center gap-2 px-3 py-2.5">
+                <Link href={`/research?symbol=${r.symbol}`} className="min-w-0 flex-1">
+                  <div className="flex items-baseline gap-2">
+                    <span className="font-mono font-semibold text-brand-300">{r.symbol}</span>
+                    <span className={`text-xs ${r.changePct == null ? "text-ink-faint" : r.changePct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                      {r.changePct == null ? "" : `${r.changePct >= 0 ? "+" : ""}${r.changePct.toFixed(2)}%`}
+                    </span>
+                  </div>
+                  <div className="truncate text-xs text-ink-dim">{r.name ?? r.symbol}</div>
+                </Link>
+                <div className="shrink-0 text-right">
+                  <div className="text-sm text-ink">{r.price != null ? `$${r.price.toFixed(2)}` : "—"}</div>
+                  <div className="text-[11px] text-ink-faint">{compact(r.marketCap)}</div>
+                </div>
+                <button onClick={() => setAddSymbol(r.symbol)} title={`Add ${r.symbol} to a list`} className="shrink-0 rounded-md p-1 text-ink-faint hover:bg-surface-raised hover:text-brand-300"><Plus size={16} /></button>
+              </div>
+            ))}
+          </div>
+        </>
       )}
       {rows.length > showCount && (
         <button onClick={() => setShowCount((c) => c + 50)} className="inline-flex items-center gap-1 text-sm text-brand-400 hover:underline">
