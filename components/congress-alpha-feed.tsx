@@ -3,7 +3,7 @@
 import { useState, useRef } from "react";
 import Link from "next/link";
 import useSWR from "swr";
-import { Landmark, TrendingUp, TrendingDown, ExternalLink, Info, Users, X } from "lucide-react";
+import { Landmark, TrendingUp, TrendingDown, ExternalLink, Info, Users, X, ArrowUp, ArrowDown } from "lucide-react";
 import { DataBadge, DataTimestamp } from "./data-state";
 import { MotionLoader } from "./motion-loader";
 import type { DataSource } from "@/lib/providers/types";
@@ -74,19 +74,30 @@ function money(n: number): string {
   return `$${Math.round(n)}`;
 }
 
-function ScoreBar({ s }: { s: ScoredTrade }) {
-  const segs = [
-    { v: s.breakdown.capital, max: 25, c: "bg-sky-500", label: "Capital scale" },
-    { v: s.breakdown.edge, max: 40, c: "bg-brand-500", label: "Committee edge" },
-    { v: s.breakdown.cluster, max: 20, c: "bg-violet-500", label: "Cluster" },
-    { v: s.breakdown.options, max: 15, c: "bg-emerald-500", label: "Options (est.)" },
-  ];
+// Disclosed amounts are RANGES (e.g. "$1,001 - $15,000"). Parse the numbers out
+// so we can sort and filter by amount. Returns the midpoint of the range (the
+// best single proxy), or 0 if unparseable.
+function trancheMid(tranche: string): number {
+  const nums = (tranche.match(/[\d,]+/g) ?? []).map((s) => Number(s.replace(/,/g, ""))).filter((n) => n > 0);
+  if (nums.length === 0) return 0;
+  if (nums.length === 1) return nums[0];
+  return (nums[0] + nums[nums.length - 1]) / 2;
+}
+
+type SortKey = "date" | "amount" | "score" | "ticker" | "person" | "action";
+
+// Sortable table header cell. Shows a direction arrow on the active column.
+function Th({ label, k, sortKey, sortDir, onSort, align = "left" }: {
+  label: string; k: SortKey; sortKey: SortKey; sortDir: "asc" | "desc"; onSort: (k: SortKey) => void; align?: "left" | "right";
+}) {
+  const active = sortKey === k;
   return (
-    <div className="flex h-2 w-full overflow-hidden rounded-full bg-surface-raised" title={segs.map((x) => `${x.label}: ${x.v}/${x.max}`).join(" · ")}>
-      {segs.map((seg, i) => (
-        <div key={i} className={seg.c} style={{ width: `${(seg.v / 100) * 100}%` }} />
-      ))}
-    </div>
+    <th className={`px-2 py-2 font-medium ${align === "right" ? "text-right" : "text-left"}`}>
+      <button onClick={() => onSort(k)} className={`inline-flex items-center gap-1 hover:text-ink ${active ? "text-ink" : ""} ${align === "right" ? "flex-row-reverse" : ""}`}>
+        {label}
+        {active && (sortDir === "asc" ? <ArrowUp size={11} /> : <ArrowDown size={11} />)}
+      </button>
+    </th>
   );
 }
 
@@ -115,6 +126,28 @@ export function CongressAlphaFeed() {
     requestAnimationFrame(() => inspectorRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
   };
   const [member, setMember] = useState<string | null>(null); // politician quick-filter
+  // Table sort: newest trades first by default; click a header to re-sort/toggle.
+  const [sortKey, setSortKey] = useState<SortKey>("date");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  // Amount range (disclosed-range midpoint, $). Empty = unbounded.
+  const [minAmt, setMinAmt] = useState("");
+  const [maxAmt, setMaxAmt] = useState("");
+
+  // Clicking a person should surface everything they did: select them AND widen
+  // the view to All conviction + the full year, so nothing is hidden by filters.
+  function pickMember(name: string) {
+    if (member === name) { setMember(null); return; }
+    setMember(name);
+    setMinTier("ALL");
+    setDays(365);
+  }
+
+  function toggleSort(k: SortKey) {
+    if (k === sortKey) { setSortDir((d) => (d === "desc" ? "asc" : "desc")); return; }
+    setSortKey(k);
+    // Sensible default direction per column: text ascending, numbers/date descending.
+    setSortDir(k === "ticker" || k === "person" || k === "action" ? "asc" : "desc");
+  }
 
   // Window cutoff (client-side) using the trade date, with a safe fallback.
   const cutoffMs = Date.now() - days * 86_400_000;
@@ -128,12 +161,35 @@ export function CongressAlphaFeed() {
   for (const r of data?.rows ?? []) if (inWindow(r)) memberCounts.set(r.representative, (memberCounts.get(r.representative) ?? 0) + 1);
   const topMembers = [...memberCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 12);
 
-  const rows = (data?.rows ?? []).filter((r) => {
+  const minAmtN = minAmt.trim() ? Number(minAmt) : null;
+  const maxAmtN = maxAmt.trim() ? Number(maxAmt) : null;
+  const filtered = (data?.rows ?? []).filter((r) => {
     if (!inWindow(r)) return false;
     if (member && r.representative !== member) return false;
+    const mid = trancheMid(r.sizeTranche);
+    if (minAmtN != null && mid < minAmtN) return false;
+    if (maxAmtN != null && mid > maxAmtN) return false;
     if (minTier === "ALL") return true;
     if (minTier === "HIGH") return r.tier === "HIGH";
     return r.tier !== "LOW"; // MEDIUM+
+  });
+
+  // Sort by the chosen column. Date uses txDate (fallback disclosureDate).
+  const rows = [...filtered].sort((a, b) => {
+    const dir = sortDir === "asc" ? 1 : -1;
+    switch (sortKey) {
+      case "amount": return (trancheMid(a.sizeTranche) - trancheMid(b.sizeTranche)) * dir;
+      case "score": return (a.convictionScore - b.convictionScore) * dir;
+      case "ticker": return (a.ticker ?? "").localeCompare(b.ticker ?? "") * dir;
+      case "person": return a.representative.localeCompare(b.representative) * dir;
+      case "action": return a.action.localeCompare(b.action) * dir;
+      case "date":
+      default: {
+        const da = new Date(a.txDate || a.disclosureDate).getTime() || 0;
+        const db = new Date(b.txDate || b.disclosureDate).getTime() || 0;
+        return (da - db) * dir;
+      }
+    }
   });
   const sel = rows.find((r) => r.id === selected) ?? rows[0] ?? null;
 
@@ -173,6 +229,18 @@ export function CongressAlphaFeed() {
               </button>
             ))}
           </div>
+          {/* Amount range — filters by the midpoint of the disclosed range ($). */}
+          <div className="flex items-center gap-1.5">
+            <span className="mr-1 text-xs text-ink-faint">Amount $:</span>
+            <input type="number" inputMode="numeric" value={minAmt} onChange={(e) => setMinAmt(e.target.value)} placeholder="min"
+              className="w-20 rounded-md border border-hairline bg-surface px-2 py-1 text-xs text-ink placeholder:text-ink-faint focus:border-brand-500 focus:outline-none" />
+            <span className="text-xs text-ink-faint">–</span>
+            <input type="number" inputMode="numeric" value={maxAmt} onChange={(e) => setMaxAmt(e.target.value)} placeholder="max"
+              className="w-20 rounded-md border border-hairline bg-surface px-2 py-1 text-xs text-ink placeholder:text-ink-faint focus:border-brand-500 focus:outline-none" />
+            {(minAmt || maxAmt) && (
+              <button onClick={() => { setMinAmt(""); setMaxAmt(""); }} className="rounded border border-hairline px-1.5 py-0.5 text-[11px] text-ink-dim hover:text-ink">Clear</button>
+            )}
+          </div>
         </div>
         <div className="flex items-center gap-2">
           {data?.generatedAt && (
@@ -206,67 +274,68 @@ export function CongressAlphaFeed() {
 
       {!isLoading && data && (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-          {/* Module 1: Alpha Feed */}
+          {/* Module 1: Alpha Feed — sortable table */}
           <div className="lg:col-span-2 space-y-2">
             <div className="flex items-center gap-2 text-sm font-semibold text-ink">
               <Landmark size={16} className="text-brand-400" /> Alpha Feed — {rows.length} trades
             </div>
-            {rows.length === 0 && (
+            {rows.length === 0 ? (
               <div className="rounded-lg border border-hairline bg-surface p-6 text-center text-sm text-ink-faint">
-                No trades at this conviction level. Try “All”.
+                No trades match these filters. Try “All” or widen the amount range.
+              </div>
+            ) : (
+              <div className="overflow-x-auto rounded-xl border border-hairline">
+                <table className="w-full text-left text-xs">
+                  <thead className="border-b border-hairline bg-surface/50 text-ink-faint">
+                    <tr>
+                      <Th label="Date" k="date" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                      <Th label="Ticker" k="ticker" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                      <Th label="Person" k="person" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                      <Th label="Type" k="action" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                      <Th label="Amount" k="amount" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} align="right" />
+                      <Th label="Score" k="score" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} align="right" />
+                      <th className="px-2 py-2 text-right font-medium"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map((r) => (
+                      <tr key={r.id}
+                        onClick={() => inspect(r.id)}
+                        className={`cursor-pointer border-b border-hairline/60 transition-colors last:border-0 ${
+                          sel?.id === r.id ? "bg-brand-500/[0.07]" : "hover:bg-white/[0.03]"
+                        }`}>
+                        <td className="whitespace-nowrap px-2 py-2 text-ink-dim">{r.txDate}</td>
+                        <td className="px-2 py-2">
+                          <Link href={`/research?symbol=${r.ticker}`} onClick={(e) => e.stopPropagation()}
+                            className="font-bold text-brand-300 hover:underline" title={`Research ${r.ticker}`}>{r.ticker ?? "—"}</Link>
+                          {r.clusterCount > 1 && <span className="ml-1 text-violet-300" title={`Cluster ×${r.clusterCount}${r.clusterCrossParty ? ", cross-party" : ""}`}>✦</span>}
+                          {r.committeeTag && <span className="ml-1 text-brand-300" title={`Committee: ${r.committeeTag}`}>⚖</span>}
+                        </td>
+                        <td className="max-w-[12rem] truncate px-2 py-2 text-ink-dim" title={`${r.representative}${r.party ? ` (${r.party})` : ""} · ${r.chamber}`}>
+                          {r.representative}{r.party ? ` (${r.party})` : ""}
+                        </td>
+                        <td className="px-2 py-2">
+                          <span className={`inline-flex items-center gap-1 ${r.action === "BUY" ? "text-emerald-300" : "text-rose-300"}`}>
+                            {r.action === "BUY" ? <TrendingUp size={11} /> : <TrendingDown size={11} />} {r.action}
+                          </span>
+                        </td>
+                        <td className="whitespace-nowrap px-2 py-2 text-right text-ink-dim" title={r.sizeTranche}>{r.sizeTranche}</td>
+                        <td className="px-2 py-2 text-right">
+                          <span className={`rounded border px-1.5 py-0.5 text-[11px] font-semibold ${TIER_CLS[r.tier]}`}>{r.convictionScore}</span>
+                        </td>
+                        <td className="px-2 py-2 text-right">
+                          {r.sourceLink && (
+                            <a href={r.sourceLink} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}
+                              title="Official filing" className="inline-flex text-ink-faint hover:text-brand-400"><ExternalLink size={12} /></a>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             )}
-            {/* Whole card → opens the official filing (source). The ticker chip
-                → Research for that ticker. "Inspect" → loads the Conflict
-                Inspector on the right without leaving the page. */}
-            {rows.map((r) => {
-              const cardClickable = Boolean(r.sourceLink);
-              return (
-              <div key={r.id}
-                onClick={() => { if (r.sourceLink) window.open(r.sourceLink, "_blank", "noopener,noreferrer"); }}
-                className={`group w-full rounded-xl border p-3 text-left transition-colors ${cardClickable ? "cursor-pointer" : ""} ${
-                  sel?.id === r.id ? "border-brand-500/50 bg-brand-500/[0.06]" : "border-hairline bg-black/15 hover:bg-white/[0.03]"
-                }`}>
-                <div className="flex items-center gap-3">
-                  <Link href={`/research?symbol=${r.ticker}`} onClick={(e) => e.stopPropagation()}
-                    className="shrink-0 rounded-md bg-surface-raised px-2 py-1 font-bold text-brand-300 hover:bg-brand-500/15" title={`Research ${r.ticker}`}>
-                    {r.ticker}
-                  </Link>
-                  <span className={`shrink-0 inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-xs ${r.action === "BUY" ? "border-emerald-500/40 text-emerald-300" : "border-rose-500/40 text-rose-300"}`}>
-                    {r.action === "BUY" ? <TrendingUp size={12} /> : <TrendingDown size={12} />} {r.action}
-                  </span>
-                  <span className="min-w-0 flex-1 truncate text-sm text-ink-dim">
-                    {r.representative}{r.party ? ` (${r.party})` : ""} · {r.chamber}
-                  </span>
-                  <span className={`shrink-0 rounded-md border px-2 py-0.5 text-xs font-semibold ${TIER_CLS[r.tier]}`}>
-                    {r.convictionScore}/{r.maxPossible}
-                  </span>
-                </div>
-                <div className="mt-2"><ScoreBar s={r} /></div>
-                <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px]">
-                  <span className="rounded bg-surface px-1.5 py-0.5 text-ink-dim">{r.sizeTranche}</span>
-                  {r.committeeTag && (
-                    <span className={`rounded px-1.5 py-0.5 ${r.conflictLevel === "primary" ? "bg-brand-500/15 text-brand-300" : "bg-surface/40 text-ink-dim"}`}>
-                      ⚖ {r.committeeTag}
-                    </span>
-                  )}
-                  {r.clusterCount > 1 && (
-                    <span className="rounded bg-violet-500/15 px-1.5 py-0.5 text-violet-300">
-                      ✦ cluster ×{r.clusterCount}{r.clusterCrossParty ? " · cross-party" : ""}
-                    </span>
-                  )}
-                  <span className="text-ink-faint">traded {r.txDate}</span>
-                  <span className="ml-auto flex items-center gap-2">
-                    <button onClick={(e) => { e.stopPropagation(); inspect(r.id); }}
-                      className="inline-flex items-center gap-1 rounded border border-hairline px-1.5 py-0.5 text-ink-dim hover:bg-surface hover:text-ink">
-                      <Info size={11} /> Inspect
-                    </button>
-                    {cardClickable && <ExternalLink size={11} className="text-ink-faint group-hover:text-brand-400" />}
-                  </span>
-                </div>
-              </div>
-              );
-            })}
+            <p className="text-[11px] text-ink-faint">Click a row to inspect it. Click a column header to sort. ✦ = cluster, ⚖ = committee overlap. Amounts are disclosed ranges.</p>
           </div>
 
           {/* Right column: Politicians + Conflict Inspector + Macro */}
@@ -282,10 +351,10 @@ export function CongressAlphaFeed() {
                     </button>
                   )}
                 </div>
-                <p className="mt-0.5 text-[11px] text-ink-faint">Showing people with parsed records in the currently enabled sources. Tap a name to filter the feed. For the full roster, open the People Directory.</p>
+                <p className="mt-0.5 text-[11px] text-ink-faint">Showing people with parsed records in the currently enabled sources. Tap a name to see all their trades (widens to All conviction · 1yr). For the full roster, open the People Directory.</p>
                 <div className="mt-2 flex flex-wrap gap-1.5">
                   {topMembers.map(([name, count]) => (
-                    <button key={name} onClick={() => setMember(member === name ? null : name)}
+                    <button key={name} onClick={() => pickMember(name)}
                       className={`rounded-full border px-2.5 py-1 text-[11px] transition-colors ${member === name ? "tab-active" : "border-hairline text-ink-dim hover:bg-surface hover:text-ink"}`}>
                       {name} <span className="text-ink-faint">{count}</span>
                     </button>

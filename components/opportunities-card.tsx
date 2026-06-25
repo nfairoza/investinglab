@@ -178,7 +178,7 @@ export function OpportunitiesCard() {
 }
 
 const SOURCE_LABEL: Record<string, string> = {
-  market: "Market signals", congress: "Power Trades (Congress)", both: "Market + Power Trades",
+  market: "Market signals", congress: "Congress (Power Trades)", both: "Market + Congress",
 };
 
 // A single opportunity as a flip card. Front = the pick at a glance; click to
@@ -189,8 +189,17 @@ function IdeaCard({ idea }: { idea: Idea }) {
   const isCut = idea.action === "Trim" || idea.action === "Sell";
   const src = idea.signalSource ?? "market";
 
+  // The whole card flips on click (either direction). Clicks on the ticker link
+  // are excluded so it still opens Research without flipping.
   return (
-    <div className={`flip-card h-44 ${flipped ? "is-flipped" : ""}`}>
+    <div
+      className={`flip-card h-44 cursor-pointer ${flipped ? "is-flipped" : ""}`}
+      onClick={() => setFlipped((f) => !f)}
+      role="button"
+      tabIndex={0}
+      aria-label={`${idea.ticker} idea — click to ${flipped ? "see the pick" : "see why"}`}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setFlipped((f) => !f); } }}
+    >
       <div className="flip-inner h-full">
         {/* FRONT */}
         <div className="flip-face flex h-full flex-col rounded-lg border border-hairline bg-surface p-3">
@@ -210,9 +219,9 @@ function IdeaCard({ idea }: { idea: Idea }) {
               <span>Conf: <span className="text-ink-dim">{idea.confidence}%</span></span>
               <span>{idea.timeHorizon}</span>
             </div>
-            <button onClick={() => setFlipped(true)} className="inline-flex items-center gap-1 text-[11px] text-brand-400 hover:underline">
-              <Info size={12} /> Why?
-            </button>
+            <span className="inline-flex items-center gap-1 text-[11px] text-brand-400">
+              <Info size={12} /> Tap for why
+            </span>
           </div>
         </div>
 
@@ -220,7 +229,7 @@ function IdeaCard({ idea }: { idea: Idea }) {
         <div className="flip-face flip-back flex h-full flex-col rounded-lg border border-brand-500/30 bg-brand-500/[0.05] p-3">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-ink">{idea.ticker} — why {idea.action.toLowerCase()}{idea.dollarAmount > 0 ? ` $${idea.dollarAmount.toLocaleString()}` : ""}</span>
-            <button onClick={() => setFlipped(false)} aria-label="Flip back" className="rounded p-0.5 text-ink-faint hover:text-ink"><RotateCcw size={13} /></button>
+            <span className="inline-flex items-center gap-1 text-[10px] text-ink-faint"><RotateCcw size={11} /> tap to flip back</span>
           </div>
           <div className="mt-1.5 space-y-1.5 overflow-y-auto text-[11px] leading-relaxed">
             <p className="text-ink-dim"><span className="font-medium text-ink">Why this size:</span> {idea.amountReason ?? `Sized to your available cash and ${idea.confidence}% confidence.`}</p>
