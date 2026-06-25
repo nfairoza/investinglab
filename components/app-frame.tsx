@@ -14,6 +14,7 @@ import { SectionSubnav } from "./section-subnav";
 import { AddSheet } from "./add-sheet";
 import { SwipeSections } from "./swipe-sections";
 import { SidebarReopen } from "./sidebar-reopen";
+import { ThemeGuard } from "./theme-guard";
 
 // Auth screens render with NO app chrome (no sidebar, chat, or command palette) —
 // just the page. Everything else gets the full shell.
@@ -27,6 +28,7 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
 
   return (
     <>
+      <ThemeGuard />
       <SessionScope />
       {/* Column on mobile (top bar stacks above content), row on desktop (sidebar
           beside content). */}

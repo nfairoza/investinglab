@@ -99,8 +99,8 @@ html.light {
   --surface-solid: #FFFFFF;
 
   --text: #0F172A;                       /* slate-ink, high contrast */
-  --text-dim: #475569;                   /* slate-600 */
-  --text-faint: #94A3B8;
+  --text-dim: #334155;                   /* slate-700 — darker for AA on white */
+  --text-faint: #64748B;                 /* slate-500 — readable, not washed out */
 
   --hairline: rgba(15,23,42,0.10);
   --hairline-strong: rgba(15,23,42,0.16);
