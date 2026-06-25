@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import useSWR from "swr";
-import { User, FileText, Settings as SettingsIcon, HelpCircle, LogOut, Shield, Plug } from "lucide-react";
+import { User, FileText, Settings as SettingsIcon, HelpCircle, LogOut, Shield } from "lucide-react";
+import { ADMIN_SECTION } from "@/lib/nav";
 
 interface Me {
   authenticated?: boolean;
@@ -44,10 +45,9 @@ export function AccountMenu() {
     { href: "/settings", label: "Settings", icon: SettingsIcon },
     { href: "/help", label: "Help", icon: HelpCircle },
   ];
-  // Admin-only tools (platform API keys etc.) — never rendered for regular users.
-  const adminItems = me.isAdmin
-    ? [{ href: "/connectors", label: "Connectors & Keys", icon: Plug }]
-    : [];
+  // Admin-only tools (Admin Portal, Error log, Connectors & Keys) — sourced from
+  // the single nav definition, never rendered for regular users.
+  const adminItems = me.isAdmin ? ADMIN_SECTION.items : [];
 
   return (
     <div ref={ref} className="relative">

@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
-import useSWR from "swr";
 import { Menu, X, Search } from "lucide-react";
 import clsx from "clsx";
 import { ThemeToggle } from "./theme-toggle";
@@ -12,10 +11,11 @@ import { AccountMenu } from "./account-menu";
 import { TopSearch } from "./top-search";
 import { useAlertsBadge } from "./use-alerts-badge";
 import { useSidebarCollapsed } from "./use-sidebar";
-import { OVERVIEW, SECTIONS, ADMIN_SECTION, isPathActive } from "@/lib/nav";
+import { OVERVIEW, SECTIONS, isPathActive } from "@/lib/nav";
 
 // Desktop sidebar nav, driven by the four-section IA in lib/nav.ts:
-// Overview · Invest (flagship) · Money · Insights (+ admin-only group).
+// Overview · Invest (flagship) · Money · Insights. Admin tools live in the
+// top-right account menu.
 const GROUPS = [
   { label: "", items: [OVERVIEW] },
   ...SECTIONS.map((s) => ({ label: s.label, items: s.items })),
@@ -23,10 +23,9 @@ const GROUPS = [
 
 function NavList({ onNavigate }: { onNavigate?: () => void }) {
   const path = usePathname();
-  const { data: me } = useSWR<{ isAdmin?: boolean }>("/api/me", (u: string) => fetch(u).then((r) => r.json()), { revalidateOnFocus: false });
-  const isAdmin = Boolean(me?.isAdmin);
   const alertsNew = useAlertsBadge();
-  const groups = isAdmin ? [...GROUPS, { label: ADMIN_SECTION.label, items: ADMIN_SECTION.items }] : GROUPS;
+  // Admin tools now live in the top-right account menu, not the left nav.
+  const groups = GROUPS;
   return (
     <nav className="space-y-5">
       {groups.map((group, gi) => {

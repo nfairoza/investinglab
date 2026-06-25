@@ -122,6 +122,13 @@ supabase/migrations/0001_init.sql
 
 ---
 
+## Docs
+
+- [AI usage & token-cost tiers](docs/AI_USAGE.md) — which endpoints are **light / medium / heavy**, the model each tier uses, and how chat picks its model per question.
+- [Screener filters](docs/SCREENER_FILTERS.md) — which FMP screener fields are live vs. the wishlist needing a richer provider.
+
+---
+
 ## Deploy (Vercel)
 
 1. Push to GitHub and import the repo in Vercel.
