@@ -26,7 +26,8 @@ export type AiTask =
   | "deep-analysis"   // predictions, portfolio doctor, research memo
   | "structured"      // big-context / strict-JSON extraction
   | "chat-analysis"   // chat turn that needs real reasoning over data
-  | "chat-casual";    // navigation, teaching, small talk
+  | "chat-casual"     // navigation, teaching, small talk
+  | "light";          // cheap quick generation (suggestions, short lists, labels)
 
 export type Strategy = "smart" | "quality" | "economy";
 export type Provider = "claude" | "gemini";
@@ -56,6 +57,10 @@ export function planRoute(task: AiTask, strategy: Strategy = resolveStrategy()):
 
   if (strategy === "quality") {
     // Best model everywhere; analysis still leans Claude-Opus, bulk leans Gemini-Pro.
+    // Even here, trivially light jobs stay on the cheap/fast model — paying Opus
+    // to emit a 5-item suggestion list is pure waste.
+    if (task === "light")
+      return { primary: "gemini", ...cheap, reason: "Quality: light task stays cheap (no reasoning needed)." };
     if (task === "deep-analysis" || task === "chat-analysis")
       return { primary: "claude", ...opus, reason: "Quality: Opus 4.8 for maximum reasoning." };
     return { primary: "gemini", ...opus, reason: "Quality: Gemini Pro for big-context/structured." };
@@ -67,7 +72,7 @@ export function planRoute(task: AiTask, strategy: Strategy = resolveStrategy()):
       return { primary: "claude", ...opus, reason: "Economy: escalate only deep analysis to Opus." };
     if (task === "structured")
       return { primary: "gemini", claudeModel: CLAUDE_HAIKU, geminiModel: geminiProModel(), reason: "Economy: Gemini Pro for reliable JSON." };
-    return { primary: "gemini", ...cheap, reason: "Economy: cheapest capable model for chat." };
+    return { primary: "gemini", ...cheap, reason: "Economy: cheapest capable model for chat/light." };
   }
 
   // smart (default) — the approved policy.
@@ -78,6 +83,8 @@ export function planRoute(task: AiTask, strategy: Strategy = resolveStrategy()):
       return { primary: "gemini", claudeModel: CLAUDE_SONNET, geminiModel: geminiProModel(), reason: "Smart: Gemini Pro for huge context + reliable JSON; Claude fallback." };
     case "chat-analysis":
       return { primary: "claude", ...pro, reason: "Smart: Sonnet for solid reasoning on data-backed chat; Gemini fallback." };
+    case "light":
+      return { primary: "gemini", ...cheap, reason: "Smart: cheap/fast model for short suggestions/labels — no deep reasoning." };
     case "chat-casual":
     default:
       return { primary: "gemini", ...cheap, reason: "Smart: cheap/fast model for navigation & teaching; escalate if needed." };

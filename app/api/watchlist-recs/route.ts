@@ -51,7 +51,7 @@ export async function GET() {
 
   try {
     const { text } = await routeText({
-      task: "deep-analysis", system: SYSTEM,
+      task: "light", system: SYSTEM, // short "you might like" list — cheap/fast model is plenty
       user: buildPrompt(holdingSyms, watchSyms, recentSyms), maxTokens: 1500, webSearch: true,
     });
     const parsed = parseLooseJson(text) as { recs?: { symbol: string; name?: string; reason?: string }[] };

@@ -56,9 +56,9 @@ export function WatchlistPage() {
   }
 
   return (
-    <div className="space-y-4">
-      <WatchlistRecs />
-
+    <div className="lg:grid lg:grid-cols-[1fr_300px] lg:gap-5">
+      {/* Main column: the user's lists are the focus */}
+      <div className="space-y-4">
       {/* List selector */}
       <div className="flex flex-wrap items-center gap-2">
         {all.map((l) => {
@@ -128,6 +128,15 @@ export function WatchlistPage() {
           <WatchlistManager listId={active.kind === "default" ? undefined : active.id} />
         </div>
       )}
+      </div>
+
+      {/* Right rail: "You might like" sits beside the lists on desktop, below on
+          mobile — secondary to the user's own lists. */}
+      <aside className="mt-4 lg:mt-0">
+        <div className="lg:sticky lg:top-4">
+          <WatchlistRecs />
+        </div>
+      </aside>
     </div>
   );
 }
