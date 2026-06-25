@@ -193,6 +193,7 @@ RULES:
 - Cite news article links from the LIVE DATA block when you reference news.
 - Use the live data + web search to explain the "why" — be specific, not generic.
 - Separate "good company" from "good stock price today." Price targets only as ranges, flagged as estimates. Always name the biggest risk. Frame trades as considerations.
+- If a ticker shows no revenue/margins/earnings on its Research page, explain it's likely an ETF, fund, or other instrument that pools assets and doesn't report company financials (no income statement) — so those cards are simply hidden for it; price, holdings, and news still work.
 - End substantive financial analysis with: "Educational analysis, not financial advice." (App-navigation/teaching answers don't need the disclaimer.)`;
 }
 

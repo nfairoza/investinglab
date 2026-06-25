@@ -36,6 +36,10 @@ export function RevenueEarningsChart({ symbol, financials }: { symbol: string; f
     "Net income": q.netIncome,
   }));
 
+  // No company financials (e.g. ETFs/funds) — hide the card entirely. Rukmani
+  // can explain why in chat if asked; we don't clutter the page with a notice.
+  if (!isLoading && !rows.length) return null;
+
   return (
     <div className="card-hover rounded-xl glass p-4">
       <div className="flex items-center justify-between">
@@ -48,11 +52,6 @@ export function RevenueEarningsChart({ symbol, financials }: { symbol: string; f
 
       {isLoading && !data && <div className="mt-4 h-48 animate-pulse rounded bg-surface-raised" />}
 
-      {!isLoading && !rows.length && (
-        <div className="mt-4 flex h-48 items-center justify-center rounded-lg border border-hairline px-4 text-sm text-ink-faint">
-          <p className="text-center">No company income statement for {symbol} — this is normal for ETFs, funds, and some instruments that don&apos;t report revenue or earnings.</p>
-        </div>
-      )}
 
       {rows.length > 0 && (
         <div className="mt-4">

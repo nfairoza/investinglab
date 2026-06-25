@@ -30,6 +30,10 @@ export function MarginChart({ symbol, financials }: { symbol: string; financials
       "Operating margin %": q.operatingMarginPct != null ? +q.operatingMarginPct.toFixed(1) : null,
     }));
 
+  // No margins (e.g. ETFs/funds) — hide the card entirely. Rukmani can explain
+  // why if a user asks.
+  if (!isLoading && !rows.length) return null;
+
   return (
     <div className="card-hover rounded-xl glass p-4">
       <div className="flex items-center justify-between">
@@ -42,11 +46,6 @@ export function MarginChart({ symbol, financials }: { symbol: string; financials
 
       {isLoading && !data && <div className="mt-4 h-48 animate-pulse rounded bg-surface-raised" />}
 
-      {!isLoading && !rows.length && (
-        <div className="mt-4 flex h-48 items-center justify-center rounded-lg border border-hairline px-4 text-sm text-ink-faint">
-          <p className="text-center">No margin data for {symbol} — normal for ETFs and funds, which don&apos;t report company margins.</p>
-        </div>
-      )}
 
       {rows.length > 0 && (
         <div className="mt-4">

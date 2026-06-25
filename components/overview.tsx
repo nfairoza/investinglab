@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 import useSWR from "swr";
 import Link from "next/link";
-import { ArrowUp, ArrowDown, Plus, TrendingUp, Sparkles, Scale, ChevronRight } from "lucide-react";
+import { ArrowUp, ArrowDown, Plus, TrendingUp, Sparkles, Scale, ChevronRight, Search, Filter, Grid3x3, Landmark, Eye, Trophy } from "lucide-react";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import { MoneyInsights } from "./money-insights";
 
@@ -185,21 +185,7 @@ export function Overview() {
   }
 
   if (nothingConnected) {
-    return (
-      <div className="mx-auto max-w-md rounded-2xl glass p-8 text-center">
-        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full" style={{ background: "var(--accent-soft)" }}>
-          <Plus className="text-brand-400" size={26} />
-        </div>
-        <h2 className="mt-3 text-lg font-semibold text-ink">Welcome to rukMoney</h2>
-        <p className="mx-auto mt-1 max-w-sm text-sm text-ink-dim">
-          Connect your first account to see your net worth, investments, and spending in one place.
-        </p>
-        <button onClick={() => window.dispatchEvent(new Event("open-add"))} className="btn-gold mx-auto mt-4 inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm">
-          <Plus size={15} /> Connect an account
-        </button>
-        <p className="mt-3 text-[11px] text-ink-faint">Or <Link href="/holdings" className="underline">add a holding manually</Link>.</p>
-      </div>
-    );
+    return <WelcomeExplore greeting={greeting} firstName={firstName} />;
   }
 
   return (
@@ -427,6 +413,79 @@ export function Overview() {
       <MoneyInsights compact />
 
       <p className="text-[11px] text-ink-faint">Tap any card for the full view. Research and education, not financial advice.</p>
+    </div>
+  );
+}
+
+// New-user / nothing-connected home: a warm welcome + connect CTA, then a grid
+// of everything you can explore WITHOUT connecting anything yet. The first tile
+// surfaces the day's top screener preset so it feels alive on first visit.
+function WelcomeExplore({ greeting, firstName }: { greeting: string; firstName: string }) {
+  const { data: presetData } = useSWR<{ presets: { key: string; label: string; blurb: string }[]; rankedKeys: string[] }>(
+    "/api/screener/presets", fetchJson, { revalidateOnFocus: false });
+  const topKey = presetData?.rankedKeys?.[0];
+  const topPreset = topKey ? presetData?.presets.find((p) => p.key === topKey) : undefined;
+
+  const explore: { href: string; label: string; desc: string; icon: typeof Search; grad: string }[] = [
+    { href: "/research", label: "Research", desc: "Deep-dive any stock: financials, news, AI memo.", icon: Search, grad: "from-emerald-600/20 to-teal-900/10" },
+    { href: "/screeners", label: "Screeners", desc: "Find stocks by your criteria — start from a preset.", icon: Filter, grad: "from-violet-600/20 to-purple-900/10" },
+    { href: "/rankings", label: "Rankings", desc: "Stocks scored & ranked by time horizon.", icon: Trophy, grad: "from-amber-600/20 to-stone-900/10" },
+    { href: "/map", label: "Stock Map", desc: "See the whole market by sector at a glance.", icon: Grid3x3, grad: "from-sky-600/20 to-indigo-900/10" },
+    { href: "/power-trades", label: "Power Trades", desc: "Congress & insider disclosures, scored.", icon: Landmark, grad: "from-rose-600/20 to-red-900/10" },
+    { href: "/watchlist", label: "Watchlist", desc: "Track names you care about with AI takes.", icon: Eye, grad: "from-cyan-600/20 to-blue-900/10" },
+  ];
+
+  return (
+    <div className="space-y-5">
+      {/* Welcome / connect */}
+      <div className="rounded-2xl glass p-6 text-center sm:p-8">
+        <h1 className="font-display text-2xl font-semibold text-ink md:text-3xl">{greeting}{firstName ? `, ${firstName}` : ""} — welcome to rukMoney</h1>
+        <p className="mx-auto mt-2 max-w-lg text-sm text-ink-dim">
+          Connect an account to see your net worth, investments, and spending in one place — or jump
+          straight into research, screeners, and market tools below. No account needed to explore.
+        </p>
+        <button onClick={() => window.dispatchEvent(new Event("open-add"))} className="btn-gold mx-auto mt-4 inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm">
+          <Plus size={15} /> Connect an account
+        </button>
+      </div>
+
+      {/* Top screener of the day — a live, intriguing hook */}
+      {topPreset && (
+        <Link href="/screeners" className="card-hover group block overflow-hidden rounded-2xl border border-brand-500/30 bg-gradient-to-br from-brand-500/[0.12] to-transparent p-5">
+          <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-brand-300">
+            <Sparkles size={13} /> Top screener today
+          </div>
+          <div className="mt-1.5 flex items-center justify-between">
+            <div>
+              <div className="text-lg font-bold text-ink">{topPreset.label}</div>
+              <div className="mt-0.5 text-sm text-ink-dim">{topPreset.blurb}</div>
+            </div>
+            <ChevronRight size={18} className="shrink-0 text-ink-faint transition-transform group-hover:translate-x-0.5" />
+          </div>
+        </Link>
+      )}
+
+      {/* Explore grid */}
+      <div>
+        <div className="mb-2 text-sm font-semibold text-ink">Explore</div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {explore.map((c) => (
+            <Link key={c.href} href={c.href}
+              className={`card-hover group block rounded-2xl border border-hairline bg-gradient-to-br ${c.grad} p-5 transition-transform active:scale-[0.99]`}>
+              <div className="flex items-center justify-between">
+                <span className="flex h-9 w-9 items-center justify-center rounded-lg" style={{ background: "var(--accent-soft)" }}>
+                  <c.icon size={18} className="text-brand-300" />
+                </span>
+                <ChevronRight size={16} className="text-ink-faint transition-transform group-hover:translate-x-0.5" />
+              </div>
+              <div className="mt-3 text-sm font-semibold text-ink">{c.label}</div>
+              <div className="mt-0.5 text-xs text-ink-dim">{c.desc}</div>
+            </Link>
+          ))}
+        </div>
+      </div>
+
+      <p className="text-[11px] text-ink-faint">Research and education, not financial advice.</p>
     </div>
   );
 }
