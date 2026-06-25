@@ -139,8 +139,10 @@ export function SettingsAI() {
     setMsg("Testing…");
     try {
       const r = await fetch("/api/ai/test", { method: "POST" });
-      const j = (await r.json()) as { ok: boolean; model?: string; error?: string };
-      setMsg(j.ok ? `Connection OK (${j.model}).` : `Test failed: ${j.error ?? "unknown error"}`);
+      const j = (await r.json()) as { ok: boolean; claude?: { configured: boolean; ok: boolean; model: string; error: string | null }; gemini?: { configured: boolean; ok: boolean; model: string; error: string | null } };
+      const line = (label: string, p?: { configured: boolean; ok: boolean; model: string; error: string | null }) =>
+        !p ? "" : p.ok ? `${label}: OK (${p.model})` : !p.configured ? `${label}: not configured` : `${label}: FAILED — ${p.error ?? "unknown"}`;
+      setMsg([line("Claude", j.claude), line("Gemini", j.gemini)].filter(Boolean).join("  ·  "));
     } catch (e) {
       setMsg(`Test failed: ${e instanceof Error ? e.message : "error"}`);
     } finally {
