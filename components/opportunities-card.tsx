@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Sparkles, TrendingUp, TrendingDown, RefreshCw, Landmark } from "lucide-react";
+import { Sparkles, TrendingUp, TrendingDown, RefreshCw, Landmark, Info, RotateCcw } from "lucide-react";
 import { MotionLoader } from "./motion-loader";
 import { useIsAdmin } from "./use-is-admin";
 import { friendlyMessage } from "./data-state";
@@ -12,6 +12,8 @@ interface Idea {
   dollarAmount: number;
   lane: "owned" | "new" | "reduce";
   thesis: string;
+  amountReason?: string;
+  signalSource?: "market" | "congress" | "both";
   risk: string;
   confidence: number;
   timeHorizon: string;
@@ -149,8 +151,12 @@ export function OpportunitiesCard() {
         </div>
       )}
 
+      {result && result.ideas && result.ideas.length > 0 && (
+        <p className="mt-3 text-[11px] text-ink-faint">Tap a card to flip it — see why this pick, why this amount, and what drove it.</p>
+      )}
+
       {result && (
-        <div className="mt-4 space-y-4">
+        <div className="mt-3 space-y-4">
           {result.marketSummary && (
             <div className="rounded-lg border border-hairline bg-surface p-3 text-sm text-ink-dim">
               <span className="font-medium text-ink">Market now: </span>{result.marketSummary}
@@ -158,29 +164,7 @@ export function OpportunitiesCard() {
           )}
 
           <div className="grid grid-cols-1 gap-2.5 lg:grid-cols-2">
-            {ideas.map((idea, i) => {
-              const isCut = idea.action === "Trim" || idea.action === "Sell";
-              return (
-                <div key={i} className="rounded-lg border border-hairline bg-surface p-3">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      <a href={`/research?symbol=${idea.ticker}`} className="font-semibold text-brand-300 hover:underline">{idea.ticker}</a>
-                      <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium ${ACTION_STYLE[idea.action] ?? "border-hairline text-ink-dim"}`}>
-                        {isCut ? <TrendingDown size={10} /> : <TrendingUp size={10} />}{idea.action}
-                      </span>
-                      {idea.lane === "new" && <span className="rounded bg-brand-500/15 px-1 text-[9px] text-brand-300">NEW IDEA</span>}
-                    </div>
-                    {idea.dollarAmount > 0 && <span className="font-mono text-sm text-ink">${idea.dollarAmount.toLocaleString()}</span>}
-                  </div>
-                  <p className="mt-1.5 text-xs text-ink-dim">{idea.thesis}</p>
-                  <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-ink-faint">
-                    <span>Conf: <span className="text-ink-dim">{idea.confidence}%</span></span>
-                    <span>{idea.timeHorizon}</span>
-                  </div>
-                  <p className="mt-1 text-[11px] text-amber-700 dark:text-amber-300/80"><span className="font-medium">Risk:</span> {idea.risk}</p>
-                </div>
-              );
-            })}
+            {ideas.map((idea, i) => <IdeaCard key={i} idea={idea} />)}
           </div>
 
           {result.notes && <p className="text-[11px] text-ink-faint">{result.notes}</p>}
@@ -189,6 +173,62 @@ export function OpportunitiesCard() {
           </p>
         </div>
       )}
+    </div>
+  );
+}
+
+const SOURCE_LABEL: Record<string, string> = {
+  market: "Market signals", congress: "Power Trades (Congress)", both: "Market + Power Trades",
+};
+
+// A single opportunity as a flip card. Front = the pick at a glance; click to
+// flip (smooth 3D) to the back = WHY this pick, WHY this amount, and what drove
+// it (market vs Power Trades). Equal-height faces so the flip doesn't jump.
+function IdeaCard({ idea }: { idea: Idea }) {
+  const [flipped, setFlipped] = useState(false);
+  const isCut = idea.action === "Trim" || idea.action === "Sell";
+  const src = idea.signalSource ?? "market";
+
+  return (
+    <div className={`flip-card h-44 ${flipped ? "is-flipped" : ""}`}>
+      <div className="flip-inner h-full">
+        {/* FRONT */}
+        <div className="flip-face flex h-full flex-col rounded-lg border border-hairline bg-surface p-3">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <a href={`/research?symbol=${idea.ticker}`} onClick={(e) => e.stopPropagation()} className="font-semibold text-brand-300 hover:underline">{idea.ticker}</a>
+              <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium ${ACTION_STYLE[idea.action] ?? "border-hairline text-ink-dim"}`}>
+                {isCut ? <TrendingDown size={10} /> : <TrendingUp size={10} />}{idea.action}
+              </span>
+              {idea.lane === "new" && <span className="rounded bg-brand-500/15 px-1 text-[9px] text-brand-300">NEW IDEA</span>}
+            </div>
+            {idea.dollarAmount > 0 && <span className="font-mono text-sm text-ink">${idea.dollarAmount.toLocaleString()}</span>}
+          </div>
+          <p className="mt-1.5 line-clamp-3 text-xs text-ink-dim">{idea.thesis}</p>
+          <div className="mt-auto flex items-center justify-between pt-2">
+            <div className="flex flex-wrap items-center gap-x-3 text-[11px] text-ink-faint">
+              <span>Conf: <span className="text-ink-dim">{idea.confidence}%</span></span>
+              <span>{idea.timeHorizon}</span>
+            </div>
+            <button onClick={() => setFlipped(true)} className="inline-flex items-center gap-1 text-[11px] text-brand-400 hover:underline">
+              <Info size={12} /> Why?
+            </button>
+          </div>
+        </div>
+
+        {/* BACK */}
+        <div className="flip-face flip-back flex h-full flex-col rounded-lg border border-brand-500/30 bg-brand-500/[0.05] p-3">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-ink">{idea.ticker} — why {idea.action.toLowerCase()}{idea.dollarAmount > 0 ? ` $${idea.dollarAmount.toLocaleString()}` : ""}</span>
+            <button onClick={() => setFlipped(false)} aria-label="Flip back" className="rounded p-0.5 text-ink-faint hover:text-ink"><RotateCcw size={13} /></button>
+          </div>
+          <div className="mt-1.5 space-y-1.5 overflow-y-auto text-[11px] leading-relaxed">
+            <p className="text-ink-dim"><span className="font-medium text-ink">Why this size:</span> {idea.amountReason ?? `Sized to your available cash and ${idea.confidence}% confidence.`}</p>
+            <p className="text-ink-dim"><span className="font-medium text-ink">Risk:</span> {idea.risk}</p>
+            <p className="text-ink-faint"><span className="font-medium">Driven by:</span> {SOURCE_LABEL[src]}</p>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

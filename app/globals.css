@@ -472,3 +472,28 @@ html.light [class*="text-emerald-300/"] { color: #047857; }
 .chat-md li { margin: 0.1rem 0; }
 .chat-md pre { white-space: pre-wrap; }
 .chat-md strong { color: var(--text); }
+
+/* ── Flip card (Opportunities "why" reveal) ──────────────────────────────────
+   A 3D flip on the Y axis. The wrapper sets perspective; the inner rotates;
+   the two faces are absolutely stacked with backface hidden. Respects
+   prefers-reduced-motion (instant swap, no spin). */
+.flip-card { perspective: 1200px; }
+.flip-inner {
+  position: relative;
+  transform-style: preserve-3d;
+  transition: transform 0.5s cubic-bezier(0.4, 0.2, 0.2, 1);
+}
+.flip-card.is-flipped .flip-inner { transform: rotateY(180deg); }
+.flip-face {
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+}
+.flip-back {
+  position: absolute;
+  inset: 0;
+  transform: rotateY(180deg);
+  overflow-y: auto;
+}
+@media (prefers-reduced-motion: reduce) {
+  .flip-inner { transition: none; }
+}

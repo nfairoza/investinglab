@@ -53,6 +53,8 @@ Return JSON with this exact shape:
       "dollarAmount": number,              // suggested $ to allocate (0 for sells where you'd exit fully — put proceeds idea in thesis)
       "lane": "owned" | "new" | "reduce",  // owned=already hold/watch, new=fresh idea, reduce=trim/sell
       "thesis": string,                    // one line why
+      "amountReason": string,              // WHY this dollar size — tie to conviction, cash %, diversification, position sizing
+      "signalSource": "market" | "congress" | "both",  // what primarily drove this pick
       "risk": string,                      // the key risk
       "confidence": number,                // 0-100
       "timeHorizon": string                // e.g. "1-3 months", "6-12 months"
@@ -60,7 +62,8 @@ Return JSON with this exact shape:
   ],
   "notes": string                          // caveats, e.g. cash left undeployed and why
 }
-Provide 4-8 ideas total, spanning the three lanes. Keep total buy/add dollarAmount <= the available cash.`;
+Provide 4-8 ideas total, spanning the three lanes. Keep total buy/add dollarAmount <= the available cash.
+For amountReason, be concrete: explain the sizing (e.g. "~15% of cash — high conviction but already concentrated in tech, so capped"). For signalSource, use "congress" or "both" ONLY when recent congressional trading actually informed the pick.`;
 }
 
 // Recent congressional trading, aggregated into a net buy/sell signal per ticker,
