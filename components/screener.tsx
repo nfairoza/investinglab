@@ -35,13 +35,14 @@ function presetToFilters(f: ScreenerFilters): Filters {
 
 interface PresetCard { key: string; label: string; blurb: string; category: string; filters: ScreenerFilters; image: string }
 
-// Deterministic gradient per category so missing images still look intentional.
+// Deterministic, deep gradient per category so missing images still look rich
+// and white text stays readable in BOTH light and dark themes.
 const CAT_GRADIENT: Record<string, string> = {
-  momentum: "from-emerald-600/40 to-teal-800/40", value: "from-amber-600/40 to-stone-800/40",
-  dividend: "from-yellow-600/40 to-amber-900/40", income: "from-lime-600/40 to-green-900/40",
-  growth: "from-green-600/40 to-emerald-900/40", sector: "from-sky-600/40 to-indigo-900/40",
-  size: "from-violet-600/40 to-purple-900/40", volatility: "from-rose-600/40 to-red-900/40",
-  quality: "from-cyan-600/40 to-blue-900/40", speculative: "from-fuchsia-600/40 to-rose-900/40",
+  momentum: "from-emerald-700 to-teal-950", value: "from-amber-700 to-stone-950",
+  dividend: "from-yellow-700 to-amber-950", income: "from-lime-700 to-green-950",
+  growth: "from-green-700 to-emerald-950", sector: "from-sky-700 to-indigo-950",
+  size: "from-violet-700 to-purple-950", volatility: "from-rose-700 to-red-950",
+  quality: "from-cyan-700 to-blue-950", speculative: "from-fuchsia-700 to-rose-950",
 };
 
 function compact(n: number | null): string {
@@ -60,14 +61,15 @@ function PresetTile({ p, active, onClick }: { p: PresetCard; active: boolean; on
   return (
     <button onClick={onClick}
       className={`group relative flex h-28 w-44 shrink-0 flex-col justify-end overflow-hidden rounded-xl border p-3 text-left transition-all ${active ? "border-brand-500 ring-1 ring-brand-500/50" : "border-hairline hover:border-brand-500/50"}`}>
-      {/* image or gradient fallback */}
+      {/* image (full strength) or a deep category gradient fallback */}
       {imgOk
-        ? <img src={p.image} alt="" onError={() => setImgOk(false)} className="absolute inset-0 h-full w-full object-cover opacity-60 transition-opacity group-hover:opacity-75" />
-        : <div className={`absolute inset-0 bg-gradient-to-br ${CAT_GRADIENT[p.category] ?? "from-surface to-black/40"}`} />}
-      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
+        ? <img src={p.image} alt="" onError={() => setImgOk(false)} className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" />
+        : <div className={`absolute inset-0 bg-gradient-to-br ${CAT_GRADIENT[p.category] ?? "from-slate-700 to-slate-950"}`} />}
+      {/* strong scrim so white text is always legible over image or gradient */}
+      <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/45 to-black/20" />
       <div className="relative">
-        <div className="text-sm font-semibold text-white drop-shadow">{p.label}</div>
-        <div className="mt-0.5 line-clamp-2 text-[10px] text-white/70">{p.blurb}</div>
+        <div className="text-sm font-bold text-white drop-shadow-md">{p.label}</div>
+        <div className="mt-0.5 line-clamp-2 text-[10px] text-white/85 drop-shadow">{p.blurb}</div>
       </div>
     </button>
   );

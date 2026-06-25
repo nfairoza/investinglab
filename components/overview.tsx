@@ -426,13 +426,13 @@ function WelcomeExplore({ greeting, firstName }: { greeting: string; firstName: 
   const topKey = presetData?.rankedKeys?.[0];
   const topPreset = topKey ? presetData?.presets.find((p) => p.key === topKey) : undefined;
 
-  const explore: { href: string; label: string; desc: string; icon: typeof Search; grad: string }[] = [
-    { href: "/research", label: "Research", desc: "Deep-dive any stock: financials, news, AI memo.", icon: Search, grad: "from-emerald-600/20 to-teal-900/10" },
-    { href: "/screeners", label: "Screeners", desc: "Find stocks by your criteria — start from a preset.", icon: Filter, grad: "from-violet-600/20 to-purple-900/10" },
-    { href: "/rankings", label: "Rankings", desc: "Stocks scored & ranked by time horizon.", icon: Trophy, grad: "from-amber-600/20 to-stone-900/10" },
-    { href: "/map", label: "Stock Map", desc: "See the whole market by sector at a glance.", icon: Grid3x3, grad: "from-sky-600/20 to-indigo-900/10" },
-    { href: "/power-trades", label: "Power Trades", desc: "Congress & insider disclosures, scored.", icon: Landmark, grad: "from-rose-600/20 to-red-900/10" },
-    { href: "/watchlist", label: "Watchlist", desc: "Track names you care about with AI takes.", icon: Eye, grad: "from-cyan-600/20 to-blue-900/10" },
+  const explore: { href: string; label: string; desc: string; icon: typeof Search; tint: string }[] = [
+    { href: "/research", label: "Research", desc: "Deep-dive any stock: financials, news, AI memo.", icon: Search, tint: "text-emerald-400" },
+    { href: "/screeners", label: "Screeners", desc: "Find stocks by your criteria — start from a preset.", icon: Filter, tint: "text-violet-400" },
+    { href: "/rankings", label: "Rankings", desc: "Stocks scored & ranked by time horizon.", icon: Trophy, tint: "text-amber-400" },
+    { href: "/map", label: "Stock Map", desc: "See the whole market by sector at a glance.", icon: Grid3x3, tint: "text-sky-400" },
+    { href: "/power-trades", label: "Power Trades", desc: "Congress & insider disclosures, scored.", icon: Landmark, tint: "text-rose-400" },
+    { href: "/watchlist", label: "Watchlist", desc: "Track names you care about with AI takes.", icon: Eye, tint: "text-cyan-400" },
   ];
 
   return (
@@ -471,10 +471,10 @@ function WelcomeExplore({ greeting, firstName }: { greeting: string; firstName: 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {explore.map((c) => (
             <Link key={c.href} href={c.href}
-              className={`card-hover group block rounded-2xl border border-hairline bg-gradient-to-br ${c.grad} p-5 transition-transform active:scale-[0.99]`}>
+              className="card-hover group block rounded-2xl glass p-5 transition-transform active:scale-[0.99]">
               <div className="flex items-center justify-between">
-                <span className="flex h-9 w-9 items-center justify-center rounded-lg" style={{ background: "var(--accent-soft)" }}>
-                  <c.icon size={18} className="text-brand-300" />
+                <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-surface-raised">
+                  <c.icon size={18} className={c.tint} />
                 </span>
                 <ChevronRight size={16} className="text-ink-faint transition-transform group-hover:translate-x-0.5" />
               </div>
