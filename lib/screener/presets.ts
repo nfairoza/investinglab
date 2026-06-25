@@ -25,8 +25,12 @@ export interface ScreenerPreset {
   imagePrompt: string;
 }
 
-// Shared art direction so all preset images feel like one set.
-const ART = " — sleek minimal financial illustration, abstract, soft emerald and violet light on a dark near-black background, fine grain, cinematic, no text, no logos, no numbers, high detail, square.";
+// Shared art direction so all images feel like ONE cohesive set and read well
+// in BOTH light and dark themes. They render as small circular thumbnails, so:
+// centered subject, simple flat/soft-3D icon look, transparent-friendly neutral
+// mid-tone backdrop (not pure black, not pure white), restrained palette. Small
+// size + simple style keeps generation cheap.
+const ART = " — small circular app-icon style, single centered subject, simple soft-3D minimal illustration, restrained emerald/teal accent palette on a neutral slate backdrop, even soft lighting, looks good on both light and dark UI, no text, no logos, no numbers, clean, low detail, square.";
 
 const B = 1_000_000_000; // billion
 const M = 1_000_000;     // million

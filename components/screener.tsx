@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import useSWR from "swr";
-import { SlidersHorizontal, RefreshCw, ChevronDown, Sparkles } from "lucide-react";
+import { SlidersHorizontal, RefreshCw, ChevronDown, Sparkles, TrendingUp, Scale, Coins, Sprout, LayoutGrid, Boxes, Activity, Gem, Flame, type LucideIcon } from "lucide-react";
 import { DataBadge } from "./data-state";
 import { useIsAdmin } from "./use-is-admin";
 import type { DataResult, ScreenerRow, ScreenerFilters } from "@/lib/providers/types";
@@ -35,14 +35,13 @@ function presetToFilters(f: ScreenerFilters): Filters {
 
 interface PresetCard { key: string; label: string; blurb: string; category: string; filters: ScreenerFilters; image: string }
 
-// Deterministic, deep gradient per category so missing images still look rich
-// and white text stays readable in BOTH light and dark themes.
-const CAT_GRADIENT: Record<string, string> = {
-  momentum: "from-emerald-700 to-teal-950", value: "from-amber-700 to-stone-950",
-  dividend: "from-yellow-700 to-amber-950", income: "from-lime-700 to-green-950",
-  growth: "from-green-700 to-emerald-950", sector: "from-sky-700 to-indigo-950",
-  size: "from-violet-700 to-purple-950", volatility: "from-rose-700 to-red-950",
-  quality: "from-cyan-700 to-blue-950", speculative: "from-fuchsia-700 to-rose-950",
+// Category accent (icon tint) for the small circular thumbnails — subtle, works
+// on the theme's own surface in BOTH light and dark.
+const CAT_TINT: Record<string, string> = {
+  momentum: "text-emerald-500", value: "text-amber-500", dividend: "text-yellow-500",
+  income: "text-lime-500", growth: "text-green-500", sector: "text-sky-500",
+  size: "text-violet-500", volatility: "text-rose-500", quality: "text-cyan-500",
+  speculative: "text-fuchsia-500",
 };
 
 function compact(n: number | null): string {
@@ -55,22 +54,26 @@ function compact(n: number | null): string {
   return String(n);
 }
 
-// A Robinhood-style preset tile: image (or category gradient) + label + blurb.
-function PresetTile({ p, active, onClick }: { p: PresetCard; active: boolean; onClick: () => void }) {
+const CAT_ICON: Record<string, LucideIcon> = {
+  momentum: TrendingUp, value: Scale, dividend: Coins, income: Coins, growth: Sprout,
+  sector: LayoutGrid, size: Boxes, volatility: Activity, quality: Gem, speculative: Flame,
+};
+
+// Robinhood-style "trending list" pill: a small circular thumbnail (AI image, or
+// a tinted category icon fallback) + the label. Theme-neutral — sits on the app's
+// own surface, so it looks right in BOTH light and dark.
+function PresetPill({ p, active, onClick }: { p: PresetCard; active: boolean; onClick: () => void }) {
   const [imgOk, setImgOk] = useState(true);
+  const Icon = CAT_ICON[p.category] ?? LayoutGrid;
   return (
-    <button onClick={onClick}
-      className={`group relative flex h-28 w-44 shrink-0 flex-col justify-end overflow-hidden rounded-xl border p-3 text-left transition-all ${active ? "border-brand-500 ring-1 ring-brand-500/50" : "border-hairline hover:border-brand-500/50"}`}>
-      {/* image (full strength) or a deep category gradient fallback */}
-      {imgOk
-        ? <img src={p.image} alt="" onError={() => setImgOk(false)} className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" />
-        : <div className={`absolute inset-0 bg-gradient-to-br ${CAT_GRADIENT[p.category] ?? "from-slate-700 to-slate-950"}`} />}
-      {/* strong scrim so white text is always legible over image or gradient */}
-      <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/45 to-black/20" />
-      <div className="relative">
-        <div className="text-sm font-bold text-white drop-shadow-md">{p.label}</div>
-        <div className="mt-0.5 line-clamp-2 text-[10px] text-white/85 drop-shadow">{p.blurb}</div>
-      </div>
+    <button onClick={onClick} title={p.blurb}
+      className={`group inline-flex shrink-0 items-center gap-2 rounded-full border py-1.5 pl-1.5 pr-3.5 text-sm transition-colors ${active ? "border-brand-500 bg-brand-500/10 text-ink" : "border-hairline bg-surface text-ink-dim hover:border-brand-500/50 hover:text-ink"}`}>
+      <span className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full bg-surface-raised">
+        {imgOk
+          ? <img src={p.image} alt="" onError={() => setImgOk(false)} className="h-full w-full object-cover" />
+          : <Icon size={15} className={CAT_TINT[p.category] ?? "text-brand-400"} />}
+      </span>
+      <span className="font-medium">{p.label}</span>
     </button>
   );
 }
@@ -149,10 +152,10 @@ export function Screener() {
 
   return (
     <div className="space-y-4">
-      {/* Presets — image tiles, AI-ordered for today. Click one to run it. */}
+      {/* Trending lists — AI-ordered for today. Click one to run it. */}
       <div>
         <div className="mb-2 flex items-center justify-between">
-          <span className="text-sm font-semibold text-ink">Browse presets</span>
+          <span className="text-sm font-semibold text-ink">Trending lists</span>
           {isAdmin && (
             <button onClick={rerank} disabled={reranking} className="inline-flex items-center gap-1.5 rounded-md border border-hairline px-2.5 py-1 text-[11px] text-ink-dim hover:text-ink disabled:opacity-50" title={presetData?.rationale ?? undefined}>
               <Sparkles size={12} className={reranking ? "animate-pulse" : ""} /> {reranking ? "Re-ranking…" : "Re-rank"}
@@ -164,17 +167,17 @@ export function Screener() {
         )}
         <div className="flex flex-wrap gap-2">
           {visiblePresets.map((p) => (
-            <PresetTile key={p.key} p={p} active={activePreset === p.key} onClick={() => pickPreset(p.key)} />
+            <PresetPill key={p.key} p={p} active={activePreset === p.key} onClick={() => pickPreset(p.key)} />
           ))}
         </div>
         {orderedPresets.length > TOP_N && (
           <button onClick={() => setShowAll((s) => !s)} className="mt-2 inline-flex items-center gap-1 text-xs text-brand-400 hover:underline">
             <ChevronDown size={13} className={showAll ? "rotate-180 transition-transform" : "transition-transform"} />
-            {showAll ? "Show fewer" : `Show all ${orderedPresets.length} presets`}
+            {showAll ? "Show less" : "Show more"}
           </button>
         )}
 
-        {/* Related presets appear after picking one ("more like this"). */}
+        {/* Related lists appear after picking one ("more like this"). */}
         {activePreset && related.length > 0 && (
           <div className="mt-3">
             <div className="mb-1.5 text-[11px] text-ink-faint">More like this</div>
@@ -182,7 +185,7 @@ export function Screener() {
               {related.map((rp) => {
                 const card = presetMap.get(rp.key);
                 if (!card) return null;
-                return <PresetTile key={rp.key} p={card} active={false} onClick={() => pickPreset(rp.key)} />;
+                return <PresetPill key={rp.key} p={card} active={false} onClick={() => pickPreset(rp.key)} />;
               })}
             </div>
           </div>
