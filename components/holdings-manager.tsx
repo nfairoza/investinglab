@@ -78,7 +78,7 @@ function classifyHolding(opts: { symbol: string; secType?: string | null; isCash
 }
 
 export function HoldingsManager() {
-  const { data: dbHoldings = [], mutate } = useSWR<Holding[]>("/api/holdings", fetchJson, {
+  const { data: dbHoldings = [], mutate, isLoading: holdingsLoading } = useSWR<Holding[]>("/api/holdings", fetchJson, {
     revalidateOnFocus: true,
   });
   // Line-by-line holdings from Plaid-linked brokerages (Robinhood, Fidelity,
@@ -320,7 +320,12 @@ export function HoldingsManager() {
 
   return (
     <div className="space-y-4">
-      {allHoldings.length === 0 && (
+      {/* Skeleton while the first fetch is in flight — avoids flashing the empty
+          "Connect your brokerage" state on refresh when the user has holdings. */}
+      {holdingsLoading && allHoldings.length === 0 && (
+        <div className="h-40 animate-pulse rounded-2xl glass" />
+      )}
+      {!holdingsLoading && allHoldings.length === 0 && (
         <ConnectEmptyState variant="invest" />
       )}
 

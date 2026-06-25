@@ -35,7 +35,7 @@ interface DashboardData {
 const RANGES = [{ k: "1M", d: 22 }, { k: "3M", d: 66 }, { k: "1Y", d: 252 }, { k: "ALL", d: 100000 }] as const;
 
 export function DashboardClient() {
-  const { data: holdings = [] } = useSWR<Holding[]>("/api/holdings", fetchJson, { revalidateOnFocus: true });
+  const { data: holdings = [], isLoading: holdingsLoading } = useSWR<Holding[]>("/api/holdings", fetchJson, { revalidateOnFocus: true });
   const { data: watchlist = [] } = useSWR<WatchItem[]>("/api/watchlist", fetchJson, { revalidateOnFocus: true });
   const { data: journal = [] } = useSWR<JournalEntry[]>("/api/journal", fetchJson);
   const { data: alerts = [] } = useSWR<Alert[]>("/api/alerts", fetchJson, { refreshInterval: 60_000 });
@@ -159,7 +159,15 @@ export function DashboardClient() {
         <p className="mt-1 text-sm text-ink-dim">Your portfolio at a glance — research and education, not financial advice.</p>
       </div>
 
-      {!hasHoldings ? (
+      {holdingsLoading ? (
+        // Skeleton while the first holdings fetch is in flight — without this the
+        // empty "Connect your brokerage" state flashes for a beat on every
+        // refresh/login even when the user HAS data, which is alarming.
+        <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1fr_320px]">
+          <div className="h-64 animate-pulse rounded-2xl glass" />
+          <div className="h-64 animate-pulse rounded-2xl glass" />
+        </div>
+      ) : !hasHoldings ? (
         <ConnectEmptyState variant="invest" />
       ) : (
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1fr_320px]">
