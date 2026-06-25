@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import useSWR from "swr";
-import { ArrowLeft, Plus, ChevronDown, Check, Star } from "lucide-react";
+import { ArrowLeft, Plus, ChevronDown, Check, Star, Sparkles, LayoutGrid } from "lucide-react";
 import { DataBadge } from "./data-state";
 import { AddToList } from "./add-to-list";
 import type { DataResult, ScreenerRow, ScreenerFilters } from "@/lib/providers/types";
@@ -38,6 +38,17 @@ export function ScreenerListDetail({ presetKey }: { presetKey: string }) {
   const { data: lists, mutate: mutateLists } = useSWR<ListRow[]>("/api/watchlists", fetchJson, { revalidateOnFocus: false });
   const isFollowed = following ?? Boolean((lists ?? []).some((l) => l.kind === "followed" && l.presetKey === presetKey));
 
+  // "You might also like" — related lists, same category first (closest to what
+  // they're viewing), then fill from other categories. Excludes this list.
+  const related = useMemo(() => {
+    const all = presetData?.presets ?? [];
+    if (!all.length) return [];
+    const self = all.find((p) => p.key === presetKey);
+    const sameCat = all.filter((p) => p.key !== presetKey && self && p.category === self.category);
+    const others = all.filter((p) => p.key !== presetKey && (!self || p.category !== self.category));
+    return [...sameCat, ...others].slice(0, 4);
+  }, [presetData, presetKey]);
+
   // Live results for this list's filters.
   const qs = useMemo(() => {
     const f = preset?.filters ?? {};
@@ -63,9 +74,32 @@ export function ScreenerListDetail({ presetKey }: { presetKey: string }) {
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       <Link href="/screeners" className="inline-flex items-center gap-1.5 text-sm text-ink-dim hover:text-ink"><ArrowLeft size={15} /> Trending lists</Link>
 
+      {/* You might also like — related lists at the top (closest to what they're
+          viewing), as clickable chips with their thumbnail. */}
+      {related.length > 0 && (
+        <div className="rounded-xl glass p-3">
+          <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-ink">
+            <Sparkles size={14} className="text-brand-400" /> You might also like
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {related.map((p) => (
+              <Link key={p.key} href={`/screeners/${p.key}`}
+                className="group inline-flex items-center gap-2 rounded-full border border-hairline bg-surface py-1 pl-1 pr-3 text-sm text-ink-dim transition-colors hover:border-brand-500/50 hover:text-ink">
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-full bg-surface-raised">
+                  <img src={p.image} alt="" className="h-full w-full object-cover" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
+                </span>
+                {p.label}
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="lg:grid lg:grid-cols-[1fr_280px] lg:gap-5">
+        <div className="space-y-4">
       {/* Hero — the artwork is a square illustration, so show it as a crisp
           contained square (no wide-band crop) next to the title, on a soft
           backdrop tinted from the same image. */}
@@ -150,6 +184,36 @@ export function ScreenerListDetail({ presetKey }: { presetKey: string }) {
             <p>Research and educational analysis only. Not a broker-dealer; not investment, legal, or tax advice.</p>
           </div>
         )}
+      </div>
+        </div>
+
+        {/* Your lists rail — same as the screener index, so it stays available
+            while viewing a list. */}
+        <aside className="mt-4 lg:mt-0">
+          <div className="lg:sticky lg:top-4 rounded-xl glass p-4">
+            <div className="mb-2 flex items-center justify-between">
+              <span className="text-sm font-semibold text-ink">Your lists</span>
+              <Link href="/watchlist" aria-label="Manage lists" className="rounded-md p-1 text-ink-faint hover:bg-surface hover:text-ink"><Plus size={15} /></Link>
+            </div>
+            <div className="space-y-1">
+              {(lists ?? []).map((l) => {
+                const href = l.kind === "followed" && l.presetKey ? `/screeners/${l.presetKey}` : "/watchlist";
+                const img = l.kind === "followed" && l.presetKey ? `/images/presets/${l.presetKey}.jpg` : null;
+                return (
+                  <Link key={l.id} href={href}
+                    className={`flex items-center gap-2.5 rounded-lg px-2 py-1.5 text-sm hover:bg-surface ${l.kind === "followed" && l.presetKey === presetKey ? "bg-brand-500/10" : ""}`}>
+                    <span className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-md bg-surface-raised">
+                      {img ? <img src={img} alt="" className="h-full w-full object-cover" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} /> : l.kind === "followed" ? <Star size={14} className="text-brand-400" /> : <LayoutGrid size={14} className="text-ink-faint" />}
+                    </span>
+                    <span className="min-w-0 flex-1 truncate text-ink-dim">{l.name}</span>
+                    {l.kind !== "followed" && <span className="text-[11px] text-ink-faint">{(l as any).count ?? ""}</span>}
+                  </Link>
+                );
+              })}
+              {(lists ?? []).length === 0 && <p className="px-2 py-3 text-xs text-ink-faint">No lists yet. Follow a trending list or create one in Watchlist.</p>}
+            </div>
+          </div>
+        </aside>
       </div>
 
       {addSymbol && <AddToList symbol={addSymbol} onClose={() => setAddSymbol(null)} />}
