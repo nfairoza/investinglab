@@ -327,6 +327,9 @@ export async function POST(req: NextRequest) {
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Portfolio analysis failed";
     await logError({ message: msg, category: "ai", section: "portfolio-doctor", statusCode: 500, path: "/api/portfolio-doctor", userId: ctx.userId });
-    return NextResponse.json({ error: "generation_failed", message: msg }, { status: 500 });
+    // Non-admins never see raw provider errors (e.g. "Gemini HTTP 401 …") —
+    // they get a calm message; admins get the real detail for debugging.
+    const userMsg = ctx.isAdmin ? msg : "The Portfolio Doctor is temporarily unavailable. Please try again later, or contact your administrator.";
+    return NextResponse.json({ error: "generation_failed", message: userMsg }, { status: 500 });
   }
 }

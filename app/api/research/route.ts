@@ -5,6 +5,8 @@ import type { ResearchReport } from "@/lib/research/types";
 import { SECTION_PLAN } from "@/lib/research/types";
 import { aiStatus } from "@/lib/ai/anthropic";
 import { routeText } from "@/lib/ai/router";
+import { getUserClient } from "@/lib/supabase-data";
+import { isDailyStale } from "@/lib/daily-cache";
 
 export const dynamic = "force-dynamic";
 
@@ -111,25 +113,58 @@ Return ONLY the JSON.`;
   return JSON.parse(text.slice(s, e + 1)) as Partial<ResearchReport>;
 }
 
+// GET — serve the SHARED cached memo; if missing/stale, generate it (the first
+// viewer triggers it), cache it, and return. Caps token spend while staying
+// fresh-ish (refreshes each 8am ET, or after 12h). Any authed user can read.
 export async function GET(req: NextRequest) {
   const symbol = req.nextUrl.searchParams.get("symbol")?.toUpperCase();
   if (!symbol) return NextResponse.json({ error: "symbol required" }, { status: 400 });
-  // TODO (Phase 2.5/5): read latest stored memo for auth.uid()+symbol from
-  // research_reports and return it. Until persistence exists, report none.
-  return NextResponse.json(unavailable(symbol, "No saved research yet — click Generate."));
+  const ctx = await getUserClient();
+  if (!ctx) return NextResponse.json(unavailable(symbol, "Sign in to view research."));
+
+  // Read shared cache.
+  const { data: cached } = await ctx.supabase.from("shared_research").select("payload, generated_at").eq("symbol", symbol).maybeSingle();
+  if (cached?.payload && !isDailyStale(cached.generated_at)) {
+    return NextResponse.json(cached.payload as DataResult<ResearchReport>);
+  }
+
+  // Miss or stale → generate now, cache, return. (No AI key → honest message.)
+  if (!aiStatus().configured) {
+    return NextResponse.json(unavailable(symbol, "Research isn't available right now — please try again later or contact your administrator."));
+  }
+  const result = await generateMemo(symbol);
+  if (result.data) {
+    await ctx.supabase.from("shared_research").upsert(
+      { symbol, payload: result, model: result.provider, generated_at: new Date().toISOString(), generated_by: ctx.userId },
+      { onConflict: "symbol" },
+    ).then(() => {}, () => {});
+  }
+  return NextResponse.json(result);
 }
 
+// POST — ADMIN ONLY force refresh. Regenerates and overwrites the shared cache.
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}));
   const symbol = (body?.symbol as string | undefined)?.toUpperCase();
   if (!symbol) return NextResponse.json({ error: "symbol required" }, { status: 400 });
+  const ctx = await getUserClient();
+  if (!ctx?.isAdmin) return NextResponse.json({ error: "forbidden" }, { status: 403 });
 
   if (!aiStatus().configured) {
-    return NextResponse.json(
-      unavailable(symbol, "No Claude API key configured. Add it in Settings, or set ANTHROPIC_API_KEY."),
-    );
+    return NextResponse.json(unavailable(symbol, "No AI key configured."));
   }
+  const result = await generateMemo(symbol);
+  if (result.data) {
+    await ctx.supabase.from("shared_research").upsert(
+      { symbol, payload: result, model: result.provider, generated_at: new Date().toISOString(), generated_by: ctx.userId },
+      { onConflict: "symbol" },
+    ).then(() => {}, () => {});
+  }
+  return NextResponse.json(result);
+}
 
+// Generate a fresh memo for a symbol from live data (web-search fallback).
+async function generateMemo(symbol: string): Promise<DataResult<ResearchReport>> {
   // Pull the data the memo will reason over. With Starter we can give Claude the
   // full picture: quote, financials, technicals, analyst targets, and DCF.
   const [quote, fin, tech, analyst, dcf] = await Promise.all([
@@ -171,9 +206,9 @@ DCF: ${JSON.stringify(dcf.data ?? "unavailable")}`;
             ? undefined
             : "Built on demo market data — add a market-data API key for live figures.",
       };
-      return NextResponse.json(result);
+      return result;
     } catch (e) {
-      return NextResponse.json(unavailable(symbol, e instanceof Error ? e.message : "generation failed"));
+      return unavailable(symbol, e instanceof Error ? e.message : "generation failed");
     }
   }
 
@@ -188,8 +223,8 @@ DCF: ${JSON.stringify(dcf.data ?? "unavailable")}`;
       provider: "ai-websearch",
       note: `Market-data feed unavailable (${quote.note ?? "no data"}). This memo was built from AI web search — figures may be delayed; verify before acting.`,
     };
-    return NextResponse.json(result);
+    return result;
   } catch (e) {
-    return NextResponse.json(unavailable(symbol, e instanceof Error ? e.message : "generation failed"));
+    return unavailable(symbol, e instanceof Error ? e.message : "generation failed");
   }
 }

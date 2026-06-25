@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import useSWR from "swr";
-import { Plus, Star, ExternalLink, Trash2 } from "lucide-react";
+import { Plus, Star, ExternalLink, Trash2, Pencil } from "lucide-react";
 import { WatchlistManager } from "./watchlist-manager";
 
 // Multi-list watchlist shell: a list selector across the top, then the selected
@@ -17,6 +17,8 @@ export function WatchlistPage() {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState("");
+  const [renaming, setRenaming] = useState<string | null>(null);
+  const [renameVal, setRenameVal] = useState("");
 
   const all = lists ?? [];
   // Default selection: first list (default sorts first).
@@ -41,6 +43,14 @@ export function WatchlistPage() {
   async function unfollow(presetKey: string) {
     await fetch(`/api/watchlists/follow?presetKey=${presetKey}`, { method: "DELETE" });
     setActiveId(null);
+    await mutate();
+  }
+
+  async function renameList(id: string, name: string) {
+    const n = name.trim();
+    if (!n) { setRenaming(null); return; }
+    await fetch("/api/watchlists", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, name: n }) });
+    setRenaming(null);
     await mutate();
   }
 
@@ -92,11 +102,25 @@ export function WatchlistPage() {
 
       {active && active.kind !== "followed" && (
         <div>
-          {active.kind === "custom" && (
-            <div className="mb-2 flex justify-end">
+          {/* List header: rename (any list) + delete (custom only) */}
+          <div className="mb-2 flex items-center justify-between">
+            {renaming === active.id ? (
+              <span className="inline-flex items-center gap-1.5">
+                <input autoFocus value={renameVal} onChange={(e) => setRenameVal(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") renameList(active.id, renameVal); if (e.key === "Escape") setRenaming(null); }}
+                  className="rounded-md border border-hairline bg-surface px-2.5 py-1 text-sm text-ink focus:border-brand-500 focus:outline-none" />
+                <button onClick={() => renameList(active.id, renameVal)} className="text-xs text-brand-400 hover:underline">Save</button>
+                <button onClick={() => setRenaming(null)} className="text-xs text-ink-faint hover:text-ink">Cancel</button>
+              </span>
+            ) : (
+              <button onClick={() => { setRenaming(active.id); setRenameVal(active.name); }} className="inline-flex items-center gap-1 text-xs text-ink-faint hover:text-ink">
+                <Pencil size={12} /> Rename
+              </button>
+            )}
+            {active.kind === "custom" && (
               <button onClick={() => deleteList(active.id)} className="inline-flex items-center gap-1 text-xs text-ink-faint hover:text-rose-300"><Trash2 size={12} /> Delete list</button>
-            </div>
-          )}
+            )}
+          </div>
           {/* default list uses the compat endpoint (no listId); custom passes listId */}
           <WatchlistManager listId={active.kind === "default" ? undefined : active.id} />
         </div>

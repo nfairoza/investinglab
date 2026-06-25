@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import useSWR from "swr";
 import { DataBadge } from "./data-state";
 import type { DataResult } from "@/lib/providers/types";
@@ -11,6 +11,7 @@ import { ScenarioRangeChart } from "./charts/ScenarioRangeChart";
 import { RevenueEarningsChart } from "./charts/RevenueEarningsChart";
 import { MarginChart } from "./charts/MarginChart";
 import { MotionLoader } from "./motion-loader";
+import { useIsAdmin } from "./use-is-admin";
 
 async function getReport(url: string): Promise<DataResult<ResearchReport>> {
   const r = await fetch(url);
@@ -43,7 +44,10 @@ export function ResearchPanel({ symbol, autoRun = true }: { symbol: string; auto
     { revalidateOnFocus: false },
   );
   const [busy, setBusy] = useState(false);
-  const [beginner, setBeginner] = useState(true);
+  const isAdmin = useIsAdmin();
+  // Beginner-friendly section text is the default for everyone (the toggle was
+  // removed). Rukmani can go deeper in chat if a user wants the pro view.
+  const beginner = true;
 
   async function regenerate() {
     setBusy(true);
@@ -62,28 +66,13 @@ export function ResearchPanel({ symbol, autoRun = true }: { symbol: string; auto
 
   const report = data?.data;
   const fresh = report ? freshness(report.generatedAt) : null;
-  // "no_key" is the only state where auto-generating won't help — surface the
-  // manual prompt then. Otherwise we auto-generate below.
-  const noKey = Boolean(data?.note && /key|connector|settings/i.test(data.note));
+  // Unavailable for a real reason (no key / error) — surface the note, don't spin.
+  const noKey = Boolean(data?.note && /key|connector|settings|unavailable|administrator/i.test(data.note));
 
-  // Auto-generate the memo once per symbol when none is saved — no manual click
-  // needed. Skipped if there's no AI key (manual prompt shown instead).
-  const autoFor = useRef<string | null>(null);
-  useEffect(() => {
-    if (!autoRun) return;
-    if (isLoading || busy) return;
-    if (report) return;          // already have one
-    if (noKey) return;           // can't — show prompt
-    if (autoFor.current === symbol) return; // tried already this symbol
-    autoFor.current = symbol;
-    regenerate();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [symbol, isLoading, report, noKey, autoRun]);
-
-  // Reset the auto-trigger guard when the symbol changes.
-  useEffect(() => { autoFor.current = autoFor.current === symbol ? symbol : null; }, [symbol]);
-
-  const generating = busy || (autoRun && !report && !noKey);
+  // No client-side auto-POST: the GET endpoint itself generates + caches the memo
+  // on a miss (first viewer), so once SWR resolves, `report` is populated. While
+  // the GET is in flight (it may be generating server-side), show the loader.
+  const generating = busy || (autoRun && isLoading && !report);
 
   return (
     <div className="rounded-xl glass p-5">
@@ -103,16 +92,9 @@ export function ResearchPanel({ symbol, autoRun = true }: { symbol: string; auto
             report && data && <DataBadge source={data.source} />
           )}
         </div>
-        <div className="flex items-center gap-2">
-          <label className="flex items-center gap-1.5 text-[12px] text-ink-dim">
-            <input
-              type="checkbox"
-              checked={beginner}
-              onChange={(e) => setBeginner(e.target.checked)}
-              className="accent-brand-500"
-            />
-            Explain Like I&apos;m New
-          </label>
+        {/* Refresh is ADMIN-ONLY (token control). Everyone else gets the shared
+            cached memo, auto-generated on first view and refreshed each morning. */}
+        {isAdmin && (
           <button
             onClick={regenerate}
             disabled={generating}
@@ -120,7 +102,7 @@ export function ResearchPanel({ symbol, autoRun = true }: { symbol: string; auto
           >
             {generating ? "Generating…" : "Refresh analysis"}
           </button>
-        </div>
+        )}
       </div>
 
       {/* Auto-generating (or manual generate) — show the motion loader. */}
@@ -148,11 +130,6 @@ export function ResearchPanel({ symbol, autoRun = true }: { symbol: string; auto
 
           <div className="flex flex-wrap items-center gap-2 text-[12px]">
             <span className="text-ink-faint">Analysis generated {fresh?.label}.</span>
-            {fresh?.stale && (
-              <span className="rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-amber-300">
-                Over 12h old — refresh?
-              </span>
-            )}
             {data?.note && <span className="text-ink-faint">{data.note}</span>}
           </div>
 
