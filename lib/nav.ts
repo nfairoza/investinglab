@@ -28,7 +28,7 @@ export const SECTIONS: NavSection[] = [
       { href: "/research", label: "Research", icon: Search },
       { href: "/rankings", label: "Rankings", icon: Trophy },
       { href: "/map", label: "Stock Map", icon: Grid3x3 },
-      { href: "/screeners", label: "Screeners", icon: Filter },
+      { href: "/screeners", label: "Screeners & Lists", icon: Filter },
       { href: "/predictions", label: "Predictions", icon: TrendingUp },
       { href: "/portfolio-doctor", label: "Portfolio Doctor", icon: Stethoscope },
       { href: "/power-trades", label: "Power Trades", icon: Landmark },

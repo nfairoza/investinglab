@@ -5,6 +5,7 @@ import Link from "next/link";
 import useSWR from "swr";
 import { Plus, Star, ExternalLink, Trash2, Pencil } from "lucide-react";
 import { WatchlistManager } from "./watchlist-manager";
+import { WatchlistRecs } from "./watchlist-recs";
 
 // Multi-list watchlist shell: a list selector across the top, then the selected
 // list's content. Default + custom lists use the editable WatchlistManager;
@@ -56,6 +57,8 @@ export function WatchlistPage() {
 
   return (
     <div className="space-y-4">
+      <WatchlistRecs />
+
       {/* List selector */}
       <div className="flex flex-wrap items-center gap-2">
         {all.map((l) => {

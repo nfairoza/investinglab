@@ -6,6 +6,7 @@ import Link from "next/link";
 import { ArrowUp, ArrowDown, Plus, TrendingUp, Sparkles, Scale, ChevronRight, Search, Filter, Grid3x3, Landmark, Eye, Trophy } from "lucide-react";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import { MoneyInsights } from "./money-insights";
+import { WatchlistRecs } from "./watchlist-recs";
 
 const fetchJson = (u: string) => fetch(u).then((r) => r.json());
 const money = (n: number) => new Intl.NumberFormat(undefined, { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n);
@@ -411,6 +412,9 @@ export function Overview() {
 
       {/* One notable computed spending insight (bill hike / category anomaly) */}
       <MoneyInsights compact />
+
+      {/* AI watchlist ideas based on holdings/lists/recent views */}
+      <WatchlistRecs />
 
       <p className="text-[11px] text-ink-faint">Tap any card for the full view. Research and education, not financial advice.</p>
     </div>

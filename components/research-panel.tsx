@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import useSWR from "swr";
 import { DataBadge } from "./data-state";
 import type { DataResult } from "@/lib/providers/types";
@@ -48,6 +48,13 @@ export function ResearchPanel({ symbol, autoRun = true }: { symbol: string; auto
   // Beginner-friendly section text is the default for everyone (the toggle was
   // removed). Rukmani can go deeper in chat if a user wants the pro view.
   const beginner = true;
+
+  // Record this ticker as recently-viewed (powers AI watchlist recs). Fire and
+  // forget, once per symbol mount.
+  useEffect(() => {
+    if (!symbol) return;
+    fetch("/api/recently-viewed", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ symbol }) }).catch(() => {});
+  }, [symbol]);
 
   async function regenerate() {
     setBusy(true);

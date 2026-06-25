@@ -17,14 +17,16 @@ export function AuthShell({ children }: { children: React.ReactNode }) {
             <span className="block text-[10px] font-medium uppercase tracking-[0.32em] text-ink-faint">AI Wealth</span>
           </span>
         </div>
-        <h2 className="auth-aside-head">Your banking, spending, and E&#8209;Trade portfolio. Unified and predicted by AI.</h2>
+        <h2 className="auth-aside-head">Your banks, brokerages, and whole financial life — unified and understood by AI.</h2>
         <div className="auth-trust">
-          🔒 Read-Only Bank Integration via Bank-Grade 256-Bit Encryption. Your Capital Stays Yours.
+          🔒 Read-only connections via bank-grade encryption (Plaid). We can&#8217;t move your money.
         </div>
         <ul className="auth-aside-list">
-          <li>Live holdings, scores & research in one place</li>
-          <li>AI finds where to put your cash</li>
-          <li>Smart alerts on what actually matters</li>
+          <li>Connect banks &amp; brokerages — live balances, holdings & net worth</li>
+          <li>AI research memos, predictions & a Portfolio Doctor</li>
+          <li>Screeners, trending lists & multi-list watchlists</li>
+          <li>Power Trades — Congress, insider (SEC) & influence disclosures</li>
+          <li>Spending insights and Rukmani, your AI money assistant</li>
         </ul>
         <p className="auth-aside-foot">Private to your account · Not financial advice</p>
       </aside>
