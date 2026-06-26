@@ -1,5 +1,6 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getUserClient } from "@/lib/supabase-data";
+import { getUnifiedHoldings } from "@/lib/holdings-server";
 import { marketData } from "@/lib/providers";
 import type { DataResult, Quote, PriceHistory } from "@/lib/providers/types";
 
@@ -24,11 +25,15 @@ async function pool<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>
 // GET /api/dashboard-data
 // One round-trip for the dashboard: holdings' quotes + price histories, batched
 // server-side. Replaces N client /api/quote + N /api/price-history calls.
-export async function GET() {
+export async function GET(req: NextRequest) {
   const ctx = await getUserClient();
   if (!ctx) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  const { data: rows } = await ctx.supabase.from("holdings").select("symbol");
-  const symbols = Array.from(new Set((rows ?? []).map((h: any) => String(h.symbol).toUpperCase())));
+  // Symbols from the UNIFIED holdings (DB + Plaid brokerage), not just the DB
+  // table — otherwise a Plaid-only user gets no quotes/histories (blank charts).
+  // The client may also pass ?syms= as a fast hint; union both.
+  const unified = await getUnifiedHoldings(ctx.supabase, { realTickersOnly: true });
+  const fromClient = (req.nextUrl.searchParams.get("syms") ?? "").split(",").map((s) => s.trim().toUpperCase()).filter(Boolean);
+  const symbols = Array.from(new Set([...unified.map((h) => h.symbol), ...fromClient]));
 
   const quotes: Record<string, DataResult<Quote>> = {};
   const histories: Record<string, { date: string; close: number }[]> = {};

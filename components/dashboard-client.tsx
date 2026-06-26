@@ -68,7 +68,25 @@ export function DashboardClient() {
         plaidPrice: p.price ?? undefined,
         readOnly: true,
       }) as unknown as Holding);
-    return [...dbHoldings, ...plaidRows];
+    // Aggregate by symbol so a stock held across multiple accounts (e.g. AMD in
+    // 3 E*TRADE accounts) shows ONCE on the dashboard — sum shares & market
+    // value, share-weight the avg cost.
+    const bySym = new Map<string, Holding>();
+    for (const h of [...dbHoldings, ...plaidRows]) {
+      const key = h.symbol.toUpperCase();
+      const ex = bySym.get(key);
+      if (!ex) { bySym.set(key, { ...h, symbol: key }); continue; }
+      const shares = (ex.shares || 0) + (h.shares || 0);
+      const exCost = (ex.avgCost || 0) * (ex.shares || 0);
+      const hCost = (h.avgCost || 0) * (h.shares || 0);
+      bySym.set(key, {
+        ...ex,
+        shares,
+        avgCost: shares > 0 ? (exCost + hCost) / shares : 0,
+        marketValue: ((ex as any).marketValue ?? 0) + ((h as any).marketValue ?? 0) || undefined,
+      } as Holding);
+    }
+    return Array.from(bySym.values());
   }, [dbHoldings, plaidInv]);
 
   // Total potential (unvested RSU) value — shown as its own stat, NOT counted in
