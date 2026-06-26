@@ -1,7 +1,7 @@
 "use client";
 
 import useSWR from "swr";
-import { DataBadge, DataNote } from "./data-state";
+import { DataBadge } from "./data-state";
 import type { DataResult, DcfValue } from "@/lib/providers/types";
 
 async function get(url: string): Promise<DataResult<DcfValue>> {
@@ -22,6 +22,11 @@ export function DcfCard({ symbol }: { symbol: string }) {
   const cheap = pct != null && pct < 0;
   const expensive = pct != null && pct > 0;
 
+  // No DCF (e.g. ETFs/funds have no company cash flows to discount) — hide the
+  // card entirely rather than showing an alarming "Unavailable". Rukmani can
+  // explain why if asked. Only hide once the fetch has resolved with no data.
+  if (!isLoading && !d) return null;
+
   return (
     <div className="card-hover rounded-xl glass p-5">
       <div className="flex items-center justify-between">
@@ -33,9 +38,6 @@ export function DcfCard({ symbol }: { symbol: string }) {
       </p>
 
       {isLoading && <div className="mt-4 h-16 animate-pulse rounded bg-surface-raised" />}
-      {!isLoading && !d && (
-        <DataNote note={data?.note} fallback="DCF data unavailable." className="mt-3 block text-sm text-ink-faint" />
-      )}
 
       {d && (
         <div className="mt-4 space-y-3">
