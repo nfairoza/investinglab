@@ -4,6 +4,7 @@ import { streamGemini, geminiKey } from "@/lib/ai/gemini";
 import { marketData } from "@/lib/providers";
 import { planRoute, type AiTask } from "@/lib/ai/router";
 import { getUserClient } from "@/lib/supabase-data";
+import { computeAdvisor } from "@/lib/advisor/engine";
 
 export const dynamic = "force-dynamic";
 
@@ -101,6 +102,78 @@ async function gatherLiveData(messages: ChatMessage[], ctx: ChatContext): Promis
   );
   const live = blocks.filter(Boolean).join("\n\n");
   return live ? `\n\nLIVE DATA (fetched just now for tickers in the question):\n${live}` : "";
+}
+
+// Does the question touch the user's MONEY (banking) side? If so we attach the
+// full accounts/transactions/debt picture so Rukmani can answer "why is this
+// loan payment $12k" by pointing at the actual transactions. Gated to keep token
+// cost down — investing-only questions don't need the banking dump.
+function needsMoneyContext(text: string): boolean {
+  return /\b(spend|spent|spending|transaction|loan|debt|mortgage|credit card|payment|bill|income|expense|budget|cash flow|account|balance|bank|deposit|withdraw|net worth|savings|subscription|recurring|categor|advisor|insight|why is|how did you|how is this|where did|breakdown|calculat)\b/i.test(text);
+}
+
+// Server-side money context, built from the VERIFIED session (never trusted from
+// the client). Includes account balances, the computed advisor analysis (debts
+// w/ APR + min payment, liquid cash, monthly expenses, spending by category),
+// and the recent transactions that feed those numbers — so Rukmani can trace a
+// figure back to specific lines. Returns "" if Plaid isn't connected.
+async function gatherMoneyData(session: { supabase: any; userId: string }): Promise<string> {
+  try {
+    const [{ data: txns }, advisor] = await Promise.all([
+      session.supabase
+        .from("plaid_transactions")
+        .select("date,name,merchant,amount,plaid_category,institution")
+        .eq("removed", false)
+        .order("date", { ascending: false })
+        .limit(120),
+      computeAdvisor(session).catch(() => null),
+    ]);
+
+    const rows: any[] = txns ?? [];
+    if (!rows.length && !advisor) return "";
+
+    let out = "\n\nTHE USER'S MONEY (private, read-only — their own data; use it to answer banking/spending/debt questions and trace numbers to specific transactions):\n";
+
+    if (advisor) {
+      out += `\nFINANCIAL SUMMARY (computed from their linked accounts):\n`;
+      out += `  Net worth: $${Math.round(advisor.netWorth).toLocaleString()} (assets $${Math.round(advisor.totalAssets).toLocaleString()} − liabilities $${Math.round(advisor.totalLiabilities).toLocaleString()})\n`;
+      out += `  Liquid cash: $${Math.round(advisor.liquidCash).toLocaleString()}\n`;
+      if (advisor.avgMonthlyExpenses != null) out += `  Avg monthly expenses: $${Math.round(advisor.avgMonthlyExpenses).toLocaleString()}\n`;
+      const sp = advisor.spending;
+      if (sp?.available) {
+        out += `  This month: income $${Math.round(sp.monthIncome).toLocaleString()}, expenses $${Math.round(sp.monthExpenses).toLocaleString()}, net $${Math.round(sp.net).toLocaleString()}\n`;
+        if (sp.topCategories?.length) {
+          out += `  Top spending categories:\n`;
+          for (const c of sp.topCategories.slice(0, 12)) out += `    - ${c.category}: $${Math.round(c.amount).toLocaleString()}\n`;
+        }
+        if (sp.recurring?.length) {
+          out += `  Recurring charges:\n`;
+          for (const r of sp.recurring.slice(0, 10)) out += `    - ${r.merchant}: $${Math.round(r.amount).toLocaleString()}/mo (${r.months} months seen)\n`;
+        }
+      }
+      // The advisor steps carry the arithmetic behind each figure (mathSummary)
+      // plus the computed facts — exactly what's needed to explain "why $12k".
+      if (advisor.steps?.length) {
+        out += `  Advisor plan (each step shows how its numbers were computed):\n`;
+        for (const s of advisor.steps.slice(0, 8)) {
+          const facts = (s.computedFacts ?? []).map((f) => `${f.label}: ${f.value}`).join("; ");
+          out += `    - ${s.title}${s.mathSummary ? ` — ${s.mathSummary}` : ""}${facts ? ` (${facts})` : ""}\n`;
+        }
+      }
+    }
+
+    if (rows.length) {
+      out += `\nRECENT TRANSACTIONS (latest ${rows.length}, newest first — date · amount · name · category · bank):\n`;
+      for (const t of rows) {
+        const amt = Number(t.amount);
+        out += `  ${t.date} · ${amt < 0 ? "-" : "+"}$${Math.abs(amt).toLocaleString()} · ${t.merchant || t.name} · ${t.plaid_category ?? "Uncategorized"} · ${t.institution ?? "—"}\n`;
+      }
+      out += `\nWhen explaining a computed figure (e.g. a loan payment or category total), cite the specific transactions above (date, amount, merchant, bank) that make it up, and show how they sum.\n`;
+    }
+    return out;
+  } catch {
+    return "";
+  }
 }
 
 function buildSystem(ctx: ChatContext): string {
@@ -231,7 +304,11 @@ export async function POST(req: NextRequest) {
 
   // Fetch live quotes + news for tickers in the question, append to the system.
   const liveData = await gatherLiveData(messages, ctx);
-  const system = buildSystem(ctx) + liveData;
+  // If the question touches banking/spending/debt, attach the user's accounts +
+  // transactions + computed analysis so Rukmani can trace figures to real lines.
+  const lastUserText = [...messages].reverse().find((m) => m.role === "user")?.content ?? "";
+  const moneyData = session && needsMoneyContext(lastUserText) ? await gatherMoneyData(session) : "";
+  const system = buildSystem(ctx) + liveData + moneyData;
   const recent = messages.slice(-12); // keep last 12 messages for context
 
   // Smart routing: classify the latest user turn and let the router decide which
