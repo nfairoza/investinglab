@@ -57,7 +57,7 @@ async function fetchSparks(symbols: string[]): Promise<Record<string, { v: numbe
   return Object.fromEntries(entries);
 }
 
-interface PlaidHolding { symbol: string; name: string | null; hasRealTicker?: boolean; quantity: number; price: number | null; value: number | null; costBasis: number | null; currency: string; institution: string; accountMask?: string | null; secType?: string | null; isCashEquivalent?: boolean; potentialValue?: number | null; vestedValue?: number | null; vestedQuantity?: number | null; hasVesting?: boolean }
+interface PlaidHolding { symbol: string; name: string | null; hasRealTicker?: boolean; quantity: number; price: number | null; value: number | null; costBasis: number | null; currency: string; institution: string; accountMask?: string | null; secType?: string | null; isCashEquivalent?: boolean; potentialValue?: number | null; vestedValue?: number | null; vestedQuantity?: number | null; hasVesting?: boolean; vestDate?: string | null }
 
 // Short, readable institution label: "E*TRADE from Morgan Stanley" → "E*TRADE",
 // plus the last-4 account mask when available (e.g. "E*TRADE ••1234").
@@ -133,15 +133,17 @@ export function HoldingsManager() {
       .filter((p) => !(haveEtrade && isEtradeInstitution(p.institution))) // E*TRADE wins
       .map((p) => {
         const kind = classifyHolding({ symbol: p.symbol, secType: p.secType, isCashEquivalent: p.isCashEquivalent, hasRealTicker: p.hasRealTicker });
+        // RSU/vesting: in the Holdings table show ONLY the vested portion
+        // (shares + value). The unvested remainder lives in the Unvested card.
+        const ownedShares = p.hasVesting && p.vestedQuantity != null ? Number(p.vestedQuantity) : Number(p.quantity) || 0;
+        const ownedValue = p.hasVesting && p.vestedValue != null ? p.vestedValue : p.value;
         return {
           id: `plaid:${p.institution}:${p.symbol}`,
           symbol: String(p.symbol).toUpperCase(),
-          shares: Number(p.quantity) || 0,
+          shares: ownedShares,
           avgCost: p.costBasis != null && p.quantity ? Number(p.costBasis) / Number(p.quantity) : 0,
           source: shortInstitution(p.institution, p.accountMask), // short label + last-4
-          // RSU/vesting: current value = vested only; unvested goes to the
-          // "Potential holdings" card and is excluded from portfolio totals.
-          marketValue: (p.hasVesting && p.vestedValue != null ? p.vestedValue : p.value) ?? undefined,
+          marketValue: ownedValue ?? undefined,
           assetType: kind === "crypto" ? "crypto" : undefined,
           kind,
           displayName: p.name ?? undefined, // fund full name (no ticker)
@@ -152,23 +154,6 @@ export function HoldingsManager() {
     const dbRows: Holding[] = dbHoldings.map((h) => ({ ...h, kind: classifyHolding({ symbol: h.symbol, assetType: h.assetType }) }) as unknown as Holding);
     return [...dbRows, ...plaidRows];
   }, [dbHoldings, plaidInv]);
-
-  // Potential (unvested RSU) holdings — vesting awards where Plaid reports a
-  // vested split. Shown in their own card; NOT counted in portfolio value or net
-  // worth (you don't own the unvested portion yet).
-  const potentialRows = useMemo(() => {
-    return (plaidInv?.holdings ?? [])
-      .filter((p) => p.hasVesting && (p.potentialValue ?? 0) > 0)
-      .map((p) => ({
-        symbol: String(p.symbol).toUpperCase(),
-        name: p.name,
-        institution: shortInstitution(p.institution, p.accountMask),
-        potentialValue: p.potentialValue ?? 0,
-        unvestedShares: p.vestedQuantity != null ? Math.max(0, Number(p.quantity) - Number(p.vestedQuantity)) : null,
-        price: p.price,
-      }));
-  }, [plaidInv]);
-  const potentialTotal = potentialRows.reduce((s, r) => s + r.potentialValue, 0);
 
   // Split by kind: securities (stocks/ETFs/funds) fill the main table; crypto
   // gets its own card; "other" (cash equivalents, options, bonds) is excluded
@@ -195,6 +180,35 @@ export function HoldingsManager() {
     () => fetchSparks(symbols),
     { revalidateOnFocus: false, keepPreviousData: true },
   );
+
+  // Unvested (RSU/equity award) holdings — vesting awards where Plaid reports a
+  // vested split. Own card; NOT counted in portfolio value or net worth. Enriched
+  // with the live quote so value/gain/day move show like a real holding.
+  const potentialRows = useMemo(() => {
+    return (plaidInv?.holdings ?? [])
+      .filter((p) => p.hasVesting && (p.potentialValue ?? 0) > 0)
+      .map((p) => {
+        const unvestedShares = p.vestedQuantity != null ? Math.max(0, Number(p.quantity) - Number(p.vestedQuantity)) : null;
+        const q = quotes?.[String(p.symbol).toUpperCase()]?.data ?? null;
+        const livePrice = q?.price ?? p.price ?? null;
+        const value = livePrice != null && unvestedShares != null ? livePrice * unvestedShares : (p.potentialValue ?? 0);
+        const cost = p.costBasis != null && p.quantity ? (Number(p.costBasis) / Number(p.quantity)) * (unvestedShares ?? 0) : null;
+        const gain = cost != null && cost > 0 ? value - cost : null;
+        const gainPct = gain != null && cost ? (gain / cost) * 100 : null;
+        return {
+          symbol: String(p.symbol).toUpperCase(),
+          name: p.name,
+          institution: shortInstitution(p.institution, p.accountMask),
+          potentialValue: value,
+          unvestedShares,
+          price: livePrice,
+          gain, gainPct,
+          dayPct: q?.changePct ?? null,
+          vestDate: p.vestDate ?? null,
+        };
+      });
+  }, [plaidInv, quotes]);
+  const potentialTotal = potentialRows.reduce((s, r) => s + r.potentialValue, 0);
 
   // Inline sorting (null = insertion order).
   type SortKey = "symbol" | "shares" | "avgCost" | "price" | "value" | "day" | "total" | "weight";
@@ -551,34 +565,48 @@ export function HoldingsManager() {
           Priced from the broker's value, not researchable by ticker. */}
       {fundHoldings.length > 0 && <FundsCard rows={fundHoldings} />}
 
-      {/* Potential holdings — unvested RSU/equity awards. Tracked separately and
-          NOT counted in portfolio value or net worth (not yet owned). */}
+      {/* Unvested stock — RSU/equity awards not yet vested. Tracked separately
+          and NOT counted in portfolio value or net worth (not yet owned). */}
       {potentialRows.length > 0 && (
         <div className="rounded-xl glass p-4">
           <div className="flex items-center justify-between">
             <div>
-              <div className="text-sm font-semibold text-ink">Potential holdings</div>
-              <div className="mt-0.5 text-xs text-ink-faint">Unvested RSU/equity awards — not yet owned, excluded from portfolio value &amp; net worth.</div>
+              <div className="text-sm font-semibold text-ink">Unvested stock</div>
+              <div className="mt-0.5 text-xs text-ink-faint">RSU/equity awards not yet vested — excluded from portfolio value &amp; net worth.</div>
             </div>
             <div className="text-right">
               <div className="text-lg font-semibold text-violet-400">${potentialTotal.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
-              <div className="text-[11px] text-ink-faint">potential value</div>
+              <div className="text-[11px] text-ink-faint">unvested value</div>
             </div>
           </div>
           <div className="mt-3 divide-y divide-white/5">
-            {potentialRows.map((r) => (
-              <div key={`${r.institution}:${r.symbol}`} className="flex items-center justify-between py-2 text-sm">
-                <div className="min-w-0">
-                  <span className="font-mono font-semibold text-ink">{r.symbol}</span>
+            {potentialRows.map((r) => {
+              const up = (r.gain ?? 0) >= 0;
+              return (
+              <div key={`${r.institution}:${r.symbol}`} className="flex items-center gap-3 py-2 text-sm">
+                <div className="min-w-0 flex-1">
+                  <Link href={`/research?symbol=${r.symbol}`} className="font-mono font-semibold text-brand-300 hover:underline">{r.symbol}</Link>
                   <span className="ml-2 truncate text-xs text-ink-faint">{r.name ?? ""} · {r.institution}</span>
+                  <div className="text-[11px] text-ink-faint">
+                    {r.unvestedShares != null ? `${r.unvestedShares.toLocaleString(undefined, { maximumFractionDigits: 2 })} sh` : ""}
+                    {r.price != null ? ` @ $${r.price.toFixed(2)}` : ""}
+                    {r.dayPct != null ? <span className={r.dayPct >= 0 ? "text-emerald-400" : "text-rose-400"}> · {r.dayPct >= 0 ? "+" : ""}{r.dayPct.toFixed(2)}% today</span> : null}
+                    {r.vestDate ? ` · vests ${r.vestDate}` : ""}
+                  </div>
                 </div>
                 <div className="shrink-0 text-right">
                   <div className="text-ink">${r.potentialValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
-                  {r.unvestedShares != null && <div className="text-[11px] text-ink-faint">{r.unvestedShares.toLocaleString(undefined, { maximumFractionDigits: 2 })} unvested sh</div>}
+                  {r.gain != null && (
+                    <div className={`text-[11px] ${up ? "text-emerald-400" : "text-rose-400"}`}>
+                      {up ? "▲" : "▼"} ${Math.abs(r.gain).toLocaleString(undefined, { maximumFractionDigits: 0 })}{r.gainPct != null ? ` (${r.gainPct >= 0 ? "+" : ""}${r.gainPct.toFixed(1)}%)` : ""}
+                    </div>
+                  )}
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
+          <p className="mt-2 text-[10px] text-ink-faint">Vest dates aren&apos;t provided by the brokerage feed — check your grant agreement for the schedule.</p>
         </div>
       )}
 
