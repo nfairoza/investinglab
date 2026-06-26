@@ -244,7 +244,8 @@ export function ChatWidget() {
     if (open && !streaming && queuedPrompt.current) {
       const p = queuedPrompt.current;
       queuedPrompt.current = null;
-      void send(p);
+      // Card-triggered asks are "prepared" (deterministic, repeated) → cache-aware.
+      void send(p, true);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, streaming]);
@@ -305,7 +306,7 @@ export function ChatWidget() {
     setPendingImages((prev) => prev.filter((_, i) => i !== idx));
   }
 
-  async function send(text?: string) {
+  async function send(text?: string, prepared = false) {
     const userText = (text ?? input).trim();
     const imgs = pendingImages;
     // Allow sending if there's text OR at least one image.
@@ -321,8 +322,22 @@ export function ChatWidget() {
     setMessages((prev) => [...prev, userMsg, assistantMsg]);
     setStreaming(true);
 
+    // Pre-prepared question (from a ✦ insight-card button): serve a cached answer
+    // instantly if we have one — Rukmani is slow and these repeat verbatim.
+    if (prepared && !imgs.length) {
+      try {
+        const c = await fetch(`/api/chat/prepared?prompt=${encodeURIComponent(userText)}`).then((r) => r.json());
+        if (c?.answer) {
+          setMessages((prev) => prev.map((m) => m.id === assistantId ? { ...m, content: c.answer, streaming: false } : m));
+          setStreaming(false);
+          return;
+        }
+      } catch { /* fall through to live request */ }
+    }
+
     const controller = new AbortController();
     abortRef.current = controller;
+    let finalText = "";
 
     try {
       const res = await fetch("/api/chat", {
@@ -379,12 +394,20 @@ export function ChatWidget() {
 
         const delta = parseSSEChunk(chunk);
         if (delta) {
+          finalText += delta;
           setMessages((prev) =>
             prev.map((m) =>
               m.id === assistantId ? { ...m, content: m.content + delta } : m,
             ),
           );
         }
+      }
+      // Cache the completed answer for prepared questions so the next ask is instant.
+      if (prepared && finalText.trim()) {
+        fetch("/api/chat/prepared", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ prompt: userText, answer: finalText }),
+        }).catch(() => {});
       }
     } catch (e) {
       // User pressed Stop → keep whatever streamed so far, append a marker.

@@ -19,6 +19,19 @@ function ask(prompt: string) {
   window.dispatchEvent(new CustomEvent("ask-rukmani", { detail: { prompt } }));
 }
 
+// Small "ask Rukmani" sparkle button shown on each insight card. Clicking sends
+// the card's pre-prepared question to the chat (which caches it for instant
+// repeat answers).
+function AskButton({ prompt }: { prompt: string }) {
+  return (
+    <button onClick={(e) => { e.stopPropagation(); e.preventDefault(); ask(prompt); }}
+      title="Ask Rukmani about this" aria-label="Ask Rukmani"
+      className="shrink-0 rounded-lg border border-hairline bg-surface p-2 text-ink-faint transition-colors hover:text-brand-300">
+      <Sparkles size={15} />
+    </button>
+  );
+}
+
 // Money insights: deterministic spending anomalies, recurring-bill price
 // changes, and variable-bill trend plots. `compact` shows only the headline
 // anomaly + bill changes (for Overview); full shows everything incl. plots.
@@ -103,9 +116,8 @@ export function MoneyInsights({ compact = false }: { compact?: boolean }) {
 function BillChangeRow({ b }: { b: BillChange }) {
   const up = b.direction === "up";
   return (
-    <button onClick={() => ask(`My recurring charge for ${b.merchant} changed from ${money2(b.previousAmount)} to ${money2(b.newAmount)} after ${b.stableMonths} steady months. Is this a price hike, and what are my options?`)}
-      className="flex w-full items-center justify-between gap-3 rounded-lg border border-hairline bg-surface p-3 text-left transition-colors hover:brightness-110">
-      <div className="min-w-0">
+    <div className="flex items-center gap-2 rounded-lg border border-hairline bg-surface p-3">
+      <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5 text-sm font-medium text-ink">
           {b.merchant}
           <span className={`inline-flex items-center gap-0.5 rounded-full border px-1.5 py-0.5 text-[10px] ${up ? "border-rose-500/40 bg-rose-500/10 text-rose-300" : "border-emerald-500/40 bg-emerald-500/10 text-emerald-300"}`}>
@@ -117,7 +129,8 @@ function BillChangeRow({ b }: { b: BillChange }) {
         </div>
       </div>
       <span className={`shrink-0 text-sm font-semibold ${up ? "text-rose-400" : "text-emerald-400"}`}>{up ? "+" : "−"}{money2(Math.abs(b.deltaAmount))}/mo</span>
-    </button>
+      <AskButton prompt={`My recurring charge for ${b.merchant} changed from ${money2(b.previousAmount)} to ${money2(b.newAmount)} after ${b.stableMonths} steady months. Is this a price hike, and what are my options?`} />
+    </div>
   );
 }
 
@@ -128,12 +141,12 @@ function IncomeChangeRow({ c }: { c: IncomeChange }) {
     : up ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300"
     : "border-rose-500/40 bg-rose-500/10 text-rose-300";
   const label = stopped ? "stopped" : up ? `+${c.deltaPct}%` : `${c.deltaPct}%`;
+  const prompt = stopped
+    ? `A regular deposit from ${c.source} (about ${money2(c.previousAmount)}) hasn't come in since ${c.lastSeen}. What might that mean and what should I check?`
+    : `My income from ${c.source} ${up ? "went up" : "went down"} from ${money2(c.previousAmount)} to ${money2(c.newAmount)} (${c.deltaPct > 0 ? "+" : ""}${c.deltaPct}%). How should I think about this change?`;
   return (
-    <button onClick={() => window.dispatchEvent(new CustomEvent("ask-rukmani", { detail: { prompt: stopped
-        ? `A regular deposit from ${c.source} (about ${money2(c.previousAmount)}) hasn't come in since ${c.lastSeen}. What might that mean and what should I check?`
-        : `My income from ${c.source} ${up ? "went up" : "went down"} from ${money2(c.previousAmount)} to ${money2(c.newAmount)} (${c.deltaPct > 0 ? "+" : ""}${c.deltaPct}%). How should I think about this change?` } }))}
-      className="flex w-full items-center justify-between gap-3 rounded-lg border border-hairline bg-surface p-3 text-left transition-colors hover:brightness-110">
-      <div className="min-w-0">
+    <div className="flex items-center gap-2 rounded-lg border border-hairline bg-surface p-3">
+      <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5 text-sm font-medium text-ink">
           {c.source}
           <span className={`inline-flex items-center gap-0.5 rounded-full border px-1.5 py-0.5 text-[10px] ${cls}`}>
@@ -149,7 +162,8 @@ function IncomeChangeRow({ c }: { c: IncomeChange }) {
       <span className={`shrink-0 text-sm font-semibold ${stopped ? "text-amber-400" : up ? "text-emerald-400" : "text-rose-400"}`}>
         {stopped ? "paused" : `${up ? "+" : "−"}${money2(Math.abs(c.deltaAmount))}/mo`}
       </span>
-    </button>
+      <AskButton prompt={prompt} />
+    </div>
   );
 }
 
@@ -188,9 +202,12 @@ function BillTrendCard({ t }: { t: BillTrend }) {
   const id = `bt-${t.merchant.replace(/\W/g, "")}`;
   return (
     <div className="rounded-lg border border-hairline bg-surface p-3">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2">
         <span className="truncate text-sm font-medium text-ink">{t.merchant}</span>
-        <span className="shrink-0 text-sm font-semibold text-ink">{money2(t.latest)}</span>
+        <div className="flex shrink-0 items-center gap-2">
+          <span className="text-sm font-semibold text-ink">{money2(t.latest)}</span>
+          <AskButton prompt={`My recurring ${t.merchant} charge is currently ${money2(t.latest)} (range ${money2(t.min)}–${money2(t.max)}, avg ${money2(t.avg)}). Is this trending up, and is it worth reviewing?`} />
+        </div>
       </div>
       <div className="text-[11px] text-ink-faint">range {money2(t.min)}–{money2(t.max)} · avg {money2(t.avg)}</div>
       <div className="mt-2 h-20">
