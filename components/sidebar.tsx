@@ -152,7 +152,11 @@ export function Sidebar() {
           rail narrows; overflow-hidden clips it during the slide. */}
       <aside
         className={clsx(
-          "sticky top-0 hidden h-screen shrink-0 overflow-hidden rounded-none border-y-0 border-l-0 transition-[width] duration-300 ease-in-out md:block",
+          // self-start is critical: as a flex-row item the aside would otherwise
+          // stretch to the full content height (align-items: stretch), which
+          // defeats `sticky` — there'd be nothing taller to stick past. self-start
+          // keeps it at h-screen so it pins while the page scrolls.
+          "sticky top-0 hidden h-screen shrink-0 self-start overflow-hidden rounded-none border-y-0 border-l-0 transition-[width] duration-300 ease-in-out md:block",
           collapsed ? "w-0 border-r-0" : "glass w-64",
         )}
       >
