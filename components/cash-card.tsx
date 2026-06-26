@@ -27,7 +27,9 @@ export function CashCard() {
   const { data: plaidAcc } = useSWR<{ accounts?: { type?: string; available?: number | null; current?: number | null }[] }>("/api/plaid/accounts", fetchJson, { revalidateOnFocus: false });
   const investmentCash = (plaidAcc?.accounts ?? [])
     .filter((a) => a.type === "investment" || a.type === "brokerage")
-    .reduce((s, a) => s + (Number(a.available ?? a.current ?? 0) || 0), 0);
+    // available = cash portion; current = total incl. securities. Use available
+    // only so holdings aren't miscounted as cash.
+    .reduce((s, a) => s + (a.available != null ? Number(a.available) || 0 : 0), 0);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);

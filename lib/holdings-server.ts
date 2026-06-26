@@ -103,8 +103,13 @@ export async function plaidInvestmentCash(supabase: SupabaseClient): Promise<num
     try {
       const resp = await plaid.accountsBalanceGet({ access_token: it.access_token });
       for (const a of resp.data.accounts ?? []) {
+        // For brokerage/investment accounts, balances.available = the CASH
+        // portion (uninvested sweep), while balances.current = total account
+        // value (cash + securities). We only want the cash, so use available
+        // only — never fall back to current, which would count holdings as cash.
         if (a.type === "investment" || a.type === "brokerage") {
-          cash += Number(a.balances?.available ?? a.balances?.current ?? 0) || 0;
+          const avail = a.balances?.available;
+          if (avail != null) cash += Number(avail) || 0;
         }
       }
     } catch { /* skip */ }

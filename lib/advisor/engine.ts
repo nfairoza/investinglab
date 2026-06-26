@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getPlaid, plaidConfigured } from "@/lib/plaid";
 import { categorize } from "@/lib/money/categorize";
+import { plaidInvestmentCash } from "@/lib/holdings-server";
 import { computeNetWorth, type NetWorthResult } from "@/lib/networth";
 
 // =============================================================================
@@ -220,7 +221,13 @@ export async function computeAdvisor(ctx: { supabase: SupabaseClient; userId: st
   try { nw = await computeNetWorth(ctx); } catch {
     nw = { totalAssets: 0, totalLiabilities: 0, netWorth: 0, liquid: 0, illiquid: 0, byType: {}, items: [], excluded: [], sourceHash: "" };
   }
-  const liquidCash = nw.items.filter((i) => i.kind === "asset" && i.type === "cash").reduce((s, i) => s + i.amount, 0);
+  // Cash on hand = bank/depository cash PLUS uninvested cash sitting in
+  // brokerage accounts (e.g. proceeds from selling E*TRADE shares). The net-worth
+  // engine only tags depository accounts as "cash", so we add the brokerage cash
+  // sweep separately — otherwise a user who sold shares sees $0 cash here.
+  const bankCash = nw.items.filter((i) => i.kind === "asset" && i.type === "cash").reduce((s, i) => s + i.amount, 0);
+  const investmentCash = await plaidInvestmentCash(ctx.supabase).catch(() => 0);
+  const liquidCash = bankCash + investmentCash;
   if (nw.items.length) dataSources.push("net worth");
 
   // Spending from cached transactions (last ~120 days).
