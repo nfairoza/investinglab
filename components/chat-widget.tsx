@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { usePathname } from "next/navigation";
-import { X, Send, RotateCcw, Minus, Maximize2, Minimize2, ImagePlus, Square } from "lucide-react";
+import { X, ArrowUp, RotateCcw, Minus, Maximize2, Minimize2, ImagePlus, Square } from "lucide-react";
 
 // Rukmani mark: a speech bubble with a spark + two small "thinking" dots —
 // signals a smart assistant without a literal "AI" label or the generic
@@ -148,6 +148,39 @@ export function ChatWidget() {
 
   // Portals need the DOM — only render after mount.
   useEffect(() => setMounted(true), []);
+
+  // Cross-device continuity: load the saved conversation once on mount. The
+  // server returns it only if the session is still active (<1h idle); otherwise
+  // it's a fresh start. `historyLoaded` gates saving so we don't overwrite the
+  // stored history with an empty array before the load resolves.
+  const historyLoaded = useRef(false);
+  useEffect(() => {
+    (async () => {
+      try {
+        const r = await fetch("/api/chat/history");
+        const j = await r.json();
+        if (Array.isArray(j.messages) && j.messages.length) setMessages(j.messages as Message[]);
+      } catch { /* ignore — start fresh */ }
+      finally { historyLoaded.current = true; }
+    })();
+  }, []);
+
+  // Persist the conversation (debounced) whenever it changes, but not while a
+  // response is still streaming (avoids saving half-finished turns). Each save
+  // slides the 1-hour idle window forward server-side.
+  useEffect(() => {
+    if (!historyLoaded.current || streaming) return;
+    const t = setTimeout(() => {
+      fetch("/api/chat/history", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        // Drop image blobs from persistence — too large for the prefs row; keep
+        // text so the thread reads continuously across devices.
+        body: JSON.stringify({ messages: messages.map((m) => ({ id: m.id, role: m.role, content: m.content })) }),
+      }).catch(() => {});
+    }, 800);
+    return () => clearTimeout(t);
+  }, [messages, streaming]);
 
   // Auto-scroll the MESSAGE LIST to its bottom (not the whole page). Using
   // scrollIntoView scrolls the nearest scrollable ancestor — which here is the
@@ -369,6 +402,7 @@ export function ChatWidget() {
   function clearChat() {
     setMessages([]);
     setNoKey(false);
+    fetch("/api/chat/history", { method: "DELETE" }).catch(() => {});
   }
 
   if (!mounted) return null;
@@ -573,7 +607,7 @@ export function ChatWidget() {
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKey}
                 onPaste={handlePaste}
-                placeholder="Ask anything, or paste/attach an image… (Enter to send)"
+                placeholder=""
                 rows={1}
                 disabled={streaming}
                 className="flex-1 resize-none rounded-xl border border-hairline bg-surface-raised px-3 py-2 text-sm text-ink placeholder:text-ink-faint focus:border-brand-500 focus:outline-none disabled:opacity-50"
@@ -599,9 +633,13 @@ export function ChatWidget() {
                   disabled={!input.trim() && pendingImages.length === 0}
                   title="Send"
                   aria-label="Send"
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-600 text-white hover:bg-brand-600 disabled:opacity-40"
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-white transition-transform hover:scale-105 disabled:opacity-40"
+                  style={{
+                    background: "linear-gradient(140deg, #16D27E 0%, #0EA6C9 100%)",
+                    boxShadow: "0 4px 14px rgba(16,166,201,0.45)",
+                  }}
                 >
-                  <Send size={15} />
+                  <ArrowUp size={16} />
                 </button>
               )}
             </div>
