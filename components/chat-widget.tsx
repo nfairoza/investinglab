@@ -5,20 +5,19 @@ import { createPortal } from "react-dom";
 import { usePathname } from "next/navigation";
 import { X, ArrowUp, RotateCcw, Minus, Maximize2, Minimize2, ImagePlus, Square } from "lucide-react";
 
-// Rukmani mark: a speech bubble with a spark + two small "thinking" dots —
-// signals a smart assistant without a literal "AI" label or the generic
-// 4-pointed Gemini sparkle. White on the brand disc, legible in both themes.
+// Rukmani mark: an AI "spark" cluster — a large 4-point sparkle with two smaller
+// companion sparkles, the visual language users read as "AI assistant". White on
+// the glowing brand disc, legible in both themes.
 function RukmaniMark() {
   return (
     <svg width="26" height="26" viewBox="0 0 24 24" fill="none" className="relative" aria-hidden="true">
-      <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v7A2.5 2.5 0 0 1 17.5 15H10l-4 3.5V15H6.5A2.5 2.5 0 0 1 4 12.5v-7Z"
-        fill="white" fillOpacity="0.96" />
-      {/* central spark */}
-      <path d="M11 5.4c.22 1.5.85 2.13 2.35 2.35-1.5.22-2.13.85-2.35 2.35-.22-1.5-.85-2.13-2.35-2.35 1.5-.22 2.13-.85 2.35-2.35Z"
-        fill="var(--nav-active, #16D27E)" />
-      {/* small companion sparks → "thinking" */}
-      <circle cx="15.4" cy="11" r="0.9" fill="var(--nav-active, #16D27E)" opacity="0.8" />
-      <circle cx="8.2" cy="11.4" r="0.7" fill="var(--nav-active, #16D27E)" opacity="0.55" />
+      {/* main sparkle — concave 4-point star */}
+      <path d="M12 2.2c.7 4.6 2.5 6.4 7.1 7.1-4.6.7-6.4 2.5-7.1 7.1-.7-4.6-2.5-6.4-7.1-7.1 4.6-.7 6.4-2.5 7.1-7.1Z"
+        fill="white" fillOpacity="0.97" />
+      {/* small companion sparkles */}
+      <path d="M18.5 14.2c.28 1.6.92 2.24 2.5 2.5-1.58.26-2.22.9-2.5 2.5-.28-1.6-.92-2.24-2.5-2.5 1.58-.26 2.22-.9 2.5-2.5Z"
+        fill="white" fillOpacity="0.85" />
+      <circle cx="5.3" cy="17.4" r="1.05" fill="white" fillOpacity="0.7" />
     </svg>
   );
 }
