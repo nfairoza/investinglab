@@ -29,16 +29,28 @@ export async function GET() {
         // A "real" ticker is a short alphanumeric symbol we can price/research.
         // CUSIPs (9-char) and fund names are NOT tradeable tickers.
         const hasRealTicker = !!ticker && /^[A-Z][A-Z.\-]{0,5}$/.test(ticker.toUpperCase());
+        // RSU / vesting awards: Plaid returns vested_quantity / vested_value for
+        // institutions that support it. Vested = you own it now (counts in current
+        // value/net worth); the rest of the position is UNVESTED = potential.
+        const fullValue = h.institution_value ?? null;
+        const vestedValue = (h as any).vested_value ?? null;
+        const vestedQty = (h as any).vested_quantity ?? null;
+        const hasVesting = vestedValue != null && fullValue != null && vestedValue < fullValue - 0.01;
         holdings.push({
           symbol: hasRealTicker ? ticker!.toUpperCase() : (sec?.name ?? "—"),
           name: sec?.name ?? null,
           hasRealTicker,
           quantity: h.quantity,
           price: h.institution_price ?? sec?.close_price ?? null,
-          value: h.institution_value ?? null,
+          value: fullValue,
           costBasis: h.cost_basis ?? null,
           currency: h.iso_currency_code ?? "USD",
           institution: it.institution_name,
+          // Vesting split (null when the institution doesn't report it).
+          vestedQuantity: vestedQty,
+          vestedValue,
+          potentialValue: hasVesting ? +(fullValue - vestedValue).toFixed(2) : null,
+          hasVesting,
           // Plaid security type: equity | etf | mutual fund | cryptocurrency |
           // derivative | fixed income | cash | other — used to classify the row.
           secType: (sec as any)?.type ?? null,

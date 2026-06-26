@@ -34,7 +34,7 @@ interface DashboardData {
 
 const RANGES = [{ k: "1M", d: 22 }, { k: "3M", d: 66 }, { k: "1Y", d: 252 }, { k: "ALL", d: 100000 }] as const;
 
-interface PlaidHolding { symbol: string; name: string | null; quantity: number; price: number | null; value: number | null; costBasis: number | null; institution: string }
+interface PlaidHolding { symbol: string; name: string | null; quantity: number; price: number | null; value: number | null; costBasis: number | null; institution: string; potentialValue?: number | null; vestedValue?: number | null; hasVesting?: boolean }
 
 export function DashboardClient() {
   const { data: dbHoldings = [], isLoading: holdingsLoading } = useSWR<Holding[]>("/api/holdings", fetchJson, { revalidateOnFocus: true });
@@ -54,12 +54,19 @@ export function DashboardClient() {
         shares: Number(p.quantity) || 0,
         avgCost: p.costBasis != null && p.quantity ? Number(p.costBasis) / Number(p.quantity) : 0,
         source: p.institution,
-        marketValue: p.value ?? undefined,
+        // For RSU/vesting awards, CURRENT value = vested only; the unvested
+        // remainder is "potential" and tracked separately (not in net worth).
+        marketValue: (p.hasVesting && p.vestedValue != null ? p.vestedValue : p.value) ?? undefined,
+        potentialValue: p.hasVesting ? (p.potentialValue ?? undefined) : undefined,
         plaidPrice: p.price ?? undefined,
         readOnly: true,
       }) as unknown as Holding);
     return [...dbHoldings, ...plaidRows];
   }, [dbHoldings, plaidInv]);
+
+  // Total potential (unvested RSU) value — shown as its own stat, NOT counted in
+  // portfolio value or net worth (you don't own it yet).
+  const potentialValue = (plaidInv?.holdings ?? []).reduce((s, p) => s + (p.hasVesting ? (p.potentialValue ?? 0) : 0), 0);
   const { data: watchlist = [] } = useSWR<WatchItem[]>("/api/watchlist", fetchJson, { revalidateOnFocus: true });
   const { data: journal = [] } = useSWR<JournalEntry[]>("/api/journal", fetchJson);
   const { data: alerts = [] } = useSWR<Alert[]>("/api/alerts", fetchJson, { refreshInterval: 60_000 });
@@ -259,6 +266,11 @@ export function DashboardClient() {
                 sub={dayPctTotal != null ? `${dayPctTotal >= 0 ? "+" : ""}${dayPctTotal.toFixed(2)}% today` : undefined} />
               <GradientStat label="Win rate" tone="violet" value={winRate != null ? `${winRate.toFixed(0)}%` : "—"} sub="positions in profit" />
               <GradientStat label="Positions" tone="amber" value={`${holdings.length}`} sub={`${watchlist.length} on watch`} />
+              {potentialValue > 0 && (
+                <GradientStat label="Potential value" tone="violet"
+                  value={`$${potentialValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}`}
+                  sub="unvested RSUs — not yet owned" />
+              )}
             </div>
 
             {/* Allocation + movers */}

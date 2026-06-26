@@ -57,7 +57,7 @@ async function fetchSparks(symbols: string[]): Promise<Record<string, { v: numbe
   return Object.fromEntries(entries);
 }
 
-interface PlaidHolding { symbol: string; name: string | null; hasRealTicker?: boolean; quantity: number; price: number | null; value: number | null; costBasis: number | null; currency: string; institution: string; secType?: string | null; isCashEquivalent?: boolean }
+interface PlaidHolding { symbol: string; name: string | null; hasRealTicker?: boolean; quantity: number; price: number | null; value: number | null; costBasis: number | null; currency: string; institution: string; secType?: string | null; isCashEquivalent?: boolean; potentialValue?: number | null; vestedValue?: number | null; vestedQuantity?: number | null; hasVesting?: boolean }
 
 // security  = priceable/researchable ticker → main equities table
 // crypto    = its own card
@@ -117,7 +117,9 @@ export function HoldingsManager() {
           shares: Number(p.quantity) || 0,
           avgCost: p.costBasis != null && p.quantity ? Number(p.costBasis) / Number(p.quantity) : 0,
           source: p.institution, // institution name acts as the source/account tag
-          marketValue: p.value ?? undefined,
+          // RSU/vesting: current value = vested only; unvested goes to the
+          // "Potential holdings" card and is excluded from portfolio totals.
+          marketValue: (p.hasVesting && p.vestedValue != null ? p.vestedValue : p.value) ?? undefined,
           assetType: kind === "crypto" ? "crypto" : undefined,
           kind,
           displayName: p.name ?? undefined, // fund full name (no ticker)
@@ -128,6 +130,23 @@ export function HoldingsManager() {
     const dbRows: Holding[] = dbHoldings.map((h) => ({ ...h, kind: classifyHolding({ symbol: h.symbol, assetType: h.assetType }) }) as unknown as Holding);
     return [...dbRows, ...plaidRows];
   }, [dbHoldings, plaidInv]);
+
+  // Potential (unvested RSU) holdings — vesting awards where Plaid reports a
+  // vested split. Shown in their own card; NOT counted in portfolio value or net
+  // worth (you don't own the unvested portion yet).
+  const potentialRows = useMemo(() => {
+    return (plaidInv?.holdings ?? [])
+      .filter((p) => p.hasVesting && (p.potentialValue ?? 0) > 0)
+      .map((p) => ({
+        symbol: String(p.symbol).toUpperCase(),
+        name: p.name,
+        institution: p.institution,
+        potentialValue: p.potentialValue ?? 0,
+        unvestedShares: p.vestedQuantity != null ? Math.max(0, Number(p.quantity) - Number(p.vestedQuantity)) : null,
+        price: p.price,
+      }));
+  }, [plaidInv]);
+  const potentialTotal = potentialRows.reduce((s, r) => s + r.potentialValue, 0);
 
   // Split by kind: securities (stocks/ETFs/funds) fill the main table; crypto
   // gets its own card; "other" (cash equivalents, options, bonds) is excluded
@@ -510,6 +529,37 @@ export function HoldingsManager() {
       {/* Funds & other holdings with no live ticker (mutual funds, CUSIP-only).
           Priced from the broker's value, not researchable by ticker. */}
       {fundHoldings.length > 0 && <FundsCard rows={fundHoldings} />}
+
+      {/* Potential holdings — unvested RSU/equity awards. Tracked separately and
+          NOT counted in portfolio value or net worth (not yet owned). */}
+      {potentialRows.length > 0 && (
+        <div className="rounded-xl glass p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-sm font-semibold text-ink">Potential holdings</div>
+              <div className="mt-0.5 text-xs text-ink-faint">Unvested RSU/equity awards — not yet owned, excluded from portfolio value &amp; net worth.</div>
+            </div>
+            <div className="text-right">
+              <div className="text-lg font-semibold text-violet-400">${potentialTotal.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
+              <div className="text-[11px] text-ink-faint">potential value</div>
+            </div>
+          </div>
+          <div className="mt-3 divide-y divide-white/5">
+            {potentialRows.map((r) => (
+              <div key={`${r.institution}:${r.symbol}`} className="flex items-center justify-between py-2 text-sm">
+                <div className="min-w-0">
+                  <span className="font-mono font-semibold text-ink">{r.symbol}</span>
+                  <span className="ml-2 truncate text-xs text-ink-faint">{r.name ?? ""} · {r.institution}</span>
+                </div>
+                <div className="shrink-0 text-right">
+                  <div className="text-ink">${r.potentialValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
+                  {r.unvestedShares != null && <div className="text-[11px] text-ink-faint">{r.unvestedShares.toLocaleString(undefined, { maximumFractionDigits: 2 })} unvested sh</div>}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Manual add — secondary, collapsed by default, lives at the bottom.
           Anything manual is not the focus; sync is the primary path. */}
