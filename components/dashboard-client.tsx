@@ -2,7 +2,7 @@
 
 import useSWR from "swr";
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { ArrowUpRight, Eye, TrendingUp, AlertTriangle, Bell, BellRing } from "lucide-react";
 import type { Holding, WatchItem, JournalEntry, Alert } from "@/lib/db";
 import type { DataResult, Quote, PriceHistory } from "@/lib/providers/types";
@@ -34,8 +34,32 @@ interface DashboardData {
 
 const RANGES = [{ k: "1M", d: 22 }, { k: "3M", d: 66 }, { k: "1Y", d: 252 }, { k: "ALL", d: 100000 }] as const;
 
+interface PlaidHolding { symbol: string; name: string | null; quantity: number; price: number | null; value: number | null; costBasis: number | null; institution: string }
+
 export function DashboardClient() {
-  const { data: holdings = [], isLoading: holdingsLoading } = useSWR<Holding[]>("/api/holdings", fetchJson, { revalidateOnFocus: true });
+  const { data: dbHoldings = [], isLoading: holdingsLoading } = useSWR<Holding[]>("/api/holdings", fetchJson, { revalidateOnFocus: true });
+  // Plaid-linked brokerage holdings (E*TRADE/Robinhood/Fidelity via Plaid) are
+  // their own feed — the dashboard must merge them too, or a Plaid-only user sees
+  // the "Connect brokerage" empty state despite having holdings.
+  const { data: plaidInv, isLoading: plaidLoading } = useSWR<{ holdings: PlaidHolding[] }>("/api/plaid/investments", fetchJson, { revalidateOnFocus: false, keepPreviousData: true });
+  const holdings: Holding[] = useMemo(() => {
+    const haveEtrade = dbHoldings.some((h) => h.source === "etrade");
+    const isEtradeInst = (n: string) => /e[\s*]*trade|morgan stanley/i.test(n);
+    const plaidRows = (plaidInv?.holdings ?? [])
+      .filter((p) => p.symbol && p.symbol !== "—")
+      .filter((p) => !(haveEtrade && isEtradeInst(p.institution)))
+      .map((p) => ({
+        id: `plaid:${p.institution}:${p.symbol}`,
+        symbol: String(p.symbol).toUpperCase(),
+        shares: Number(p.quantity) || 0,
+        avgCost: p.costBasis != null && p.quantity ? Number(p.costBasis) / Number(p.quantity) : 0,
+        source: p.institution,
+        marketValue: p.value ?? undefined,
+        plaidPrice: p.price ?? undefined,
+        readOnly: true,
+      }) as unknown as Holding);
+    return [...dbHoldings, ...plaidRows];
+  }, [dbHoldings, plaidInv]);
   const { data: watchlist = [] } = useSWR<WatchItem[]>("/api/watchlist", fetchJson, { revalidateOnFocus: true });
   const { data: journal = [] } = useSWR<JournalEntry[]>("/api/journal", fetchJson);
   const { data: alerts = [] } = useSWR<Alert[]>("/api/alerts", fetchJson, { refreshInterval: 60_000 });
@@ -58,8 +82,10 @@ export function DashboardClient() {
 
   const valued = holdings.map((h) => {
     const q = quotes?.[h.symbol]?.data ?? null;
-    const price = q?.price ?? null;
-    const value = price != null ? price * h.shares : null;
+    // Read-only Plaid rows carry their own broker price/value; fall back to the
+    // live FMP quote for manual rows.
+    const price = q?.price ?? (h as any).plaidPrice ?? null;
+    const value = (h as any).marketValue ?? (price != null ? price * h.shares : null);
     const cost = h.avgCost * h.shares;
     const gain = value != null ? value - cost : null;
     const gainPct = value != null && cost > 0 ? (gain! / cost) * 100 : null;
@@ -159,10 +185,10 @@ export function DashboardClient() {
         <p className="mt-1 text-sm text-ink-dim">Your portfolio at a glance — research and education, not financial advice.</p>
       </div>
 
-      {holdingsLoading ? (
-        // Skeleton while the first holdings fetch is in flight — without this the
-        // empty "Connect your brokerage" state flashes for a beat on every
-        // refresh/login even when the user HAS data, which is alarming.
+      {(holdingsLoading || plaidLoading) && !hasHoldings ? (
+        // Skeleton while EITHER feed (DB holdings or Plaid investments) is still
+        // loading — without this the empty "Connect your brokerage" state flashes
+        // on every refresh/login even when the user HAS data, which is alarming.
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1fr_320px]">
           <div className="h-64 animate-pulse rounded-2xl glass" />
           <div className="h-64 animate-pulse rounded-2xl glass" />
