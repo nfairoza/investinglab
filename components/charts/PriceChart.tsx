@@ -6,12 +6,16 @@ import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Dot,
 } from "recharts";
 import { DataBadge, DataTimestamp } from "@/components/data-state";
-import type { DataResult, PriceHistory } from "@/lib/providers/types";
+import type { DataResult, PriceHistory, Quote } from "@/lib/providers/types";
 import { useChartTheme, tooltipStyle } from "./chart-theme";
 
 async function getHistory(url: string): Promise<DataResult<PriceHistory>> {
   const r = await fetch(url);
   return (await r.json()) as DataResult<PriceHistory>;
+}
+async function getQuote(url: string): Promise<DataResult<Quote>> {
+  const r = await fetch(url);
+  return (await r.json()) as DataResult<Quote>;
 }
 
 const RANGES = [
@@ -39,6 +43,13 @@ export function PriceChart({ symbol }: { symbol: string }) {
     getHistory,
     { keepPreviousData: true, refreshInterval: 60_000 },
   );
+  // Live quote — its changePct is "today vs PREVIOUS CLOSE", the correct day move
+  // (the intraday first→last bar excludes the overnight gap, so it disagreed with
+  // the holdings table). Used for the 1D headline number.
+  const { data: quote } = useSWR<DataResult<Quote>>(
+    isIntraday ? `/api/quote?symbol=${symbol}` : null, getQuote,
+    { keepPreviousData: true, refreshInterval: 60_000 },
+  );
 
   const active = isIntraday ? intraday : data;
   const loading = isIntraday ? intradayLoading : isLoading;
@@ -46,11 +57,16 @@ export function PriceChart({ symbol }: { symbol: string }) {
   const days = RANGES.find((r) => r.key === range)?.days ?? 66;
   const points = isIntraday ? allPoints : allPoints.slice(-days);
 
-  // Up over the visible window? color the area green, else red.
+  // Window change: for 1D use the live quote's day move (vs previous close); for
+  // other ranges use first→last of the visible window.
   const first = points[0]?.close ?? 0;
-  const last = points[points.length - 1]?.close ?? 0;
-  const up = last >= first;
-  const changePct = first > 0 ? ((last - first) / first) * 100 : 0;
+  const lastPt = points[points.length - 1]?.close ?? 0;
+  const q = quote?.data;
+  const last = isIntraday && q?.price != null ? q.price : lastPt;
+  const changePct = isIntraday && q?.changePct != null
+    ? q.changePct
+    : (first > 0 ? ((lastPt - first) / first) * 100 : 0);
+  const up = changePct >= 0;
   const stroke = up ? ct.positive : ct.negative;
 
   const chartable = points.length > 1;
