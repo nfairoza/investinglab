@@ -9,8 +9,25 @@ import { logError } from "@/lib/error-log";
 export const dynamic = "force-dynamic";
 
 const CACHE_KEY = "advisor";
+const RESULT_CACHE_KEY = "advisor_result"; // cached COMPUTED numbers (no AI)
+const RESULT_TTL_MS = 30 * 60 * 1000;      // 30 min — Plaid balances don't change minute-to-minute
 const DAY_MS = 24 * 60 * 60 * 1000;
 const MAX_RUNS_PER_DAY = 3;
+
+// computeAdvisor() makes LIVE Plaid calls (balances + liabilities per
+// institution) — slow on every page load. Cache the computed result for a short
+// TTL so repeat visits are instant; `force` bypasses it (explicit refresh).
+async function computeAdvisorCached(ctx: Parameters<typeof computeAdvisor>[0], force = false): Promise<AdvisorResult> {
+  if (!force) {
+    const cached = await readAiCache(ctx, RESULT_CACHE_KEY);
+    if (cached?.generatedAt && Date.now() - new Date(cached.generatedAt).getTime() < RESULT_TTL_MS) {
+      return cached.data as AdvisorResult;
+    }
+  }
+  const result = await computeAdvisor(ctx);
+  await writeAiCache(ctx as any, RESULT_CACHE_KEY, { generatedAt: new Date().toISOString(), data: result }).catch(() => {});
+  return result;
+}
 
 // Daytime guard: don't auto-refresh while people are asleep. Local server hours;
 // treat 7:00–22:00 as "awake hours".
@@ -106,7 +123,7 @@ export async function GET() {
   const ctx = await getUserClient();
   if (!ctx) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
-  const result = await computeAdvisor(ctx);
+  const result = await computeAdvisorCached(ctx);
   const cached = await readAiCache(ctx, CACHE_KEY);
   const c = cached?.data as any;
   const sig = advisorSignature(result);
@@ -142,7 +159,8 @@ export async function POST(req: NextRequest) {
   const ctx = await getUserClient();
   if (!ctx) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
-  const result = await computeAdvisor(ctx);
+  // Explicit refresh → recompute fresh from Plaid (also refreshes the cache).
+  const result = await computeAdvisorCached(ctx, true);
   if (!result.hasAnyData) {
     return NextResponse.json({ error: "no_data", message: "Connect a bank or add holdings so Rukmani can review your finances.", result }, { status: 400 });
   }
