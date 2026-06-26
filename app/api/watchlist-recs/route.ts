@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { now } from "@/lib/db";
 import { getUserClient, readAiCache, writeAiCache } from "@/lib/supabase-data";
+import { getUnifiedHoldings } from "@/lib/holdings-server";
 import { routeText } from "@/lib/ai/router";
 import { resolveApiKey } from "@/lib/ai/anthropic";
 import { geminiKey } from "@/lib/ai/gemini";
@@ -38,13 +39,13 @@ export async function GET() {
   }
   if (!resolveApiKey() && !geminiKey()) return NextResponse.json({ recs: [] });
 
-  const [{ data: holdings }, { data: wl }, { data: rv }] = await Promise.all([
-    ctx.supabase.from("holdings").select("symbol"),
+  const [unified, { data: wl }, { data: rv }] = await Promise.all([
+    getUnifiedHoldings(ctx.supabase, { realTickersOnly: true }),
     ctx.supabase.from("watch_list_items").select("symbol"),
     ctx.supabase.from("recently_viewed").select("symbol").order("viewed_at", { ascending: false }).limit(20),
   ]);
   const held = new Set<string>();
-  const holdingSyms = (holdings ?? []).map((h: any) => String(h.symbol).toUpperCase());
+  const holdingSyms = Array.from(new Set(unified.map((h) => h.symbol)));
   const watchSyms = (wl ?? []).map((w: any) => String(w.symbol).toUpperCase());
   const recentSyms = (rv ?? []).map((r: any) => String(r.symbol).toUpperCase());
   [...holdingSyms, ...watchSyms].forEach((s) => held.add(s));

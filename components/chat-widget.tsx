@@ -139,7 +139,7 @@ export function ChatWidget() {
   const fileRef = useRef<HTMLInputElement>(null);
   const pathname = usePathname();
 
-  const { data: holdings = [] } = useSWR<Holding[]>("/api/holdings", (url: string) => fetch(url).then((r) => r.json()), { revalidateOnFocus: false });
+  const { data: holdings = [] } = useSWR<Holding[]>("/api/holdings?withBrokers=1", (url: string) => fetch(url).then((r) => r.json()), { revalidateOnFocus: false });
   const { data: watchlist = [] } = useSWR<WatchItem[]>("/api/watchlist", (url: string) => fetch(url).then((r) => r.json()), { revalidateOnFocus: false });
 
   const symbols = holdings.map((h) => h.symbol);

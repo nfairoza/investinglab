@@ -22,11 +22,19 @@ export function CashCard() {
   const isAdmin = useIsAdmin();
   const { data: etrade } = useSWR<{ connected?: boolean; selectedAccountIdKey?: string | null }>(isAdmin ? "/api/etrade/status" : null, fetchJson, { revalidateOnFocus: false });
   const etradeConnected = Boolean(isAdmin && etrade?.connected && etrade?.selectedAccountIdKey);
+  // Plaid investment/brokerage cash (uninvested cash inside brokerage accounts) —
+  // shown alongside any manual/E*TRADE cash so the figure reflects all sources.
+  const { data: plaidAcc } = useSWR<{ accounts?: { type?: string; available?: number | null; current?: number | null }[] }>("/api/plaid/accounts", fetchJson, { revalidateOnFocus: false });
+  const investmentCash = (plaidAcc?.accounts ?? [])
+    .filter((a) => a.type === "investment" || a.type === "brokerage")
+    .reduce((s, a) => s + (Number(a.available ?? a.current ?? 0) || 0), 0);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
 
-  const amount = cash?.amount ?? 0;
+  // Total investment cash = manual/E*TRADE cash (editable) + Plaid brokerage cash.
+  const manualAmount = cash?.amount ?? 0;
+  const amount = manualAmount + investmentCash;
 
   async function save() {
     const n = Number(draft);
@@ -54,11 +62,11 @@ export function CashCard() {
     >
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-ink-faint">
-          <Wallet size={14} className="text-accent" /> Available cash
+          <Wallet size={14} className="text-accent" /> Investment cash
           {busy && <RefreshCw size={11} className="animate-spin text-accent" />}
         </div>
         {!editing && (
-          <button onClick={(e) => { e.stopPropagation(); setDraft(String(amount)); setEditing(true); }} title="Edit cash"
+          <button onClick={(e) => { e.stopPropagation(); setDraft(String(manualAmount)); setEditing(true); }} title="Edit cash"
             className="rounded p-1 text-ink-faint hover:bg-surface hover:text-ink"><Pencil size={13} /></button>
         )}
       </div>
@@ -77,8 +85,9 @@ export function CashCard() {
       )}
 
       <div className="mt-1.5 text-[11px] text-ink-faint">
-        {cash?.source === "etrade" ? "From E*TRADE" : "Manual entry"}
-        {cash?.updatedAt ? ` · ${new Date(cash.updatedAt).toLocaleDateString()}` : ""}
+        {investmentCash > 0
+          ? `Includes $${investmentCash.toLocaleString(undefined, { maximumFractionDigits: 0 })} brokerage cash${manualAmount > 0 ? ` + $${manualAmount.toLocaleString(undefined, { maximumFractionDigits: 0 })} manual` : ""}`
+          : cash?.source === "etrade" ? "From E*TRADE" : "Manual entry"}
         {etradeConnected ? " · click card to sync" : ""}
       </div>
     </div>

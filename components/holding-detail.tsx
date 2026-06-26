@@ -49,7 +49,7 @@ const ACTION_ROWS: { key: keyof ResearchReport["actionTable"]; label: string }[]
 ];
 
 export function HoldingDetail({ symbol }: { symbol: string }) {
-  const { data: holdings = [] } = useSWR<Holding[]>("/api/holdings", (url: string) => fetch(url).then((r) => r.json()));
+  const { data: holdings = [] } = useSWR<Holding[]>("/api/holdings?withBrokers=1", (url: string) => fetch(url).then((r) => r.json()));
   const holding = holdings.find((h) => h.symbol === symbol);
 
   const { data: quoteResult } = useSWR<DataResult<Quote>>(

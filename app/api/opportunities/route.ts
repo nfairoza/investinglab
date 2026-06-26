@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { now } from "@/lib/db";
 import { getUserClient, readAiCache, writeAiCache } from "@/lib/supabase-data";
+import { getUnifiedHoldings, plaidInvestmentCash } from "@/lib/holdings-server";
 import { congressData } from "@/lib/providers";
 import { routeText } from "@/lib/ai/router";
 import { resolveApiKey } from "@/lib/ai/anthropic";
@@ -143,13 +144,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "no_key", message: "Add a Claude or Gemini API key in Connectors to use AI opportunities." }, { status: 400 });
   }
   const useCongress = req.nextUrl.searchParams.get("congress") === "1";
-  const [{ data: cashRow }, { data: holdings }, { data: wl }] = await Promise.all([
+  const [{ data: cashRow }, unified, invCash, { data: wl }] = await Promise.all([
     ctx.supabase.from("cash").select("amount").maybeSingle(),
-    ctx.supabase.from("holdings").select("symbol,shares,avg_cost"),
+    getUnifiedHoldings(ctx.supabase, { realTickersOnly: true }),
+    plaidInvestmentCash(ctx.supabase),
     ctx.supabase.from("watch_list_items").select("symbol"),
   ]);
-  const cash = Number(cashRow?.amount ?? 0);
-  const holdingList = (holdings ?? []).map((h: any) => ({ symbol: h.symbol, shares: h.shares, avgCost: h.avg_cost }));
+  // Deployable cash = manual/E*TRADE cash + Plaid investment (brokerage) cash.
+  const cash = Number(cashRow?.amount ?? 0) + invCash;
+  const holdingList = unified.map((h) => ({ symbol: h.symbol, shares: h.shares, avgCost: h.avgCost }));
   const watchlist = (wl ?? []).map((w: any) => w.symbol);
 
   try {

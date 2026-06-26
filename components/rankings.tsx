@@ -106,7 +106,7 @@ function ScoreList({ title, subtitle, rows, horizon }: { title: string; subtitle
 }
 
 export function Rankings() {
-  const { data: holdings = [] } = useSWR<Holding[]>("/api/holdings", (url: string) => fetch(url).then((r) => r.json()));
+  const { data: holdings = [] } = useSWR<Holding[]>("/api/holdings?withBrokers=1", (url: string) => fetch(url).then((r) => r.json()));
   const { data: watch = [] } = useSWR<WatchItem[]>("/api/watchlist", (url: string) => fetch(url).then((r) => r.json()));
 
   const owned = new Set(holdings.map((h) => h.symbol));

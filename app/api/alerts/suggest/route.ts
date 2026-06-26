@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { now } from "@/lib/db";
 import { getUserClient, readAiCache, writeAiCache } from "@/lib/supabase-data";
+import { getUnifiedHoldings } from "@/lib/holdings-server";
 import { routeText } from "@/lib/ai/router";
 import { resolveApiKey } from "@/lib/ai/anthropic";
 import { geminiKey } from "@/lib/ai/gemini";
@@ -67,11 +68,11 @@ export async function POST() {
   if (!resolveApiKey() && !geminiKey()) {
     return NextResponse.json({ error: "no_key", message: "Add a Claude or Gemini API key in Connectors." }, { status: 400 });
   }
-  const [{ data: holdings }, { data: wl }] = await Promise.all([
-    ctx.supabase.from("holdings").select("symbol"),
+  const [unified, { data: wl }] = await Promise.all([
+    getUnifiedHoldings(ctx.supabase, { realTickersOnly: true }),
     ctx.supabase.from("watch_list_items").select("symbol"),
   ]);
-  const holdingSyms = (holdings ?? []).map((h: any) => h.symbol);
+  const holdingSyms = Array.from(new Set(unified.map((h) => h.symbol)));
   const watchlist = (wl ?? []).map((w: any) => w.symbol);
 
   try {

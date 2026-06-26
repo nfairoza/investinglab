@@ -64,7 +64,7 @@ export function Overview() {
   const { data: nw, isLoading: nwLoading } = useSWR<NetWorth>("/api/networth", fetchJson, { revalidateOnFocus: false, keepPreviousData: true });
   const { data: bal } = useSWR<Balances>("/api/plaid/accounts", fetchJson, { revalidateOnFocus: false, keepPreviousData: true });
   const { data: txnData } = useSWR<{ transactions: Txn[] }>("/api/plaid/transactions?sync=0", fetchJson, { revalidateOnFocus: false, keepPreviousData: true });
-  const { data: holdings, isLoading: holdingsLoading } = useSWR<Holding[]>("/api/holdings", fetchJson, { revalidateOnFocus: false, keepPreviousData: true });
+  const { data: holdings, isLoading: holdingsLoading } = useSWR<Holding[]>("/api/holdings?withBrokers=1", fetchJson, { revalidateOnFocus: false, keepPreviousData: true });
   // Computed advisor (GET = no AI tokens) — drives the compact insight card.
   const { data: advisor } = useSWR<AdvisorResp>("/api/advisor", fetchJson, { revalidateOnFocus: false, keepPreviousData: true });
   const { data: me } = useSWR<Me>("/api/me", fetchJson, { revalidateOnFocus: false });

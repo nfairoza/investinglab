@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUserClient } from "@/lib/supabase-data";
+import { plaidHoldings } from "@/lib/holdings-server";
 import type { Holding } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
@@ -28,10 +29,27 @@ async function listHoldings(ctx: { supabase: any }) {
   return (data ?? []).map(toHolding);
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const ctx = await getUserClient();
   if (!ctx) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  return NextResponse.json(await listHoldings(ctx));
+  const db = await listHoldings(ctx);
+  // ?withBrokers=1 merges Plaid brokerage holdings (vested-only) for read-only
+  // consumers (Rankings, Reports, Portfolio Doctor gating) so they see the full
+  // portfolio. The Holdings page omits this — it merges Plaid itself for editing.
+  if (req.nextUrl.searchParams.get("withBrokers") === "1") {
+    const plaid = await plaidHoldings(ctx.supabase);
+    const haveEtrade = db.some((h: Holding) => h.source === "etrade");
+    const isEtradeInst = (n: string) => /e[\s*]*trade|morgan stanley/i.test(n);
+    const plaidRows: Holding[] = plaid
+      .filter((p) => p.hasRealTicker && !(haveEtrade && isEtradeInst(p.source)))
+      .map((p) => ({
+        id: `plaid:${p.source}:${p.symbol}`,
+        symbol: p.symbol, shares: p.shares, avgCost: p.avgCost,
+        source: p.source, marketValue: p.value ?? undefined,
+      }) as Holding);
+    return NextResponse.json([...db, ...plaidRows]);
+  }
+  return NextResponse.json(db);
 }
 
 export async function POST(req: NextRequest) {

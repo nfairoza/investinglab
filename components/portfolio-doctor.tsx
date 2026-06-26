@@ -68,7 +68,7 @@ function money(n: number): string {
 
 export function PortfolioDoctor() {
   const isAdmin = useIsAdmin();
-  const { data: holdings = [] } = useSWR<Holding[]>("/api/holdings", (u: string) => fetch(u).then((r) => r.json()));
+  const { data: holdings = [] } = useSWR<Holding[]>("/api/holdings?withBrokers=1", (u: string) => fetch(u).then((r) => r.json()));
   const [busy, setBusy] = useState(false);
   // Persisted so the diagnosis survives navigation/reload until you re-run.
   const [result, setResult] = usePersistedState<Result | null>("pf-doctor-result", null);

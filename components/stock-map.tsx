@@ -78,7 +78,7 @@ const MY_HOLDINGS = "My Holdings";
 export function StockMap() {
   const router = useRouter();
   const { data: holdings = [] } = useSWR<Holding[]>("/api/map-holdings", () =>
-    fetch("/api/holdings").then((r) => r.json()),
+    fetch("/api/holdings?withBrokers=1").then((r) => r.json()),
   );
   const [period, setPeriod] = useState<Period>("1D");
   // Pass owned tickers so the map includes them even if they're outside the

@@ -20,7 +20,7 @@ const DATASETS: { key: DatasetKey; label: string }[] = [
 ];
 
 export function ReportsManager() {
-  const { data: holdings = [] } = useSWR<Holding[]>("/api/holdings", fetchJson);
+  const { data: holdings = [] } = useSWR<Holding[]>("/api/holdings?withBrokers=1", fetchJson);
   const { data: watchlist = [] } = useSWR<WatchItem[]>("/api/watchlist", fetchJson);
   const { data: journal = [] } = useSWR<JournalEntry[]>("/api/journal", fetchJson);
   const { data: alerts = [] } = useSWR<Alert[]>("/api/alerts", fetchJson);
