@@ -21,6 +21,20 @@ function RukmaniMark() {
     </svg>
   );
 }
+// Themed "thinking" indicator — three brand-colored dots bouncing in sequence.
+// Shown while Rukmani is working but hasn't streamed any text yet, so the panel
+// never looks frozen/blank.
+function ThinkingDots() {
+  return (
+    <span className="inline-flex items-center gap-1 py-0.5" aria-label="Rukmani is thinking">
+      {[0, 1, 2].map((i) => (
+        <span key={i} className="h-1.5 w-1.5 rounded-full"
+          style={{ background: "var(--nav-active, #16D27E)", animation: "rukmaniBounce 1s ease-in-out infinite", animationDelay: `${i * 0.16}s` }} />
+      ))}
+      <style>{`@keyframes rukmaniBounce{0%,80%,100%{transform:translateY(0);opacity:.4}40%{transform:translateY(-4px);opacity:1}}`}</style>
+    </span>
+  );
+}
 import useSWR from "swr";
 import type { Holding, WatchItem } from "@/lib/db";
 import type { DataResult, Quote } from "@/lib/providers/types";
@@ -169,15 +183,20 @@ export function ChatWidget() {
   // slides the 1-hour idle window forward server-side.
   useEffect(() => {
     if (!historyLoaded.current || streaming) return;
+    // Never PUT an empty list — that would wipe stored history if this effect
+    // ever fires before messages hydrate (the cause of "I lost my history").
+    // Clearing is done explicitly via the DELETE in clearChat().
+    const persistable = messages
+      .filter((m) => m.content.trim()) // skip empty assistant placeholders
+      .map((m) => ({ id: m.id, role: m.role, content: m.content }));
+    if (persistable.length === 0) return;
     const t = setTimeout(() => {
       fetch("/api/chat/history", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        // Drop image blobs from persistence — too large for the prefs row; keep
-        // text so the thread reads continuously across devices.
-        body: JSON.stringify({ messages: messages.map((m) => ({ id: m.id, role: m.role, content: m.content })) }),
+        body: JSON.stringify({ messages: persistable }), // text only; image blobs too large
       }).catch(() => {});
-    }, 800);
+    }, 600);
     return () => clearTimeout(t);
   }, [messages, streaming]);
 
@@ -194,6 +213,7 @@ export function ChatWidget() {
   useEffect(() => {
     if (open) setTimeout(() => inputRef.current?.focus(), 100);
   }, [open]);
+
 
   // Allow any part of the app (e.g. the Help page) to open the chat via a global
   // event: window.dispatchEvent(new Event("open-chat")).
@@ -239,6 +259,15 @@ export function ChatWidget() {
     mq.addEventListener("change", update);
     return () => mq.removeEventListener("change", update);
   }, []);
+
+  // Docked full-height on DESKTOP → push the page over by the panel width so the
+  // chat sits ALONGSIDE the app instead of covering it. Cleared otherwise.
+  useEffect(() => {
+    const dock = open && !minimized && !isMobile && size === "full";
+    document.body.style.transition = "padding-right 200ms ease";
+    document.body.style.paddingRight = dock ? `${SIZES.full.w}px` : "";
+    return () => { document.body.style.paddingRight = ""; };
+  }, [open, minimized, isMobile, size]);
 
   function uid() {
     return Math.random().toString(36).slice(2);
@@ -544,7 +573,9 @@ export function ChatWidget() {
                     m.content ? (
                       <span className="chat-md" dangerouslySetInnerHTML={{ __html: renderMarkdown(m.content) + (m.streaming ? '<span class="animate-pulse">▌</span>' : "") }} />
                     ) : (
-                      m.streaming ? <span className="animate-pulse text-ink-dim">▌</span> : ""
+                      // No text yet → show a clear themed "thinking" animation so it
+                      // never looks frozen/blank.
+                      m.streaming ? <ThinkingDots /> : ""
                     )
                   ) : (
                     <div className="space-y-1.5">
