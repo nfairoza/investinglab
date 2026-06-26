@@ -23,9 +23,11 @@ export async function GET() {
     try {
       const resp = await plaid.investmentsHoldingsGet({ access_token: it.access_token });
       const securities = new Map((resp.data.securities ?? []).map((s) => [s.security_id, s]));
-      // Account masks (last 4) keyed by account_id, so each holding can show
-      // which account it's in (a user may have 3 E*TRADE accounts).
+      // Account mask (last 4) + name + subtype keyed by account_id, so each
+      // holding shows which account it's in. Masks aren't always unique (a user
+      // can have two accounts ending 4199), so the name/subtype disambiguates.
       const acctMask = new Map((resp.data.accounts ?? []).map((a) => [a.account_id, a.mask ?? null]));
+      const acctName = new Map((resp.data.accounts ?? []).map((a) => [a.account_id, a.name ?? a.official_name ?? a.subtype ?? null]));
       for (const h of resp.data.holdings ?? []) {
         const sec = securities.get(h.security_id);
         const ticker = sec?.ticker_symbol?.trim() || null;
@@ -50,6 +52,7 @@ export async function GET() {
           currency: h.iso_currency_code ?? "USD",
           institution: it.institution_name,
           accountMask: acctMask.get(h.account_id) ?? null,
+          accountName: acctName.get(h.account_id) ?? null,
           // Vesting split (null when the institution doesn't report it).
           vestedQuantity: vestedQty,
           vestedValue,

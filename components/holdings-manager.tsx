@@ -57,15 +57,19 @@ async function fetchSparks(symbols: string[]): Promise<Record<string, { v: numbe
   return Object.fromEntries(entries);
 }
 
-interface PlaidHolding { symbol: string; name: string | null; hasRealTicker?: boolean; quantity: number; price: number | null; value: number | null; costBasis: number | null; currency: string; institution: string; accountMask?: string | null; secType?: string | null; isCashEquivalent?: boolean; potentialValue?: number | null; vestedValue?: number | null; vestedQuantity?: number | null; hasVesting?: boolean; vestDate?: string | null }
+interface PlaidHolding { symbol: string; name: string | null; hasRealTicker?: boolean; quantity: number; price: number | null; value: number | null; costBasis: number | null; currency: string; institution: string; accountMask?: string | null; accountName?: string | null; secType?: string | null; isCashEquivalent?: boolean; potentialValue?: number | null; vestedValue?: number | null; vestedQuantity?: number | null; hasVesting?: boolean; vestDate?: string | null }
 
-// Short, readable institution label: "E*TRADE from Morgan Stanley" → "E*TRADE",
-// plus the last-4 account mask when available (e.g. "E*TRADE ••1234").
-function shortInstitution(name: string, mask?: string | null): string {
+// Short, readable account label: "E*TRADE from Morgan Stanley" → "E*TRADE", plus
+// the account NAME and/or last-4 mask so multiple accounts (even two ending in
+// the same 4 digits) are distinguishable — e.g. "E*TRADE · Brokerage ••4199".
+function shortInstitution(name: string, mask?: string | null, acctName?: string | null): string {
   let n = (name || "").trim();
   if (/e[\s*]*trade/i.test(n)) n = "E*TRADE";
   else n = n.split(/\s+from\s+/i)[0].trim(); // drop "… from X" custodian suffix
-  return mask ? `${n} ••${mask}` : n;
+  // Avoid echoing the institution name back inside the account name.
+  const an = acctName && !new RegExp(n, "i").test(acctName) ? acctName.trim() : "";
+  const parts = [n, an].filter(Boolean).join(" · ");
+  return mask ? `${parts} ••${mask}` : parts;
 }
 
 // security  = priceable/researchable ticker → main equities table
@@ -142,7 +146,7 @@ export function HoldingsManager() {
           symbol: String(p.symbol).toUpperCase(),
           shares: ownedShares,
           avgCost: p.costBasis != null && p.quantity ? Number(p.costBasis) / Number(p.quantity) : 0,
-          source: shortInstitution(p.institution, p.accountMask), // short label + last-4
+          source: shortInstitution(p.institution, p.accountMask, p.accountName), // short label + last-4
           marketValue: ownedValue ?? undefined,
           assetType: kind === "crypto" ? "crypto" : undefined,
           kind,
@@ -198,7 +202,7 @@ export function HoldingsManager() {
         return {
           symbol: String(p.symbol).toUpperCase(),
           name: p.name,
-          institution: shortInstitution(p.institution, p.accountMask),
+          institution: shortInstitution(p.institution, p.accountMask, p.accountName),
           potentialValue: value,
           unvestedShares,
           price: livePrice,

@@ -34,13 +34,15 @@ interface DashboardData {
 
 const RANGES = [{ k: "1M", d: 22 }, { k: "3M", d: 66 }, { k: "1Y", d: 252 }, { k: "ALL", d: 100000 }] as const;
 
-interface PlaidHolding { symbol: string; name: string | null; quantity: number; price: number | null; value: number | null; costBasis: number | null; institution: string; accountMask?: string | null; potentialValue?: number | null; vestedValue?: number | null; hasVesting?: boolean }
+interface PlaidHolding { symbol: string; name: string | null; quantity: number; price: number | null; value: number | null; costBasis: number | null; institution: string; accountMask?: string | null; accountName?: string | null; potentialValue?: number | null; vestedValue?: number | null; hasVesting?: boolean }
 
-function shortInstitution(name: string, mask?: string | null): string {
+function shortInstitution(name: string, mask?: string | null, acctName?: string | null): string {
   let n = (name || "").trim();
   if (/e[\s*]*trade/i.test(n)) n = "E*TRADE";
   else n = n.split(/\s+from\s+/i)[0].trim();
-  return mask ? `${n} ••${mask}` : n;
+  const an = acctName && !new RegExp(n, "i").test(acctName) ? acctName.trim() : "";
+  const parts = [n, an].filter(Boolean).join(" · ");
+  return mask ? `${parts} ••${mask}` : parts;
 }
 
 export function DashboardClient() {
@@ -60,7 +62,7 @@ export function DashboardClient() {
         symbol: String(p.symbol).toUpperCase(),
         shares: Number(p.quantity) || 0,
         avgCost: p.costBasis != null && p.quantity ? Number(p.costBasis) / Number(p.quantity) : 0,
-        source: shortInstitution(p.institution, p.accountMask),
+        source: shortInstitution(p.institution, p.accountMask, p.accountName),
         // For RSU/vesting awards, CURRENT value = vested only; the unvested
         // remainder is "potential" and tracked separately (not in net worth).
         marketValue: (p.hasVesting && p.vestedValue != null ? p.vestedValue : p.value) ?? undefined,
