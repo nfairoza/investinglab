@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import useSWR from "swr";
 import Link from "next/link";
 import { Search, SlidersHorizontal, X, Repeat, Sparkles, AlertTriangle } from "lucide-react";
@@ -61,8 +62,19 @@ function buildInsights(txns: Txn[]): Map<string, Insight> {
 }
 
 export function TransactionsView() {
+  const params = useSearchParams();
   const [q, setQ] = useState("");
   const [category, setCategory] = useState("");
+  // Deep-link: /transactions?category=LOAN_PAYMENTS&q=… pre-filters the list
+  // (e.g. from the "Unusual this month" insight). Opens the filter panel so the
+  // active filter is visible.
+  useEffect(() => {
+    const c = params.get("category");
+    const query = params.get("q");
+    if (c) { setCategory(c); setShowFilters(true); }
+    if (query) setQ(query);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [account, setAccount] = useState("");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");

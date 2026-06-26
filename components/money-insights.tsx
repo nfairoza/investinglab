@@ -1,6 +1,7 @@
 "use client";
 
 import useSWR from "swr";
+import Link from "next/link";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { TrendingUp, TrendingDown, Sparkles, AlertTriangle, ArrowUpRight, ArrowDownRight, Repeat, Wallet, CircleSlash } from "lucide-react";
 
@@ -154,22 +155,32 @@ function IncomeChangeRow({ c }: { c: IncomeChange }) {
 
 function AnomalyRow({ a }: { a: CategoryAnomaly }) {
   const up = a.direction === "up";
+  // Click → open Transactions filtered to this category, so the user can see the
+  // exact transactions that make up the figure and drill into any one of them.
+  // The ⊕ "ask" button stays as a secondary action to query Rukmani.
   return (
-    <button onClick={() => ask(a.isNew
-      ? `I spent ${money(a.thisMonth)} on ${a.category} this month — a category I don't usually spend on. Help me understand whether that's worth watching.`
-      : `I spent ${money(a.thisMonth)} on ${a.category} this month vs my usual ~${money(a.typicalMonth)}. Why might that be, and should I be concerned?`)}
-      className="flex w-full items-center justify-between gap-3 rounded-lg border border-hairline bg-surface p-3 text-left transition-colors hover:brightness-110">
-      <div className="min-w-0">
-        <div className="text-sm font-medium text-ink">{a.category}</div>
-        <div className="text-[11px] text-ink-faint">
-          {a.isNew ? "New this month — no recent history" : <>This month {money(a.thisMonth)} · usually ~{money(a.typicalMonth)}</>}
+    <div className="flex items-center gap-2">
+      <Link href={`/transactions?category=${encodeURIComponent(a.category)}`}
+        className="flex min-w-0 flex-1 items-center justify-between gap-3 rounded-lg border border-hairline bg-surface p-3 text-left transition-colors hover:brightness-110">
+        <div className="min-w-0">
+          <div className="text-sm font-medium text-ink">{a.category}</div>
+          <div className="text-[11px] text-ink-faint">
+            {a.isNew ? "New this month — tap to see the transactions" : <>This month {money(a.thisMonth)} · usually ~{money(a.typicalMonth)} · tap to see transactions</>}
+          </div>
         </div>
-      </div>
-      <span className={`inline-flex shrink-0 items-center gap-1 text-sm font-semibold ${up ? "text-amber-400" : "text-emerald-400"}`}>
-        {up ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
-        {a.isNew ? money(a.thisMonth) : `${up ? "+" : ""}${money(a.deltaAmount)}`}
-      </span>
-    </button>
+        <span className={`inline-flex shrink-0 items-center gap-1 text-sm font-semibold ${up ? "text-amber-400" : "text-emerald-400"}`}>
+          {up ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
+          {a.isNew ? money(a.thisMonth) : `${up ? "+" : ""}${money(a.deltaAmount)}`}
+        </span>
+      </Link>
+      <button onClick={() => ask(a.isNew
+        ? `I spent ${money(a.thisMonth)} on ${a.category} this month — a category I don't usually spend on. Help me understand whether that's worth watching.`
+        : `I spent ${money(a.thisMonth)} on ${a.category} this month vs my usual ~${money(a.typicalMonth)}. Why might that be, and should I be concerned?`)}
+        title="Ask Rukmani about this" aria-label="Ask Rukmani"
+        className="shrink-0 rounded-lg border border-hairline bg-surface p-2 text-ink-faint transition-colors hover:text-brand-300">
+        <Sparkles size={15} />
+      </button>
+    </div>
   );
 }
 

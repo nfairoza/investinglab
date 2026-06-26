@@ -65,7 +65,9 @@ export function CashCard() {
           <Wallet size={14} className="text-accent" /> Investment cash
           {busy && <RefreshCw size={11} className="animate-spin text-accent" />}
         </div>
-        {!editing && (
+        {/* Manual edit is admin-only — regular users' cash comes from their
+            connected brokerage (Plaid). */}
+        {!editing && isAdmin && (
           <button onClick={(e) => { e.stopPropagation(); setDraft(String(manualAmount)); setEditing(true); }} title="Edit cash"
             className="rounded p-1 text-ink-faint hover:bg-surface hover:text-ink"><Pencil size={13} /></button>
         )}
@@ -86,8 +88,10 @@ export function CashCard() {
 
       <div className="mt-1.5 text-[11px] text-ink-faint">
         {investmentCash > 0
-          ? `Includes $${investmentCash.toLocaleString(undefined, { maximumFractionDigits: 0 })} brokerage cash${manualAmount > 0 ? ` + $${manualAmount.toLocaleString(undefined, { maximumFractionDigits: 0 })} manual` : ""}`
-          : cash?.source === "etrade" ? "From E*TRADE" : "Manual entry"}
+          ? "Uninvested cash in your connected brokerage"
+          : cash?.source === "etrade" ? "From E*TRADE"
+          : amount > 0 ? "From your account"
+          : "Connect a brokerage to see your cash"}
         {etradeConnected ? " · click card to sync" : ""}
       </div>
     </div>

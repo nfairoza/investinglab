@@ -114,7 +114,12 @@ export function MoneyDashboard() {
                   <Pie data={spend.cats} dataKey="value" nameKey="name" innerRadius={50} outerRadius={80} paddingAngle={2}>
                     {spend.cats.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} stroke="var(--bg)" />)}
                   </Pie>
-                  <Tooltip formatter={(v: number) => money(v)} contentStyle={{ background: "var(--tooltip-bg)", border: "1px solid var(--hairline-strong)", borderRadius: 10, fontSize: 12, color: "var(--text)" }} />
+                  <Tooltip
+                    formatter={(v: number) => money(v)}
+                    contentStyle={{ background: "var(--surface-solid)", border: "1px solid var(--hairline-strong)", borderRadius: 10, fontSize: 12 }}
+                    labelStyle={{ color: "var(--text)" }}
+                    itemStyle={{ color: "var(--text)" }}
+                  />
                 </PieChart>
               </ResponsiveContainer>
             </div>

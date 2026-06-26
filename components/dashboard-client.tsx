@@ -215,7 +215,7 @@ export function DashboardClient() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="font-display text-3xl font-semibold text-ink">Invest</h1>
+        <h1 className="font-display text-3xl font-semibold text-shimmer">Invest</h1>
         <p className="mt-1 text-sm text-ink-dim">Your portfolio at a glance — research and education, not financial advice.</p>
       </div>
 
