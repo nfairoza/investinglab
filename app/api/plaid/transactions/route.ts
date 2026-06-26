@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getPlaid, plaidConfigured } from "@/lib/plaid";
 import { getUserClient } from "@/lib/supabase-data";
+import { categorize } from "@/lib/money/categorize";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 export const dynamic = "force-dynamic";
@@ -24,7 +25,11 @@ async function syncToCache(ctx: { supabase: SupabaseClient; userId: string }) {
       const added: any[] = [];
       const removed: string[] = [];
       let hasMore = true;
-      for (let guard = 0; guard < 12 && hasMore; guard++) {
+      // Higher page guard so the FIRST sync pulls the full available history
+      // (Plaid returns up to ~24 months; each page is 100–500 txns). Past
+      // transactions never change, so once cached they're permanent — only the
+      // latest activity arrives on subsequent (incremental) syncs via the cursor.
+      for (let guard = 0; guard < 50 && hasMore; guard++) {
         const resp = await plaid.transactionsSync({ access_token: it.access_token, cursor });
         added.push(...resp.data.added, ...resp.data.modified);
         removed.push(...resp.data.removed.map((r) => r.transaction_id).filter(Boolean) as string[]);
@@ -43,6 +48,7 @@ async function syncToCache(ctx: { supabase: SupabaseClient; userId: string }) {
           amount: t.amount,
           currency: t.iso_currency_code ?? "USD",
           plaid_category: t.personal_finance_category?.primary ?? (t.category?.[0] ?? null),
+          plaid_detailed: t.personal_finance_category?.detailed ?? null,
           institution: it.institution_name,
           pending: t.pending ?? false,
           removed: false,
@@ -70,7 +76,7 @@ export async function GET(req: NextRequest) {
 
   // Read cache + the two override layers.
   const [{ data: txns }, { data: rules }, { data: overrides }] = await Promise.all([
-    ctx.supabase.from("plaid_transactions").select("*").eq("removed", false).order("date", { ascending: false }).limit(500),
+    ctx.supabase.from("plaid_transactions").select("*").eq("removed", false).order("date", { ascending: false }).limit(5000),
     ctx.supabase.from("plaid_merchant_rules").select("merchant_key, category"),
     ctx.supabase.from("plaid_txn_overrides").select("*"),
   ]);
@@ -83,12 +89,18 @@ export async function GET(req: NextRequest) {
   const from = sp.get("from");
   const to = sp.get("to");
   const q = (sp.get("q") ?? "").toLowerCase();
-  const limit = Math.min(Number(sp.get("limit")) || 200, 500);
+  const limit = Math.min(Number(sp.get("limit")) || 1000, 5000);
 
   const out = (txns ?? []).map((t: any) => {
     const ov = ovMap.get(t.transaction_id);
     const rule = ruleMap.get(merchantKey(t.merchant, t.name));
-    const cat = ov?.category ?? rule ?? t.plaid_category ?? "Uncategorized";
+    // Priority: user override → user merchant rule → smart categorizer (merchant
+    // + Plaid detailed + primary). The categorizer fixes Plaid's coarse buckets
+    // (DoorDash/Amazon/Steam/etc.) at read time, so all past rows benefit.
+    const cat = ov?.category ?? rule ?? categorize({
+      merchant: t.merchant, name: t.name,
+      plaidDetailed: t.plaid_detailed, plaidPrimary: t.plaid_category,
+    });
     return {
       id: t.transaction_id,
       date: t.date,

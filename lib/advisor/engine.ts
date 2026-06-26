@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getPlaid, plaidConfigured } from "@/lib/plaid";
+import { categorize } from "@/lib/money/categorize";
 import { computeNetWorth, type NetWorthResult } from "@/lib/networth";
 
 // =============================================================================
@@ -77,7 +78,7 @@ const money = (n: number) =>
 const pct = (n: number) => `${n.toFixed(1)}%`;
 
 // ── Transaction-derived spending (income/expenses/categories/recurring) ──────
-interface TxnRow { amount: number; plaid_category: string | null; merchant: string | null; name: string; date: string; removed: boolean }
+interface TxnRow { amount: number; plaid_category: string | null; plaid_detailed?: string | null; merchant: string | null; name: string; date: string; removed: boolean }
 
 function monthKey(isoDate: string): string {
   return isoDate.slice(0, 7); // YYYY-MM
@@ -110,7 +111,7 @@ function computeSpending(txns: TxnRow[]): { spending: SpendingInsights; avgMonth
   for (const t of live) {
     const amt = Number(t.amount);
     const mk = monthKey(t.date);
-    const cat = t.plaid_category ?? "Other";
+    const cat = categorize({ merchant: t.merchant, name: t.name, plaidDetailed: t.plaid_detailed, plaidPrimary: t.plaid_category });
     if (amt > 0) {
       expensesByMonth.set(mk, (expensesByMonth.get(mk) ?? 0) + amt);
       const m = (t.merchant ?? t.name ?? "Unknown").trim();
@@ -226,7 +227,7 @@ export async function computeAdvisor(ctx: { supabase: SupabaseClient; userId: st
   const since = new Date(); since.setDate(since.getDate() - 120);
   const { data: txns } = await ctx.supabase
     .from("plaid_transactions")
-    .select("amount, plaid_category, merchant, name, date, removed")
+    .select("amount, plaid_category, plaid_detailed, merchant, name, date, removed")
     .gte("date", since.toISOString().slice(0, 10));
   const { spending, avgMonthlyExpenses } = computeSpending((txns ?? []) as TxnRow[]);
   if (spending.available) dataSources.push("transactions");

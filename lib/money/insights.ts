@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { categorize } from "@/lib/money/categorize";
 
 // =============================================================================
 // Money insights — DETERMINISTIC detection of personal spending patterns from
@@ -92,7 +93,7 @@ export async function computeMoneyInsights(ctx: { supabase: SupabaseClient }): P
   since.setMonth(since.getMonth() - 13);
   const { data } = await ctx.supabase
     .from("plaid_transactions")
-    .select("amount, plaid_category, merchant, name, date, removed")
+    .select("amount, plaid_category, plaid_detailed, merchant, name, date, removed")
     .gte("date", since.toISOString().slice(0, 10));
 
   const live = ((data ?? []) as TxnRow[]).filter((t) => !t.removed);
@@ -111,7 +112,7 @@ export async function computeMoneyInsights(ctx: { supabase: SupabaseClient }): P
   // ── 1. Category anomalies: this month vs trailing average of prior months ──
   const catByMonth = new Map<string, Map<string, number>>(); // category → month → $
   for (const t of txns) {
-    const cat = t.plaid_category ?? "Other";
+    const cat = categorize({ merchant: t.merchant, name: t.name, plaidDetailed: (t as any).plaid_detailed, plaidPrimary: t.plaid_category });
     const mk = monthKey(t.date);
     const m = catByMonth.get(cat) ?? new Map<string, number>();
     m.set(mk, (m.get(mk) ?? 0) + Number(t.amount));
