@@ -6,34 +6,16 @@ import { DataBadge } from "./data-state";
 import type { DataResult } from "@/lib/providers/types";
 import type { StockScore, Horizon } from "@/lib/scoring/score";
 import { horizonOutlook } from "@/lib/scoring/score";
-import type { Holding, WatchItem } from "@/lib/db";
+import type { Holding } from "@/lib/db";
 
-// A starter universe to rank when you have few holdings. Full US-universe
-// ranking needs FMP screener/bulk endpoints + a cache (the PostgreSQL "memory"
-// role) — see the note at the bottom. This list + your tracked tickers is enough
-// to demonstrate the rankings end to end.
-const SEED = [
-  "AAPL", "MSFT", "NVDA", "AMD", "GOOGL", "AMZN", "META", "TSLA",
-  "AVGO", "JPM", "V", "COST", "NFLX", "CRM", "ADBE", "QCOM",
-];
-
-async function scoreAll(symbols: string[]): Promise<{ scores: StockScore[]; source: "live" | "demo" | undefined }> {
-  let source: "live" | "demo" | undefined;
-  const results = await Promise.all(
-    symbols.map(async (s) => {
-      try {
-        const r = await fetch(`/api/score?symbol=${s}`);
-        const d = (await r.json()) as DataResult<StockScore>;
-        // Capture the real source — "live" wins if any holding is live.
-        if (d.source === "live") source = "live";
-        else if (d.source === "demo" && source !== "live") source = "demo";
-        return d.data;
-      } catch {
-        return null;
-      }
-    }),
-  );
-  return { scores: results.filter((x): x is StockScore => x != null), source };
+// Server-side ranking: one request scores the whole universe (seed + the user's
+// holdings/watchlist) with bounded concurrency + a 5-min cache, instead of firing
+// dozens of parallel /api/score calls from the browser (which 429'd FMP and left
+// the page empty).
+async function fetchRankings(): Promise<{ scores: StockScore[]; source: "live" | "demo" | "unavailable" | undefined }> {
+  const r = await fetch("/api/rankings");
+  const d = (await r.json()) as { scores?: StockScore[]; source?: "live" | "demo" | "unavailable" };
+  return { scores: d.scores ?? [], source: d.source };
 }
 
 function topBy(scores: StockScore[], h: Horizon, n = 10): StockScore[] {
@@ -107,12 +89,10 @@ function ScoreList({ title, subtitle, rows, horizon }: { title: string; subtitle
 
 export function Rankings() {
   const { data: holdings = [] } = useSWR<Holding[]>("/api/holdings?withBrokers=1", (url: string) => fetch(url).then((r) => r.json()));
-  const { data: watch = [] } = useSWR<WatchItem[]>("/api/watchlist", (url: string) => fetch(url).then((r) => r.json()));
 
   const owned = new Set(holdings.map((h) => h.symbol));
-  const universe = Array.from(new Set([...SEED, ...holdings.map((h) => h.symbol), ...watch.map((w) => w.symbol)]));
 
-  const { data: result, isLoading } = useSWR(["rankings", universe.join(",")], () => scoreAll(universe), {
+  const { data: result, isLoading } = useSWR("rankings", fetchRankings, {
     refreshInterval: 5 * 60_000,
     keepPreviousData: true,
   });
@@ -146,6 +126,14 @@ export function Rankings() {
         <span className="text-sm text-ink-dim">Universe: {all.length} stocks (seed + your tracked tickers)</span>
         {source && <DataBadge source={source} />}
       </div>
+
+      {/* Clear message when the data provider returned nothing (rate limit /
+          quota / key) — instead of silent "No data" everywhere. */}
+      {all.length === 0 && !isLoading && (
+        <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-sm text-amber-200">
+          Rankings are temporarily unavailable — the market-data provider didn&apos;t return data (likely a rate limit or quota). It refreshes automatically; try again in a minute.
+        </div>
+      )}
 
       {/* How to read this — legitimacy / methodology */}
       <details className="rounded-lg border border-hairline bg-black/15 p-3 text-xs text-ink-dim">
