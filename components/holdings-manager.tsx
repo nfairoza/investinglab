@@ -57,7 +57,16 @@ async function fetchSparks(symbols: string[]): Promise<Record<string, { v: numbe
   return Object.fromEntries(entries);
 }
 
-interface PlaidHolding { symbol: string; name: string | null; hasRealTicker?: boolean; quantity: number; price: number | null; value: number | null; costBasis: number | null; currency: string; institution: string; secType?: string | null; isCashEquivalent?: boolean; potentialValue?: number | null; vestedValue?: number | null; vestedQuantity?: number | null; hasVesting?: boolean }
+interface PlaidHolding { symbol: string; name: string | null; hasRealTicker?: boolean; quantity: number; price: number | null; value: number | null; costBasis: number | null; currency: string; institution: string; accountMask?: string | null; secType?: string | null; isCashEquivalent?: boolean; potentialValue?: number | null; vestedValue?: number | null; vestedQuantity?: number | null; hasVesting?: boolean }
+
+// Short, readable institution label: "E*TRADE from Morgan Stanley" → "E*TRADE",
+// plus the last-4 account mask when available (e.g. "E*TRADE ••1234").
+function shortInstitution(name: string, mask?: string | null): string {
+  let n = (name || "").trim();
+  if (/e[\s*]*trade/i.test(n)) n = "E*TRADE";
+  else n = n.split(/\s+from\s+/i)[0].trim(); // drop "… from X" custodian suffix
+  return mask ? `${n} ••${mask}` : n;
+}
 
 // security  = priceable/researchable ticker → main equities table
 // crypto    = its own card
@@ -83,7 +92,20 @@ export function HoldingsManager() {
   });
   // Line-by-line holdings from Plaid-linked brokerages (Robinhood, Fidelity,
   // etc.), merged into the same unified table, tagged by institution.
-  const { data: plaidInv } = useSWR<{ holdings: PlaidHolding[] }>("/api/plaid/investments", fetchJson, { revalidateOnFocus: false });
+  const { data: plaidInv, mutate: mutatePlaid } = useSWR<{ holdings: PlaidHolding[] }>("/api/plaid/investments", fetchJson, { revalidateOnFocus: false });
+  const [refreshing, setRefreshing] = useState(false);
+  // General refresh available to ALL users: re-pull every holdings feed + live
+  // prices. For admins with an E*TRADE token connection, also re-sync E*TRADE.
+  async function refreshAll() {
+    setRefreshing(true);
+    try {
+      if (isAdmin) {
+        const s = await fetch("/api/etrade/status").then((r) => r.json()).catch(() => null);
+        if (s?.connected && s?.selectedAccountIdKey) await syncFromEtrade(true);
+      }
+      await Promise.all([mutate(), mutatePlaid()]);
+    } finally { setRefreshing(false); }
+  }
 
   const [symbol, setSymbol] = useState("");
   const [shares, setShares] = useState("");
@@ -116,7 +138,7 @@ export function HoldingsManager() {
           symbol: String(p.symbol).toUpperCase(),
           shares: Number(p.quantity) || 0,
           avgCost: p.costBasis != null && p.quantity ? Number(p.costBasis) / Number(p.quantity) : 0,
-          source: p.institution, // institution name acts as the source/account tag
+          source: shortInstitution(p.institution, p.accountMask), // short label + last-4
           // RSU/vesting: current value = vested only; unvested goes to the
           // "Potential holdings" card and is excluded from portfolio totals.
           marketValue: (p.hasVesting && p.vestedValue != null ? p.vestedValue : p.value) ?? undefined,
@@ -140,7 +162,7 @@ export function HoldingsManager() {
       .map((p) => ({
         symbol: String(p.symbol).toUpperCase(),
         name: p.name,
-        institution: p.institution,
+        institution: shortInstitution(p.institution, p.accountMask),
         potentialValue: p.potentialValue ?? 0,
         unvestedShares: p.vestedQuantity != null ? Math.max(0, Number(p.quantity) - Number(p.vestedQuantity)) : null,
         price: p.price,
@@ -268,9 +290,10 @@ export function HoldingsManager() {
     const hasCost = h.avgCost > 0 && cost > 0;
     const totalGain = h.totalGain ?? (value != null && hasCost ? value - cost : null);
     const totalGainPct = h.totalGainPct ?? (totalGain != null && cost > 0 ? (totalGain / cost) * 100 : null);
-    // Day's gain — only E*TRADE provides this (snapshotted at sync).
-    const daysGain = h.daysGain ?? null;
-    const daysGainPct = h.daysGainPct ?? (q?.changePct ?? null); // FMP day % as fallback
+    // Day's gain — E*TRADE provides it directly; for everything else (Plaid,
+    // manual) derive it from the live FMP day % applied to today's value.
+    const daysGainPct = h.daysGainPct ?? (q?.changePct ?? null);
+    const daysGain = h.daysGain ?? (value != null && daysGainPct != null ? (daysGainPct / 100) * value : null);
     return { h, price, value, totalGain, totalGainPct, daysGain, daysGainPct };
   });
   const total = valued.reduce((sum, v) => sum + (v.value ?? 0), 0);
@@ -387,18 +410,16 @@ export function HoldingsManager() {
               )}
             </div>
             <div className="flex items-center gap-2">
-              {/* Subtle refresh — re-syncs the connected E*TRADE + live prices.
-                  Admin-only: regular users get brokerages through Plaid. */}
-              {isAdmin && (
-                <button
-                  onClick={() => { syncFromEtrade(); }}
-                  disabled={syncingEtrade}
-                  title="Refresh from your connected E*TRADE account"
-                  className="flex items-center gap-1 rounded-md border border-hairline px-2 py-1 text-[11px] text-ink-dim hover:bg-surface hover:text-ink disabled:opacity-50">
-                  <RefreshCw size={12} className={syncingEtrade ? "animate-spin" : ""} />
-                  {syncingEtrade ? "Syncing…" : "Refresh"}
-                </button>
-              )}
+              {/* General refresh for everyone — re-pulls all holdings + prices
+                  (and E*TRADE too for connected admins). */}
+              <button
+                onClick={refreshAll}
+                disabled={refreshing || syncingEtrade}
+                title="Refresh holdings and live prices"
+                className="flex items-center gap-1 rounded-md border border-hairline px-2 py-1 text-[11px] text-ink-dim hover:bg-surface hover:text-ink disabled:opacity-50">
+                <RefreshCw size={12} className={refreshing || syncingEtrade ? "animate-spin" : ""} />
+                {refreshing || syncingEtrade ? "Refreshing…" : "Refresh"}
+              </button>
               {anySource && <DataBadge source={anySource} />}
               {/* Source filter — derived from connected institutions, so it
                   scales to any number of banks/brokerages. On phones (and when
