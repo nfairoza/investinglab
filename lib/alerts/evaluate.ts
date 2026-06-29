@@ -68,3 +68,27 @@ export function formatTriggerValue(a: Alert, value: number): string {
 export function needsScore(a: Alert): boolean {
   return a.type === "earnings" || a.type === "score";
 }
+
+// ── Time-bound alerts ─────────────────────────────────────────────────────────
+// An alert with no expiresAt is persistent. One with expiresAt is "time-bound"
+// and should stop existing once that moment passes.
+export function isExpired(a: Pick<Alert, "expiresAt">, nowMs: number = Date.now()): boolean {
+  return !!a.expiresAt && new Date(a.expiresAt).getTime() <= nowMs;
+}
+
+// Short, human-friendly description of when an alert lapses, e.g. "expires in 3d"
+// or "expires Jun 30, 5:00 PM". Returns null for persistent alerts.
+export function describeExpiry(a: Pick<Alert, "expiresAt">, nowMs: number = Date.now()): string | null {
+  if (!a.expiresAt) return null;
+  const t = new Date(a.expiresAt).getTime();
+  if (!Number.isFinite(t)) return null;
+  const ms = t - nowMs;
+  if (ms <= 0) return "expired";
+  const mins = Math.round(ms / 60000);
+  if (mins < 60) return `expires in ${mins}m`;
+  const hrs = Math.round(mins / 60);
+  if (hrs < 48) return `expires in ${hrs}h`;
+  const days = Math.round(hrs / 24);
+  if (days <= 14) return `expires in ${days}d`;
+  return `expires ${new Date(t).toLocaleDateString(undefined, { month: "short", day: "numeric" })}`;
+}

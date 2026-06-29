@@ -23,6 +23,10 @@ Rules:
   - "score": { scoreOp: "above"|"below", scoreValue: 0-100 }  // quality/score crossing
 - Favor the user's own holdings/watchlist; you may add 1-2 market-wide ones for big opportunities or risks.
 - Give a one-line reason for each (why it matters now).
+- TIME-BOUND vs PERSISTENT: decide whether each alert should expire.
+  - If the alert only matters until a specific catalyst/date (e.g. "watch ahead of earnings on Aug 6", a level that matters for an upcoming event, an options expiry, a short-term setup), set "expiresAt" to an ISO 8601 timestamp (UTC) shortly AFTER that event — the alert auto-removes itself afterward.
+  - If the alert is an ongoing/structural watch (long-term valuation level, quality score, general risk), OMIT "expiresAt" so it persists.
+  - Use today's date to compute concrete future timestamps. Never set a past time.
 Return ONLY valid JSON (no markdown) matching the schema.`;
 
 function buildPrompt(holdings: string[], watchlist: string[]): string {
@@ -43,11 +47,12 @@ Return JSON:
       "withinDays": number,             // earnings only
       "scoreOp": "above" | "below",     // score only
       "scoreValue": number,             // score only
+      "expiresAt": string,              // OPTIONAL ISO 8601 (UTC); include ONLY for time-bound alerts, omit for persistent ones
       "reason": string                  // one line: why this matters now
     }
   ]
 }
-Only include the param fields relevant to each suggestion's type.`;
+Only include the param fields relevant to each suggestion's type. Today is ${new Date().toISOString().slice(0, 10)}.`;
 }
 
 // GET — return cached suggestions if fresh.

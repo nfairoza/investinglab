@@ -2,9 +2,9 @@
 
 import { useEffect, useRef, useState } from "react";
 import useSWR from "swr";
-import { Bell, BellRing, X, Sparkles, Plus, RefreshCw } from "lucide-react";
+import { Bell, BellRing, X, Sparkles, Plus, RefreshCw, Clock } from "lucide-react";
 import { TickerInput } from "./ticker-input";
-import { evaluateAlert, describeAlert, formatTriggerValue, needsScore, type AlertContext } from "@/lib/alerts/evaluate";
+import { evaluateAlert, describeAlert, formatTriggerValue, needsScore, isExpired, describeExpiry, type AlertContext } from "@/lib/alerts/evaluate";
 import type { Alert } from "@/lib/db";
 import type { DataResult, Quote } from "@/lib/providers/types";
 import type { StockScore } from "@/lib/scoring/score";
@@ -39,6 +39,7 @@ export function AlertsManager() {
   const [scoreOp, setScoreOp] = useState<"above" | "below">("below");
   const [scoreValue, setScoreValue] = useState("40");
   const [note, setNote] = useState("");
+  const [expiresAt, setExpiresAt] = useState(""); // datetime-local string; "" = persistent
   const [addErr, setAddErr] = useState<string | null>(null);
 
   // ── Notification permission ──────────────────────────────────────────────────
@@ -62,13 +63,19 @@ export function AlertsManager() {
     if (type === "dayMove") payload.movePct = Number(movePct);
     if (type === "earnings") payload.withinDays = Number(withinDays);
     if (type === "score") { payload.scoreOp = scoreOp; payload.scoreValue = Number(scoreValue); }
+    if (expiresAt) {
+      const t = new Date(expiresAt).getTime();
+      if (!Number.isFinite(t)) { setAddErr("Invalid expiry date/time."); return; }
+      if (t <= Date.now()) { setAddErr("Expiry must be in the future."); return; }
+      payload.expiresAt = new Date(t).toISOString();
+    }
 
     const r = await fetch("/api/alerts", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
     if (!r.ok) { const j = await r.json().catch(() => ({})); setAddErr((j as any).error ?? "Could not add alert."); return; }
-    setSymbol(""); setPrice(""); setNote("");
+    setSymbol(""); setPrice(""); setNote(""); setExpiresAt("");
     mutate();
   }
 
@@ -89,6 +96,7 @@ export function AlertsManager() {
     symbol: string; type: Alert["type"]; reason?: string;
     direction?: "above" | "below"; price?: number; movePct?: number;
     withinDays?: number; scoreOp?: "above" | "below"; scoreValue?: number;
+    expiresAt?: string; // ISO; present when the AI deems the alert time-bound
   }
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [suggestBusy, setSuggestBusy] = useState(false);
@@ -128,6 +136,11 @@ export function AlertsManager() {
     if (s.type === "dayMove") payload.movePct = s.movePct;
     if (s.type === "earnings") payload.withinDays = s.withinDays;
     if (s.type === "score") { payload.scoreOp = s.scoreOp ?? "below"; payload.scoreValue = s.scoreValue; }
+    // Pass through the AI's time-bound expiry only if it's still in the future.
+    if (s.expiresAt) {
+      const t = new Date(s.expiresAt).getTime();
+      if (Number.isFinite(t) && t > Date.now()) payload.expiresAt = new Date(t).toISOString();
+    }
     await fetch("/api/alerts", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
     setDismissed((d) => new Set(d).add(sigOf(s)));
     mutate();
@@ -147,7 +160,7 @@ export function AlertsManager() {
 
     async function runCheck() {
       if (typeof document !== "undefined" && document.hidden) return; // skip when tab hidden
-      const list = alertsRef.current.filter((a) => a.enabled);
+      const list = alertsRef.current.filter((a) => a.enabled && !isExpired(a));
       if (!list.length) return;
 
       // Gather the per-symbol data we need, once per symbol.
@@ -210,8 +223,28 @@ export function AlertsManager() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // ── Auto-expire time-bound alerts ─────────────────────────────────────────────
+  // While the page is open, drop alerts whose expiry has passed so they "go away"
+  // without a manual refresh. The server also prunes them on read.
+  useEffect(() => {
+    let cancelled = false;
+    async function prune() {
+      const expired = alertsRef.current.filter((a) => isExpired(a));
+      if (!expired.length) return;
+      await Promise.all(expired.map((a) => fetch(`/api/alerts?id=${a.id}`, { method: "DELETE" }).catch(() => {})));
+      if (!cancelled) mutate();
+    }
+    prune();
+    const id = setInterval(prune, 30_000);
+    return () => { cancelled = true; clearInterval(id); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Hide any not-yet-pruned expired alerts from every view.
+  const liveAlerts = alerts.filter((a) => !isExpired(a));
+
   // Triggered feed: alerts that have fired, newest first.
-  const triggered = [...alerts]
+  const triggered = [...liveAlerts]
     .filter((a) => a.lastTriggeredAt)
     .sort((a, b) => (b.lastTriggeredAt! > a.lastTriggeredAt! ? 1 : -1));
 
@@ -283,7 +316,77 @@ export function AlertsManager() {
           <button onClick={addAlert} className="btn-gold rounded-md px-4 py-2 text-sm">Add alert</button>
         </div>
         <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Note (optional)" className={`${inputCls} mt-2`} />
+        {/* Optional expiry — leave blank for a persistent alert */}
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <label className="flex items-center gap-1.5 text-[11px] text-ink-faint">
+            <Clock size={12} /> Expires (optional)
+          </label>
+          <input
+            type="datetime-local"
+            value={expiresAt}
+            min={new Date(Date.now() + 60_000).toISOString().slice(0, 16)}
+            onChange={(e) => setExpiresAt(e.target.value)}
+            className={`${inputCls} max-w-[15rem]`}
+            style={{ colorScheme: "dark" }}
+          />
+          {expiresAt && (
+            <button onClick={() => setExpiresAt("")} className="text-[11px] text-ink-faint hover:text-rose-300">Clear · keep persistent</button>
+          )}
+        </div>
         {addErr && <p className="mt-2 text-[11px] text-rose-400">{addErr}</p>}
+      </div>
+
+      {/* Active alerts */}
+      <div>
+        <h2 className="mb-2 text-sm font-medium text-ink-dim">Active alerts ({liveAlerts.length})</h2>
+        {liveAlerts.length === 0 ? (
+          <div className="rounded-lg border border-hairline bg-surface p-6 text-center text-sm text-ink-faint">
+            No alerts yet. Add one above — e.g. notify me when AMD drops below $480.
+          </div>
+        ) : (
+          <div className="overflow-hidden rounded-xl glass">
+            <div className="divide-y divide-hairline">
+              {liveAlerts.map((a) => {
+                const tripped = a.lastTriggeredAt && Date.now() - new Date(a.lastTriggeredAt).getTime() < REARM_MS;
+                const expiry = describeExpiry(a);
+                return (
+                  <div key={a.id} className="flex items-center gap-3 px-3 py-2.5 text-sm">
+                    <span className={tripped ? "text-accent" : "text-ink-faint"}>
+                      {tripped ? <BellRing size={15} /> : <Bell size={15} />}
+                    </span>
+                    <a href={`/research?symbol=${a.symbol}`} className="w-16 shrink-0 font-semibold text-brand-300 hover:underline">{a.symbol}</a>
+                    <span className="w-28 shrink-0 text-[11px] uppercase tracking-wide text-ink-faint">{TYPE_LABEL[a.type]}</span>
+                    <span className="min-w-0 flex-1 truncate text-ink-dim">
+                      {describeAlert(a)}
+                      {a.note && <span className="ml-2 text-xs text-ink-faint">· {a.note}</span>}
+                    </span>
+                    {expiry && (
+                      <span title={`Auto-removes ${new Date(a.expiresAt!).toLocaleString()}`}
+                        className="hidden shrink-0 items-center gap-1 rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-700 dark:text-amber-300 sm:inline-flex">
+                        <Clock size={10} /> {expiry}
+                      </span>
+                    )}
+                    {a.lastTriggeredAt && (
+                      <span className="hidden shrink-0 text-[11px] text-ink-faint sm:inline">
+                        last: {formatTriggerValue(a, a.lastValue ?? 0)} · {new Date(a.lastTriggeredAt).toLocaleString()}
+                      </span>
+                    )}
+                    {/* enable toggle */}
+                    <button onClick={() => toggle(a)} title={a.enabled ? "Pause" : "Resume"}
+                      className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                        a.enabled ? "border border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+                                  : "border border-hairline text-ink-faint"
+                      }`}>
+                      {a.enabled ? "ON" : "OFF"}
+                    </button>
+                    <button onClick={() => remove(a.id)} title="Remove" className="shrink-0 rounded p-1 text-ink-faint hover:text-rose-300"><X size={14} /></button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+        {lastCheck && <p className="mt-1.5 text-[11px] text-ink-faint">Last checked {new Date(lastCheck).toLocaleTimeString()}.</p>}
       </div>
 
       {/* AI-suggested alerts */}
@@ -310,7 +413,15 @@ export function AlertsManager() {
               <div key={sigOf(s)} className="flex items-center gap-3 rounded-lg border border-hairline bg-surface px-3 py-2 text-sm">
                 <span className="w-14 shrink-0 font-semibold text-brand-300">{s.symbol}</span>
                 <div className="min-w-0 flex-1">
-                  <div className="text-ink-dim">{describeAlert(s as unknown as Alert)}</div>
+                  <div className="flex items-center gap-2 text-ink-dim">
+                    {describeAlert(s as unknown as Alert)}
+                    {s.expiresAt && describeExpiry(s) && (
+                      <span title={`Auto-removes ${new Date(s.expiresAt).toLocaleString()}`}
+                        className="inline-flex shrink-0 items-center gap-1 rounded-full border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:text-amber-300">
+                        <Clock size={10} /> {describeExpiry(s)}
+                      </span>
+                    )}
+                  </div>
                   {s.reason && <div className="truncate text-[11px] text-ink-faint">{s.reason}</div>}
                 </div>
                 <button onClick={() => approve(s)} title="Add this alert"
@@ -323,52 +434,6 @@ export function AlertsManager() {
             ))}
           </div>
         )}
-      </div>
-
-      {/* Active alerts */}
-      <div>
-        <h2 className="mb-2 text-sm font-medium text-ink-dim">Active alerts ({alerts.length})</h2>
-        {alerts.length === 0 ? (
-          <div className="rounded-lg border border-hairline bg-surface p-6 text-center text-sm text-ink-faint">
-            No alerts yet. Add one above — e.g. notify me when AMD drops below $480.
-          </div>
-        ) : (
-          <div className="overflow-hidden rounded-xl glass">
-            <div className="divide-y divide-hairline">
-              {alerts.map((a) => {
-                const tripped = a.lastTriggeredAt && Date.now() - new Date(a.lastTriggeredAt).getTime() < REARM_MS;
-                return (
-                  <div key={a.id} className="flex items-center gap-3 px-3 py-2.5 text-sm">
-                    <span className={tripped ? "text-accent" : "text-ink-faint"}>
-                      {tripped ? <BellRing size={15} /> : <Bell size={15} />}
-                    </span>
-                    <a href={`/research?symbol=${a.symbol}`} className="w-16 shrink-0 font-semibold text-brand-300 hover:underline">{a.symbol}</a>
-                    <span className="w-28 shrink-0 text-[11px] uppercase tracking-wide text-ink-faint">{TYPE_LABEL[a.type]}</span>
-                    <span className="min-w-0 flex-1 truncate text-ink-dim">
-                      {describeAlert(a)}
-                      {a.note && <span className="ml-2 text-xs text-ink-faint">· {a.note}</span>}
-                    </span>
-                    {a.lastTriggeredAt && (
-                      <span className="hidden shrink-0 text-[11px] text-ink-faint sm:inline">
-                        last: {formatTriggerValue(a, a.lastValue ?? 0)} · {new Date(a.lastTriggeredAt).toLocaleString()}
-                      </span>
-                    )}
-                    {/* enable toggle */}
-                    <button onClick={() => toggle(a)} title={a.enabled ? "Pause" : "Resume"}
-                      className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${
-                        a.enabled ? "border border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
-                                  : "border border-hairline text-ink-faint"
-                      }`}>
-                      {a.enabled ? "ON" : "OFF"}
-                    </button>
-                    <button onClick={() => remove(a.id)} title="Remove" className="shrink-0 rounded p-1 text-ink-faint hover:text-rose-300"><X size={14} /></button>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-        {lastCheck && <p className="mt-1.5 text-[11px] text-ink-faint">Last checked {new Date(lastCheck).toLocaleTimeString()}.</p>}
       </div>
 
       {/* Triggered feed */}
