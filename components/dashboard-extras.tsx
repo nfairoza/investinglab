@@ -1,8 +1,15 @@
 "use client";
 
 import Link from "next/link";
+import useSWR from "swr";
 import { ArrowUpRight, Bell, NotebookPen, Sparkles } from "lucide-react";
 import { GlowSparkline } from "./charts/GlowSparkline";
+import type { DataResult, PriceHistory } from "@/lib/providers/types";
+
+async function fetchJson<T>(url: string): Promise<T> {
+  const r = await fetch(url);
+  return r.json();
+}
 
 // ── Gradient stat tile (Logip/Kristin look) ─────────────────────────────────
 // Subtle theme-tinted gradient; one headline metric + sublabel.
@@ -33,15 +40,24 @@ export function GradientStat({
 export function AssetCard({
   symbol, name, price, dayPct, series, shares,
 }: { symbol: string; name?: string; price: number | null; dayPct: number | null; series: { v: number }[]; shares?: number }) {
-  // The sparkline, the % badge, and the $ change must all describe the SAME
-  // window (the sparkline period), or the card contradicts itself — e.g. a stock
-  // up today but down over the month showed a green ▲ badge above a red line.
-  // Derive everything from the series so the card tells one coherent story.
-  const first = series[0]?.v;
-  const last = series[series.length - 1]?.v;
-  const periodPct = first != null && last != null && first !== 0 ? ((last - first) / first) * 100 : dayPct;
-  const up = (periodPct ?? 0) >= 0;
-  const periodChange = first != null && last != null && shares ? (last - first) * shares : null;
+  // Everything on this card describes TODAY (1-day). Fetch the intraday (5-min)
+  // series so the sparkline shows today's path; the badge %, line color, and $
+  // change all derive from today's previous-close → now move so they agree.
+  const { data: intraday } = useSWR<DataResult<PriceHistory>>(
+    `/api/price-history?symbol=${symbol}&range=1D`,
+    fetchJson,
+    { revalidateOnFocus: false, refreshInterval: 60_000 },
+  );
+  const intradaySeries = (intraday?.data?.points ?? []).map((p) => ({ v: p.close }));
+  // Prepend the previous close so the line (and its up/down color) measures the
+  // SAME thing as the badge: previous-close → now, including the opening gap.
+  const prevClose = dayPct != null && price != null ? price / (1 + dayPct / 100) : null;
+  const sparkSeries = intradaySeries.length >= 2
+    ? (prevClose != null ? [{ v: prevClose }, ...intradaySeries] : intradaySeries)
+    : series.slice(-2);
+  const dayUp = (dayPct ?? 0) >= 0;
+  // Today's $ change for this position = today's % move × current value.
+  const dayChange = dayPct != null && price != null && shares ? (price * shares) * (dayPct / 100) : null;
   return (
     <Link href={`/research?symbol=${symbol}`}
       className="card-hover group relative block overflow-hidden rounded-md border border-hairline p-3 sm:p-4" style={{ background: "var(--surface)" }}>
@@ -53,22 +69,22 @@ export function AssetCard({
           </div>
           {name && <div className="hidden truncate text-[11px] text-ink-faint sm:block">{name}</div>}
         </div>
-        {periodPct != null && (
+        {dayPct != null && (
           <span className="flex items-center gap-1 rounded-full px-2 py-0.5 font-mono text-[11px] font-medium sm:text-xs"
-            style={{ color: up ? "var(--positive)" : "var(--negative)", background: up ? "var(--positive-soft)" : "var(--negative-soft)" }}>
-            {up ? "▲" : "▼"} {Math.abs(periodPct).toFixed(2)}% <span className="opacity-60">30D</span>
+            style={{ color: dayUp ? "var(--positive)" : "var(--negative)", background: dayUp ? "var(--positive-soft)" : "var(--negative-soft)" }}>
+            {dayUp ? "▲" : "▼"} {Math.abs(dayPct).toFixed(2)}% <span className="opacity-60">1D</span>
           </span>
         )}
       </div>
       <div className="mt-1.5 font-mono text-lg font-semibold tnum text-ink sm:mt-2 sm:text-2xl">{price != null ? `$${price.toFixed(2)}` : "—"}</div>
-      {/* Glow sparkline — shorter on phones so cards don't rival the portfolio hero */}
+      {/* Glow sparkline — today's intraday path (shorter on phones) */}
       <div className="relative mt-1.5 -mx-3 -mb-3 sm:mt-2 sm:-mx-4 sm:-mb-4">
-        <div className="sm:hidden"><GlowSparkline data={series} height={40} /></div>
-        <div className="hidden sm:block"><GlowSparkline data={series} height={88} /></div>
-        {periodChange != null && Math.abs(periodChange) >= 1 && (
+        <div className="sm:hidden"><GlowSparkline data={sparkSeries} height={40} /></div>
+        <div className="hidden sm:block"><GlowSparkline data={sparkSeries} height={88} /></div>
+        {dayChange != null && Math.abs(dayChange) >= 1 && (
           <span className="absolute right-3 top-1 rounded-md border border-hairline px-1.5 py-0.5 font-mono text-[10px]"
-            style={{ background: "var(--surface-solid)", color: periodChange >= 0 ? "var(--positive)" : "var(--negative)" }}>
-            {periodChange >= 0 ? "+" : "−"}${Math.abs(periodChange).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+            style={{ background: "var(--surface-solid)", color: dayChange >= 0 ? "var(--positive)" : "var(--negative)" }}>
+            {dayChange >= 0 ? "+" : "−"}${Math.abs(dayChange).toLocaleString(undefined, { maximumFractionDigits: 0 })}
           </span>
         )}
       </div>
