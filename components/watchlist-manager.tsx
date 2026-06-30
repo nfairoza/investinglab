@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import useSWR from "swr";
-import { GripVertical, ChevronRight, ExternalLink, X, ArrowUp, ArrowDown } from "lucide-react";
+import { GripVertical, ChevronRight, ExternalLink, X, ArrowUp, ArrowDown, Loader2, Sparkles } from "lucide-react";
 import { DataBadge, DataTimestamp } from "./data-state";
 import { TickerInput } from "./ticker-input";
 import { Sparkline } from "./charts/Sparkline";
@@ -323,8 +323,10 @@ export function WatchlistManager({ listId }: { listId?: string } = {}) {
                         <a href={`/research?symbol=${w.symbol}`} title={`Research ${w.symbol}`}
                           className="rounded p-1 text-ink-faint hover:bg-surface hover:text-brand-300"><ExternalLink size={14} /></a>
                         <button onClick={() => analyze(w.id)} disabled={busy} title={w.analyzedAt ? "Refresh AI analysis" : "Run AI analysis"}
-                          className="ml-1 rounded-md border border-brand-500/50 bg-brand-500/10 px-2 py-1 text-[11px] font-medium text-brand-300 hover:bg-brand-500/20 disabled:opacity-50">
-                          {busy ? "…" : w.analyzedAt ? "↻" : "Analyze"}
+                          className="ml-1 inline-flex items-center gap-1 rounded-md border border-brand-500/50 bg-brand-500/10 px-2 py-1 text-[11px] font-medium text-brand-300 hover:bg-brand-500/20 disabled:opacity-70">
+                          {busy
+                            ? <><Loader2 size={12} className="animate-spin" /> Analyzing…</>
+                            : w.analyzedAt ? "↻" : <><Sparkles size={12} /> Analyze</>}
                         </button>
                         <button onClick={() => removeItem(w.id)} title="Remove"
                           className="rounded p-1 text-ink-faint hover:text-rose-300"><X size={14} /></button>

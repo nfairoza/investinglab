@@ -134,32 +134,47 @@ export function HoldingsManager() {
   const allHoldings: Holding[] = useMemo(() => {
     const haveEtrade = dbHoldings.some((h) => h.source === "etrade");
     const isEtradeInstitution = (name: string) => /e[\s*]*trade|morgan stanley/i.test(name);
-    const plaidRows: Holding[] = (plaidInv?.holdings ?? [])
-      .filter((p) => p.symbol && p.symbol !== "—")
-      .filter((p) => !(haveEtrade && isEtradeInstitution(p.institution))) // E*TRADE wins
-      .map((p) => {
-        const kind = classifyHolding({ symbol: p.symbol, secType: p.secType, isCashEquivalent: p.isCashEquivalent, hasRealTicker: p.hasRealTicker });
-        // RSU/vesting: in the Holdings table show ONLY the vested portion
-        // (shares + value). The unvested remainder lives in the Unvested card.
-        const ownedShares = p.hasVesting && p.vestedQuantity != null ? Number(p.vestedQuantity) : Number(p.quantity) || 0;
-        const ownedValue = p.hasVesting && p.vestedValue != null ? p.vestedValue : p.value;
-        return {
-          // accountId keeps the key unique when two accounts share institution
-          // AND symbol (otherwise two rows collide on the same React key).
-          id: `plaid:${p.accountId ?? p.institution}:${p.symbol}`,
-          accountId: p.accountId ?? null,
-          symbol: String(p.symbol).toUpperCase(),
-          shares: ownedShares,
-          avgCost: p.costBasis != null && p.quantity ? Number(p.costBasis) / Number(p.quantity) : 0,
-          source: shortInstitution(p.institution, p.accountMask, p.accountName), // short label + last-4
-          marketValue: ownedValue ?? undefined,
-          assetType: kind === "crypto" ? "crypto" : undefined,
-          kind,
-          displayName: p.name ?? undefined, // fund full name (no ticker)
-          plaidPrice: p.price ?? undefined,  // broker-provided price for fund rows
-          readOnly: true,
-        } as unknown as Holding;
-      });
+    // Aggregate by account + symbol first: a single account can report the same
+    // stock as MULTIPLE holdings (separate RSU grants / lots). Those are one
+    // position to the user, so sum shares/value/cost into a single row.
+    const acctSym = new Map<string, {
+      p: PlaidHolding; shares: number; value: number; costBasis: number; haveCost: boolean;
+    }>();
+    for (const p of plaidInv?.holdings ?? []) {
+      if (!p.symbol || p.symbol === "—") continue;
+      if (haveEtrade && isEtradeInstitution(p.institution)) continue; // E*TRADE wins
+      const ownedShares = p.hasVesting && p.vestedQuantity != null ? Number(p.vestedQuantity) : Number(p.quantity) || 0;
+      const ownedValue = (p.hasVesting && p.vestedValue != null ? p.vestedValue : p.value) ?? 0;
+      const key = `${p.accountId ?? p.institution}|${String(p.symbol).toUpperCase()}`;
+      const ex = acctSym.get(key);
+      if (!ex) {
+        acctSym.set(key, { p, shares: ownedShares, value: Number(ownedValue) || 0, costBasis: Number(p.costBasis) || 0, haveCost: p.costBasis != null });
+      } else {
+        ex.shares += ownedShares;
+        ex.value += Number(ownedValue) || 0;
+        ex.costBasis += Number(p.costBasis) || 0;
+        ex.haveCost = ex.haveCost || p.costBasis != null;
+      }
+    }
+    const plaidRows: Holding[] = [...acctSym.values()].map(({ p, shares, value, costBasis, haveCost }) => {
+      const kind = classifyHolding({ symbol: p.symbol, secType: p.secType, isCashEquivalent: p.isCashEquivalent, hasRealTicker: p.hasRealTicker });
+      return {
+        // accountId keeps the key unique when two accounts share institution
+        // AND symbol (otherwise two rows collide on the same React key).
+        id: `plaid:${p.accountId ?? p.institution}:${String(p.symbol).toUpperCase()}`,
+        accountId: p.accountId ?? null,
+        symbol: String(p.symbol).toUpperCase(),
+        shares,
+        avgCost: haveCost && shares > 0 ? costBasis / shares : 0,
+        source: shortInstitution(p.institution, p.accountMask, p.accountName), // short label + last-4
+        marketValue: value || undefined,
+        assetType: kind === "crypto" ? "crypto" : undefined,
+        kind,
+        displayName: p.name ?? undefined, // fund full name (no ticker)
+        plaidPrice: p.price ?? undefined,  // broker-provided price for fund rows
+        readOnly: true,
+      } as unknown as Holding;
+    });
     // Disambiguate accounts whose label collides (same name + last-4) — some
     // brokerages give two distinct accounts the same name and mask, which made
     // two rows look like duplicates of one account. Append "(2)", "(3)"… by
