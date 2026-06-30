@@ -51,6 +51,7 @@ export async function GET() {
           costBasis: h.cost_basis ?? null,
           currency: h.iso_currency_code ?? "USD",
           institution: it.institution_name,
+          accountId: h.account_id ?? null,
           accountMask: acctMask.get(h.account_id) ?? null,
           accountName: acctName.get(h.account_id) ?? null,
           // Vesting split (null when the institution doesn't report it).

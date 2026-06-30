@@ -57,7 +57,7 @@ async function fetchSparks(symbols: string[]): Promise<Record<string, { v: numbe
   return Object.fromEntries(entries);
 }
 
-interface PlaidHolding { symbol: string; name: string | null; hasRealTicker?: boolean; quantity: number; price: number | null; value: number | null; costBasis: number | null; currency: string; institution: string; accountMask?: string | null; accountName?: string | null; secType?: string | null; isCashEquivalent?: boolean; potentialValue?: number | null; vestedValue?: number | null; vestedQuantity?: number | null; hasVesting?: boolean; vestDate?: string | null }
+interface PlaidHolding { symbol: string; name: string | null; hasRealTicker?: boolean; quantity: number; price: number | null; value: number | null; costBasis: number | null; currency: string; institution: string; accountId?: string | null; accountMask?: string | null; accountName?: string | null; secType?: string | null; isCashEquivalent?: boolean; potentialValue?: number | null; vestedValue?: number | null; vestedQuantity?: number | null; hasVesting?: boolean; vestDate?: string | null }
 
 // Short, readable account label: "E*TRADE from Morgan Stanley" → "E*TRADE", plus
 // the account NAME and/or last-4 mask so multiple accounts (even two ending in
@@ -142,7 +142,10 @@ export function HoldingsManager() {
         const ownedShares = p.hasVesting && p.vestedQuantity != null ? Number(p.vestedQuantity) : Number(p.quantity) || 0;
         const ownedValue = p.hasVesting && p.vestedValue != null ? p.vestedValue : p.value;
         return {
-          id: `plaid:${p.institution}:${p.symbol}`,
+          // accountId keeps the key unique when two accounts share institution
+          // AND symbol (otherwise two rows collide on the same React key).
+          id: `plaid:${p.accountId ?? p.institution}:${p.symbol}`,
+          accountId: p.accountId ?? null,
           symbol: String(p.symbol).toUpperCase(),
           shares: ownedShares,
           avgCost: p.costBasis != null && p.quantity ? Number(p.costBasis) / Number(p.quantity) : 0,
@@ -155,6 +158,24 @@ export function HoldingsManager() {
           readOnly: true,
         } as unknown as Holding;
       });
+    // Disambiguate accounts whose label collides (same name + last-4) — some
+    // brokerages give two distinct accounts the same name and mask, which made
+    // two rows look like duplicates of one account. Append "(2)", "(3)"… by
+    // distinct accountId so each genuinely-separate account is identifiable.
+    const byLabel = new Map<string, Set<string>>();
+    for (const r of plaidRows) {
+      const lbl = (r as any).source as string;
+      const aid = (r as any).accountId ?? lbl;
+      (byLabel.get(lbl) ?? byLabel.set(lbl, new Set()).get(lbl)!).add(aid);
+    }
+    for (const r of plaidRows) {
+      const lbl = (r as any).source as string;
+      const ids = byLabel.get(lbl);
+      if (ids && ids.size > 1) {
+        const n = [...ids].indexOf((r as any).accountId ?? lbl) + 1;
+        (r as any).source = `${lbl} (${n})`;
+      }
+    }
     const dbRows: Holding[] = dbHoldings.map((h) => ({ ...h, kind: classifyHolding({ symbol: h.symbol, assetType: h.assetType }) }) as unknown as Holding);
     return [...dbRows, ...plaidRows];
   }, [dbHoldings, plaidInv]);
