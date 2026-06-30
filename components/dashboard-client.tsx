@@ -33,7 +33,9 @@ interface DashboardData {
   asOf: string | null;
 }
 
-const RANGES = [{ k: "1M", d: 22 }, { k: "3M", d: 66 }, { k: "1Y", d: 252 }, { k: "ALL", d: 100000 }] as const;
+// 1D uses live quote changePct (previous close → now), not daily-close history,
+// so it reflects today's move including the overnight gap. d:0 marks that case.
+const RANGES = [{ k: "1D", d: 0 }, { k: "1M", d: 22 }, { k: "3M", d: 66 }, { k: "1Y", d: 252 }, { k: "ALL", d: 100000 }] as const;
 
 interface PlaidHolding { symbol: string; name: string | null; quantity: number; price: number | null; value: number | null; costBasis: number | null; institution: string; accountMask?: string | null; accountName?: string | null; potentialValue?: number | null; vestedValue?: number | null; hasVesting?: boolean; isCashEquivalent?: boolean; secType?: string | null }
 
@@ -156,6 +158,18 @@ export function DashboardClient() {
   // Portfolio-value sparkline = sum(close × shares) across the window.
   const days = RANGES.find((r) => r.k === range)?.d ?? 22;
   const portfolioSeries: { v: number; date?: string }[] = (() => {
+    // 1D: derive today's path as previous-close total → current total using each
+    // holding's live changePct (daily-close history excludes the overnight gap).
+    if (range === "1D") {
+      if (total <= 0) return [];
+      const prevTotal = valued.reduce((s, v) => {
+        if (v.value == null) return s;
+        const prev = v.dayPct != null ? v.value / (1 + v.dayPct / 100) : v.value;
+        return s + prev;
+      }, 0);
+      if (prevTotal <= 0) return [];
+      return [{ v: prevTotal, date: "Prev close" }, { v: total, date: "Now" }];
+    }
     const lens = symbols.map((s) => (histories[s] ?? []).length);
     const maxLen = Math.min(days, Math.max(0, ...lens));
     if (maxLen < 2) return [];

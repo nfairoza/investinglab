@@ -11,6 +11,7 @@ import type { DataResult, PriceHistory } from "@/lib/providers/types";
 interface Pt { v: number; date?: string }
 
 const RANGES = [
+  { k: "1D", d: 2 },
   { k: "1M", d: 22 },
   { k: "3M", d: 66 },
   { k: "6M", d: 132 },
