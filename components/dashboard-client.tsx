@@ -142,8 +142,13 @@ export function DashboardClient() {
   });
 
   const total = valued.reduce((s, v) => s + (v.value ?? 0), 0);
-  const totalCost = valued.reduce((s, v) => s + v.h.avgCost * v.h.shares, 0);
-  const totalGain = total > 0 && totalCost > 0 ? total - totalCost : null;
+  // Total gain only over positions with a KNOWN cost basis AND a current value.
+  // Plaid often omits cost basis (avgCost 0); counting those as "$0 cost" would
+  // inflate gain to ~100%. Compare value-vs-cost on the same matched subset.
+  const gainable = valued.filter((v) => v.value != null && v.h.avgCost > 0 && v.h.shares > 0);
+  const gainableValue = gainable.reduce((s, v) => s + v.value!, 0);
+  const totalCost = gainable.reduce((s, v) => s + v.h.avgCost * v.h.shares, 0);
+  const totalGain = totalCost > 0 ? gainableValue - totalCost : null;
   const totalGainPct = totalGain != null && totalCost > 0 ? (totalGain / totalCost) * 100 : null;
   const dayChange = valued.reduce((s, v) => s + (v.dayPct != null && v.value != null ? (v.dayPct / 100) * v.value : 0), 0);
   const dayPctTotal = total > 0 ? (dayChange / (total - dayChange)) * 100 : null;
@@ -313,7 +318,7 @@ export function DashboardClient() {
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               <GradientStat label="Total gain" tone={(totalGain ?? 0) >= 0 ? "emerald" : "rose"}
                 value={totalGain != null ? `${totalGain >= 0 ? "+" : "−"}$${Math.abs(totalGain).toLocaleString(undefined, { maximumFractionDigits: 0 })}` : "—"}
-                sub={totalGainPct != null ? `${totalGainPct >= 0 ? "+" : ""}${totalGainPct.toFixed(1)}% all-time` : undefined} />
+                sub={totalGainPct != null ? `${totalGainPct >= 0 ? "+" : ""}${totalGainPct.toFixed(1)}% all-time${gainable.length < holdings.length ? " (cost-known)" : ""}` : undefined} />
               <GradientStat label="Day change" tone={dayChange >= 0 ? "emerald" : "rose"}
                 value={`${dayChange >= 0 ? "+" : "−"}$${Math.abs(dayChange).toLocaleString(undefined, { maximumFractionDigits: 0 })}`}
                 sub={dayPctTotal != null ? `${dayPctTotal >= 0 ? "+" : ""}${dayPctTotal.toFixed(2)}% today` : undefined} />
