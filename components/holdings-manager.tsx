@@ -43,12 +43,14 @@ async function fetchQuotes(symbols: string[]): Promise<Record<string, DataResult
 }
 
 // Last ~30 daily closes per symbol, for the mini trend sparkline.
+// 1-day intraday spark per symbol, so the TREND line matches the DAY'S GAIN
+// column (both today). Falls back to nothing if intraday is unavailable.
 async function fetchSparks(symbols: string[]): Promise<Record<string, { v: number }[]>> {
   const entries = await Promise.all(
     symbols.map(async (s) => {
       try {
-        const d = (await fetch(`/api/price-history?symbol=${s}`).then((r) => r.json())) as { data?: { points?: { close: number }[] } };
-        return [s, (d.data?.points ?? []).slice(-30).map((p) => ({ v: p.close }))] as const;
+        const d = (await fetch(`/api/price-history?symbol=${s}&range=1D`).then((r) => r.json())) as { data?: { points?: { close: number }[] } };
+        return [s, (d.data?.points ?? []).map((p) => ({ v: p.close }))] as const;
       } catch {
         return [s, []] as const;
       }
@@ -538,6 +540,10 @@ export function HoldingsManager() {
                   const open = expanded.has(g.symbol);
                   const tUp = (g.totalGain ?? 0) >= 0;
                   const weight = g.value != null && total > 0 ? (g.value / total) * 100 : null;
+                  // Prepend prev close so the intraday line color matches DAY'S GAIN.
+                  const gRaw = sparks?.[g.symbol] ?? [];
+                  const gPrev = g.price != null && g.dayPct != null ? g.price / (1 + g.dayPct / 100) : null;
+                  const gSpark = gRaw.length > 1 && gPrev != null ? [{ v: gPrev }, ...gRaw] : gRaw;
                   return (
                     <React.Fragment key={`grp-${g.symbol}`}>
                       <tr className="cursor-pointer hover:bg-surface" onClick={() => toggleExpand(g.symbol)} aria-expanded={open}>
@@ -547,8 +553,8 @@ export function HoldingsManager() {
                         </td>
                         <td className="px-3 py-2">
                           <div className="h-7 w-16">
-                            {(sparks?.[g.symbol]?.length ?? 0) > 1
-                              ? <Sparkline data={sparks![g.symbol]} height={28} />
+                            {gSpark.length > 1
+                              ? <Sparkline data={gSpark} height={28} />
                               : <span className="block pt-2 text-xs text-ink-faint">—</span>}
                           </div>
                         </td>
@@ -654,6 +660,11 @@ function HoldingRow({ v, total, sparks, onRemove, child }: {
   const weight = value != null && total > 0 ? (value / total) * 100 : null;
   const tUp = (totalGain ?? 0) >= 0;
   const dUp = (daysGain ?? 0) >= 0;
+  // Prepend yesterday's close to the intraday spark so the line's up/down color
+  // measures the SAME thing as DAY'S GAIN (vs previous close, not vs the open).
+  const rawSpark = sparks?.[h.symbol] ?? [];
+  const prevClose = price != null && daysGainPct != null ? price / (1 + daysGainPct / 100) : null;
+  const spark = rawSpark.length > 1 && prevClose != null ? [{ v: prevClose }, ...rawSpark] : rawSpark;
   return (
     <tr className={child ? "bg-surface/40 hover:bg-surface" : "hover:bg-surface"}>
       <td className={`px-3 py-2 font-medium ${child ? "pl-8" : ""}`}>
@@ -666,8 +677,8 @@ function HoldingRow({ v, total, sparks, onRemove, child }: {
       </td>
       <td className="px-3 py-2">
         <div className="h-7 w-16">
-          {!child && (sparks?.[h.symbol]?.length ?? 0) > 1
-            ? <Sparkline data={sparks![h.symbol]} height={28} />
+          {!child && spark.length > 1
+            ? <Sparkline data={spark} height={28} />
             : <span className="block pt-2 text-xs text-ink-faint">—</span>}
         </div>
       </td>
