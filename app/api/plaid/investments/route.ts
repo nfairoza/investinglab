@@ -67,5 +67,12 @@ export async function GET() {
     } catch { /* skip item (account may not support investments) */ }
   }
 
-  return NextResponse.json({ holdings });
+  // Investment cash = sum of cash-equivalent holdings ("US Dollar" / cash sweep).
+  // Brokerages report uninvested cash as a $1.00 holding, not an account balance,
+  // so this is the reliable figure for "investment cash".
+  const cashTotal = holdings
+    .filter((h) => h.isCashEquivalent || (h.secType ?? "").toLowerCase() === "cash" || /\b(us dollar|u s dollar|usd|cash)\b/.test(`${h.symbol} ${h.name ?? ""}`.toLowerCase()))
+    .reduce((s, h) => s + (Number(h.value) || 0), 0);
+
+  return NextResponse.json({ holdings, cashTotal: Math.round(cashTotal * 100) / 100 });
 }

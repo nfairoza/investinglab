@@ -22,14 +22,12 @@ export function CashCard() {
   const isAdmin = useIsAdmin();
   const { data: etrade } = useSWR<{ connected?: boolean; selectedAccountIdKey?: string | null }>(isAdmin ? "/api/etrade/status" : null, fetchJson, { revalidateOnFocus: false });
   const etradeConnected = Boolean(isAdmin && etrade?.connected && etrade?.selectedAccountIdKey);
-  // Plaid investment/brokerage cash (uninvested cash inside brokerage accounts) —
-  // shown alongside any manual/E*TRADE cash so the figure reflects all sources.
-  const { data: plaidAcc } = useSWR<{ accounts?: { type?: string; available?: number | null; current?: number | null }[] }>("/api/plaid/accounts", fetchJson, { revalidateOnFocus: false });
-  const investmentCash = (plaidAcc?.accounts ?? [])
-    .filter((a) => a.type === "investment" || a.type === "brokerage")
-    // available = cash portion; current = total incl. securities. Use available
-    // only so holdings aren't miscounted as cash.
-    .reduce((s, a) => s + (a.available != null ? Number(a.available) || 0 : 0), 0);
+  // Plaid investment/brokerage cash — brokerages report uninvested cash as a
+  // "US Dollar" $1.00 HOLDING (not an account balance), so the investments API
+  // sums those cash-equivalent holdings into cashTotal. Shown alongside any
+  // manual/E*TRADE cash so the figure reflects all sources.
+  const { data: plaidInv } = useSWR<{ cashTotal?: number }>("/api/plaid/investments", fetchJson, { revalidateOnFocus: false });
+  const investmentCash = Number(plaidInv?.cashTotal ?? 0) || 0;
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);

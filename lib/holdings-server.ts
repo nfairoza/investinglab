@@ -100,19 +100,40 @@ export async function plaidInvestmentCash(supabase: SupabaseClient): Promise<num
   const plaid = getPlaid();
   let cash = 0;
   for (const it of items as any[]) {
+    // (1) Primary source: brokerages report uninvested cash as a HOLDING — a
+    //     cash-equivalent security ("US Dollar" / "Cash") at $1.00. Summing those
+    //     holdings is the reliable way to get the sweep balance (E*TRADE leaves
+    //     accounts.balances.available null for brokerage accounts).
+    let foundHoldingCash = false;
     try {
-      const resp = await plaid.accountsBalanceGet({ access_token: it.access_token });
-      for (const a of resp.data.accounts ?? []) {
-        // For brokerage/investment accounts, balances.available = the CASH
-        // portion (uninvested sweep), while balances.current = total account
-        // value (cash + securities). We only want the cash, so use available
-        // only — never fall back to current, which would count holdings as cash.
-        if (a.type === "investment" || a.type === "brokerage") {
-          const avail = a.balances?.available;
-          if (avail != null) cash += Number(avail) || 0;
+      const inv = await plaid.investmentsHoldingsGet({ access_token: it.access_token });
+      const secs = new Map((inv.data.securities ?? []).map((s) => [s.security_id, s]));
+      for (const h of inv.data.holdings ?? []) {
+        const sec: any = secs.get(h.security_id);
+        const name = String(sec?.name ?? "").toLowerCase();
+        const isCash = sec?.is_cash_equivalent || (sec?.type ?? "").toLowerCase() === "cash"
+          || /\b(us dollar|u s dollar|usd|cash)\b/.test(name);
+        if (isCash) {
+          const val = h.institution_value ?? (h.quantity != null && (h.institution_price ?? sec?.close_price) != null
+            ? Number(h.quantity) * Number(h.institution_price ?? sec?.close_price) : 0);
+          cash += Number(val) || 0;
+          foundHoldingCash = true;
         }
       }
-    } catch { /* skip */ }
+    } catch { /* item may not support investments */ }
+
+    // (2) Fallback: if no cash-equivalent holding was found, use the account's
+    //     available balance (the cash portion) where the institution reports it.
+    if (!foundHoldingCash) {
+      try {
+        const resp = await plaid.accountsBalanceGet({ access_token: it.access_token });
+        for (const a of resp.data.accounts ?? []) {
+          if ((a.type === "investment" || a.type === "brokerage") && a.balances?.available != null) {
+            cash += Number(a.balances.available) || 0;
+          }
+        }
+      } catch { /* skip */ }
+    }
   }
   return Math.round(cash * 100) / 100;
 }
