@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { marketData } from "@/lib/providers";
-import { callAI } from "@/lib/ai/anthropic";
+import { resolveApiKey } from "@/lib/ai/anthropic";
 import { geminiKey } from "@/lib/ai/gemini";
+import { routeText } from "@/lib/ai/router";
+import { parseLooseJson } from "@/lib/ai/json";
 import { getUserClient } from "@/lib/supabase-data";
 
 export const dynamic = "force-dynamic";
@@ -30,8 +32,8 @@ export async function POST(req: NextRequest) {
     marketData.getDcf(symbol),
   ]);
 
-  if (!quote.data && !geminiKey()) {
-    return NextResponse.json({ error: `No market data for ${symbol} and no AI fallback.` }, { status: 400 });
+  if (!resolveApiKey() && !geminiKey()) {
+    return NextResponse.json({ error: "no_key", message: "No AI key configured — add a Claude or Gemini key in Connectors." }, { status: 400 });
   }
 
   const dataBlock = quote.data
@@ -58,11 +60,11 @@ Return JSON exactly:
 }`;
 
   try {
-    const { text } = await callAI({ system: SYSTEM, user, maxTokens: 800, webSearch: !quote.data });
-    const cleaned = text.replace(/```json|```/g, "").trim();
-    const s = cleaned.indexOf("{");
-    const e = cleaned.lastIndexOf("}");
-    const parsed = JSON.parse(cleaned.slice(s, e + 1));
+    // routeText gives Claude→Gemini fallback, so a missing/limited Claude key
+    // doesn't make Analyze silently do nothing.
+    const { text } = await routeText({ task: "light", system: SYSTEM, user, maxTokens: 800, webSearch: !quote.data });
+    const parsed = parseLooseJson(text) as any;
+    if (!parsed || typeof parsed !== "object") throw new Error("Could not parse the analysis.");
 
     const patch: Record<string, unknown> = { analyzed_at: new Date().toISOString(), updated_at: new Date().toISOString() };
     if (typeof parsed.idealBuy === "number" && parsed.idealBuy > 0) patch.ideal_buy = parsed.idealBuy;
@@ -75,6 +77,6 @@ Return JSON exactly:
     const { data: updated } = await ctx.supabase.from("watch_list_items").update(patch).eq("id", id).select("*").maybeSingle();
     return NextResponse.json({ item: updated, source: quote.source });
   } catch (e) {
-    return NextResponse.json({ error: e instanceof Error ? e.message : "analysis failed" }, { status: 500 });
+    return NextResponse.json({ error: "analysis_failed", message: e instanceof Error ? e.message : "Analysis failed" }, { status: 500 });
   }
 }

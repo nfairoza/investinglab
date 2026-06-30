@@ -62,6 +62,7 @@ export function WatchlistManager({ listId }: { listId?: string } = {}) {
   const [idealBuy, setIdealBuy] = useState("");
   const [note, setNote] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [analyzeErr, setAnalyzeErr] = useState<string | null>(null);
   const [addErr, setAddErr] = useState<string | null>(null);
 
   const symbols = items.map((w) => w.symbol);
@@ -141,15 +142,20 @@ export function WatchlistManager({ listId }: { listId?: string } = {}) {
 
   async function analyze(id: string) {
     setBusyId(id);
+    setAnalyzeErr(null);
     try {
       const r = await fetch("/api/watchlist/enrich", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id }),
       });
-      // surface errors quietly via mutate; the row just won't update on failure
-      await r.json().catch(() => ({}));
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || (j as any).error) {
+        setAnalyzeErr((j as any).message ?? (j as any).error ?? "Analysis failed — try again.");
+      }
       mutate();
+    } catch (e) {
+      setAnalyzeErr(e instanceof Error ? e.message : "Analysis request failed.");
     } finally {
       setBusyId(null);
     }
@@ -217,6 +223,7 @@ export function WatchlistManager({ listId }: { listId?: string } = {}) {
         </div>
         {addErr && <p className="mt-2 text-[11px] text-rose-400">{addErr}</p>}
         <p className="mt-2 text-[11px] text-ink-faint">Tip: pick a ticker from the dropdown to add it instantly. Then use <span className="text-brand-300">Analyze</span> — AI fills the ideal buy, fair value, and thesis from live data.</p>
+        {analyzeErr && <p className="mt-1 text-[11px] text-rose-400">Analyze: {analyzeErr}</p>}
       </div>
 
       {items.length === 0 && (
