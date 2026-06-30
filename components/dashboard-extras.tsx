@@ -33,10 +33,14 @@ export function GradientStat({
 export function AssetCard({
   symbol, name, price, dayPct, series, shares,
 }: { symbol: string; name?: string; price: number | null; dayPct: number | null; series: { v: number }[]; shares?: number }) {
-  const up = (dayPct ?? 0) >= 0;
-  // Period $ change of this position over the sparkline window (close × shares).
+  // The sparkline, the % badge, and the $ change must all describe the SAME
+  // window (the sparkline period), or the card contradicts itself — e.g. a stock
+  // up today but down over the month showed a green ▲ badge above a red line.
+  // Derive everything from the series so the card tells one coherent story.
   const first = series[0]?.v;
   const last = series[series.length - 1]?.v;
+  const periodPct = first != null && last != null && first !== 0 ? ((last - first) / first) * 100 : dayPct;
+  const up = (periodPct ?? 0) >= 0;
   const periodChange = first != null && last != null && shares ? (last - first) * shares : null;
   return (
     <Link href={`/research?symbol=${symbol}`}
@@ -49,10 +53,10 @@ export function AssetCard({
           </div>
           {name && <div className="hidden truncate text-[11px] text-ink-faint sm:block">{name}</div>}
         </div>
-        {dayPct != null && (
+        {periodPct != null && (
           <span className="flex items-center gap-1 rounded-full px-2 py-0.5 font-mono text-[11px] font-medium sm:text-xs"
             style={{ color: up ? "var(--positive)" : "var(--negative)", background: up ? "var(--positive-soft)" : "var(--negative-soft)" }}>
-            {up ? "▲" : "▼"} {Math.abs(dayPct).toFixed(2)}%
+            {up ? "▲" : "▼"} {Math.abs(periodPct).toFixed(2)}% <span className="opacity-60">30D</span>
           </span>
         )}
       </div>
