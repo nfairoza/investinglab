@@ -16,6 +16,7 @@ import { AllocationDonut } from "./charts/AllocationDonut";
 import { PerformanceChart } from "./charts/PerformanceChart";
 import { ScoreGauge } from "./charts/ScoreGauge";
 import { CashCard } from "./cash-card";
+import { DashboardWatchlists } from "./dashboard-watchlists";
 import { OpportunitiesCard } from "./opportunities-card";
 import { BrokerageAccounts } from "./brokerage-accounts";
 import { GlassCard, EmptyState, Button, CountUp } from "./ui/primitives";
@@ -418,19 +419,7 @@ export function DashboardClient() {
               {alerts.length > 5 && <p className="mt-2 text-[11px] text-ink-faint">+{alerts.length - 5} more on the Alerts page.</p>}
             </GlassCard>
 
-            <GlassCard hover>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 text-sm font-semibold text-ink"><Eye size={15} className="text-accent" /> Watchlist</div>
-                <Link href="/watchlist" className="text-xs text-accent hover:underline">Open</Link>
-              </div>
-              {watchlist.length === 0 ? <p className="mt-2 text-sm text-ink-faint">Nothing on your watchlist yet.</p> : (
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                  {watchlist.slice(0, 12).map((w) => (
-                    <Link key={w.symbol} href={`/research?symbol=${w.symbol}`} className="rounded-md border border-hairline px-2 py-1 font-mono text-xs text-ink-dim hover:text-accent hover:border-hairline-strong">{w.symbol}</Link>
-                  ))}
-                </div>
-              )}
-            </GlassCard>
+            <DashboardWatchlists />
           </div>
         </div>
       )}
