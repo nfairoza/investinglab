@@ -23,6 +23,8 @@ interface OppResult {
   ideas?: Idea[];
   notes?: string;
   cash?: number;
+  cashBank?: number;
+  cashInvestment?: number;
   aiName?: string;
   model?: string;
   generatedAt?: string;
@@ -168,8 +170,19 @@ export function OpportunitiesCard() {
           </div>
 
           {result.notes && <p className="text-[11px] text-ink-faint">{result.notes}</p>}
+          {result.cash != null && (
+            <div className="rounded-lg border border-hairline bg-surface p-2.5 text-[11px] text-ink-dim">
+              <span className="font-medium text-ink">Cash available: ${result.cash.toLocaleString()}</span>
+              {(result.cashBank != null || result.cashInvestment != null) && (
+                <span className="text-ink-faint">
+                  {" "}= ${(result.cashBank ?? 0).toLocaleString()} bank/depository + ${(result.cashInvestment ?? 0).toLocaleString()} uninvested brokerage cash.
+                </span>
+              )}
+              <span className="text-ink-faint"> This is your real linked-account cash — connect a bank/brokerage to update it. Buys above this require selling first.</span>
+            </div>
+          )}
           <p className="text-[11px] text-ink-faint">
-            AI opinion using live data + web search — estimates, not guarantees. Buys assume ${result.cash?.toLocaleString() ?? "—"} cash. Research and educational analysis, not financial advice.
+            AI opinion using live data + web search — estimates, not guarantees. Research and educational analysis, not financial advice.
           </p>
         </div>
       )}

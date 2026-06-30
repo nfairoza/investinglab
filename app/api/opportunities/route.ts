@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { now } from "@/lib/db";
 import { getUserClient, readAiCache, writeAiCache } from "@/lib/supabase-data";
 import { getUnifiedHoldings, plaidInvestmentCash } from "@/lib/holdings-server";
+import { computeNetWorth } from "@/lib/networth";
 import { congressData } from "@/lib/providers";
 import { routeText } from "@/lib/ai/router";
 import { resolveApiKey } from "@/lib/ai/anthropic";
@@ -26,17 +27,18 @@ const CURATED = [
 
 const SYSTEM = `You are a sharp, skeptical portfolio strategist helping a retail investor deploy CASH.
 Rules:
-- Use the holdings, watchlist, and available cash provided. SEARCH THE WEB for current prices, recent news, earnings, and catalysts.
-- Recommend concrete actions for THIS cash amount: BUY (new or add), TRIM, or SELL. Give a specific dollar amount per idea that fits the cash budget; buys must sum to <= available cash.
-- Cover three lanes: (1) best uses among what they ALREADY hold/watch, (2) NEW opportunities from the broad market worth deploying cash into, (3) anything to TRIM/SELL to raise quality or cut risk.
+- The available cash is a REAL figure derived from the user's linked accounts (bank + brokerage). Treat it as a hard budget. Do NOT invent, assume, or round up a different cash amount. Buys/adds must sum to <= the available cash provided.
+- If you believe more should be deployed than the cash on hand allows, you may propose TRIM/SELL ideas to RAISE cash first, and then BUY ideas funded by those proceeds — but state clearly that those buys depend on selling, and never assume cash that isn't there.
+- SEARCH THE WEB for current prices, recent news, earnings, and catalysts.
+- Cover three lanes: (1) best uses among what they ALREADY hold/watch, (2) NEW opportunities from the broad market worth deploying cash into, (3) anything to TRIM/SELL to raise quality, cut risk, or fund higher-conviction buys.
 - Each idea: ticker, action, dollarAmount, a one-line thesis, the key risk, a confidence 0-100, and a timeHorizon.
 - Be honest about uncertainty. Separate "good company" from "good entry price today". No fake precision.
 - This is educational analysis, NOT financial advice, and you must not place trades.
 Return ONLY valid JSON (no markdown) matching the schema given.`;
 
-function buildPrompt(cash: number, holdings: any[], watchlist: string[], congressBlock: string): string {
+function buildPrompt(cashLines: string, holdings: any[], watchlist: string[], congressBlock: string): string {
   const hold = holdings.map((h) => `${h.symbol} (${h.shares} sh @ $${h.avgCost})`).join(", ") || "none";
-  return `Available cash to deploy: $${cash.toLocaleString()}.
+  return `${cashLines}
 
 Current holdings: ${hold}.
 Watchlist: ${watchlist.join(", ") || "none"}.
@@ -99,19 +101,24 @@ async function buildCongressBlock(): Promise<string> {
   }
 }
 
-async function generate(cash: number, holdings: any[], watchlist: string[], useCongress: boolean) {
+async function generate(cashInfo: { total: number; bank: number; investment: number }, holdings: any[], watchlist: string[], useCongress: boolean) {
   const congressBlock = useCongress ? await buildCongressBlock() : "";
+  const cashLines = `Available cash to deploy: $${cashInfo.total.toLocaleString()} total. This is REAL — do not assume any other amount.
+  Breakdown: $${cashInfo.bank.toLocaleString()} bank/depository cash + $${cashInfo.investment.toLocaleString()} uninvested brokerage cash.
+  To deploy more than this, you must first TRIM/SELL holdings to raise cash, and say so.`;
   const { text, provider, model } = await routeText({
     task: "deep-analysis",
     system: SYSTEM,
-    user: buildPrompt(cash, holdings, watchlist, congressBlock),
+    user: buildPrompt(cashLines, holdings, watchlist, congressBlock),
     maxTokens: 4096,
     webSearch: true,
   });
   const parsed = parseLooseJson(text);
   return {
     ...parsed,
-    cash,
+    cash: cashInfo.total,
+    cashBank: cashInfo.bank,
+    cashInvestment: cashInfo.investment,
     mode: useCongress ? "congress" : "market",
     congressUsed: Boolean(congressBlock),
     aiName: provider === "claude" ? "Claude" : "Gemini",
@@ -144,19 +151,29 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "no_key", message: "Add a Claude or Gemini API key in Connectors to use AI opportunities." }, { status: 400 });
   }
   const useCongress = req.nextUrl.searchParams.get("congress") === "1";
-  const [{ data: cashRow }, unified, invCash, { data: wl }] = await Promise.all([
-    ctx.supabase.from("cash").select("amount").maybeSingle(),
+  const [nw, unified, invCash, { data: wl }, { data: cashRow }] = await Promise.all([
+    computeNetWorth(ctx).catch(() => null),
     getUnifiedHoldings(ctx.supabase, { realTickersOnly: true }),
     plaidInvestmentCash(ctx.supabase),
     ctx.supabase.from("watch_list_items").select("symbol"),
+    ctx.supabase.from("cash").select("amount").maybeSingle(),
   ]);
-  // Deployable cash = manual/E*TRADE cash + Plaid investment (brokerage) cash.
-  const cash = Number(cashRow?.amount ?? 0) + invCash;
+  // Real deployable cash, no guessing:
+  //   bank/depository cash  = Plaid-linked checking/savings balances (net worth).
+  //   investment cash       = uninvested brokerage sweep ("US Dollar" holding).
+  // If no bank is linked yet, fall back to the manually-entered cash figure so a
+  // user who hasn't connected a bank still gets a sensible (and labeled) number.
+  const bankCash = nw
+    ? nw.items.filter((i) => i.kind === "asset" && i.type === "cash").reduce((s, i) => s + i.amount, 0)
+    : 0;
+  const bank = bankCash > 0 ? bankCash : Number(cashRow?.amount ?? 0);
+  const investment = invCash;
+  const cashInfo = { total: bank + investment, bank, investment };
   const holdingList = unified.map((h) => ({ symbol: h.symbol, shares: h.shares, avgCost: h.avgCost }));
   const watchlist = (wl ?? []).map((w: any) => w.symbol);
 
   try {
-    const result = await generate(cash, holdingList, watchlist, useCongress);
+    const result = await generate(cashInfo, holdingList, watchlist, useCongress);
     await writeAiCache(ctx, useCongress ? CACHE_KEY_CONGRESS : CACHE_KEY, { generatedAt: result.generatedAt, data: result });
     return NextResponse.json({ cached: false, ...result });
   } catch (e) {
