@@ -34,7 +34,17 @@ interface DashboardData {
 
 const RANGES = [{ k: "1M", d: 22 }, { k: "3M", d: 66 }, { k: "1Y", d: 252 }, { k: "ALL", d: 100000 }] as const;
 
-interface PlaidHolding { symbol: string; name: string | null; quantity: number; price: number | null; value: number | null; costBasis: number | null; institution: string; accountMask?: string | null; accountName?: string | null; potentialValue?: number | null; vestedValue?: number | null; hasVesting?: boolean }
+interface PlaidHolding { symbol: string; name: string | null; quantity: number; price: number | null; value: number | null; costBasis: number | null; institution: string; accountMask?: string | null; accountName?: string | null; potentialValue?: number | null; vestedValue?: number | null; hasVesting?: boolean; isCashEquivalent?: boolean; secType?: string | null }
+
+// Cash-sweep positions (Plaid returns uninvested cash as a "US Dollar" security
+// at $1.00) are NOT investments — exclude them from holdings/top-assets. They're
+// counted as investment cash in the cash card instead.
+function isCashSweep(p: { symbol: string; name?: string | null; isCashEquivalent?: boolean; secType?: string | null }): boolean {
+  if (p.isCashEquivalent) return true;
+  if ((p.secType ?? "").toLowerCase() === "cash") return true;
+  const s = `${p.symbol} ${p.name ?? ""}`.toLowerCase();
+  return /\b(us dollar|u s dollar|usd|cash)\b/.test(s);
+}
 
 function shortInstitution(name: string, mask?: string | null, acctName?: string | null): string {
   let n = (name || "").trim();
@@ -56,6 +66,7 @@ export function DashboardClient() {
     const isEtradeInst = (n: string) => /e[\s*]*trade|morgan stanley/i.test(n);
     const plaidRows = (plaidInv?.holdings ?? [])
       .filter((p) => p.symbol && p.symbol !== "—")
+      .filter((p) => !isCashSweep(p)) // cash sweep is not a holding
       .filter((p) => !(haveEtrade && isEtradeInst(p.institution)))
       .map((p) => ({
         id: `plaid:${p.institution}:${p.symbol}`,
