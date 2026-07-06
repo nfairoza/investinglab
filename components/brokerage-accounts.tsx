@@ -3,24 +3,26 @@
 import { useState } from "react";
 import useSWR from "swr";
 import { Landmark, ChevronDown } from "lucide-react";
+import { fetchJson } from "@/lib/fetch-json";
+import { ErrorState } from "./data-state";
 
 interface Account { account_id: string; name: string; mask: string | null; type: string; subtype: string | null; current: number | null; available: number | null; currency: string }
 interface Item { itemId: string; institution: string; accounts: Account[] }
 interface Balances { items: Item[]; configured?: boolean }
 
-const fetchJson = (u: string) => fetch(u).then((r) => r.json());
 const money = (n: number | null, c = "USD") => n == null ? "—" : new Intl.NumberFormat(undefined, { style: "currency", currency: c, maximumFractionDigits: 0 }).format(n);
 
 // Linked BROKERAGE / investment accounts (Plaid), shown in the Invest section.
 // Banking accounts (cash/credit/loans) live in Money. Renders nothing when the
 // user has no linked investment institutions.
 export function BrokerageAccounts() {
-  const { data } = useSWR<Balances>("/api/plaid/accounts", fetchJson, { revalidateOnFocus: false });
+  const { data, error, mutate } = useSWR<Balances>("/api/plaid/accounts", fetchJson, { revalidateOnFocus: false });
 
   const items = (data?.items ?? [])
     .map((it) => ({ ...it, accounts: it.accounts.filter((a) => a.type === "investment" || a.type === "brokerage") }))
     .filter((it) => it.accounts.length > 0);
 
+  if (error) return <ErrorState error={error} onRetry={() => mutate()} />;
   if (items.length === 0) return null;
 
   const total = items.reduce((s, it) => s + it.accounts.reduce((x, a) => x + (a.current ?? 0), 0), 0);

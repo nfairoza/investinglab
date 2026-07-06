@@ -4,6 +4,8 @@ import { useMemo, useState } from "react";
 import useSWR from "swr";
 import Link from "next/link";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
+import { fetchJson } from "@/lib/fetch-json";
+import { ErrorState } from "./data-state";
 
 interface Txn {
   id: string; date: string; name: string; merchant: string | null;
@@ -11,7 +13,6 @@ interface Txn {
   pending: boolean; isTransfer: boolean; excluded: boolean;
 }
 
-const fetchJson = (u: string) => fetch(u).then((r) => r.json());
 const money = (n: number) => new Intl.NumberFormat(undefined, { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n);
 
 const COLORS = ["#16D27E", "#0EA6C9", "#11B4AE", "#34E0A1", "#60A5FA", "#F59E0B", "#FB7185", "#FBBF24", "#A78BFA", "#22D3EE"];
@@ -49,7 +50,7 @@ export function SpendingView() {
   const [preset, setPreset] = useState<PresetKey>("thisMonth");
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
-  const { data, isLoading } = useSWR<{ transactions: Txn[]; configured?: boolean }>(
+  const { data, error, isLoading, mutate } = useSWR<{ transactions: Txn[]; configured?: boolean }>(
     "/api/plaid/transactions", fetchJson, { revalidateOnFocus: false },
   );
 
@@ -81,6 +82,9 @@ export function SpendingView() {
     return { income, expenses, net: income - expenses, cats, merchants, count: inPeriod.length };
   }, [txns, range]);
 
+  if (error && !data) {
+    return <ErrorState error={error} onRetry={() => mutate()} />;
+  }
   if (data?.configured === false) {
     return <Empty>Bank connections aren&apos;t available yet.</Empty>;
   }

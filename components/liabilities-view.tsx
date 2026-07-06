@@ -2,6 +2,8 @@
 
 import useSWR from "swr";
 import { CreditCard } from "lucide-react";
+import { fetchJson } from "@/lib/fetch-json";
+import { ErrorState } from "./data-state";
 
 interface Liability {
   kind: "credit" | "mortgage" | "student";
@@ -16,16 +18,17 @@ interface Liability {
   currency: string;
 }
 
-const fetchJson = (u: string) => fetch(u).then((r) => r.json());
 const money = (n: number | null, c = "USD") => n == null ? "—" : new Intl.NumberFormat(undefined, { style: "currency", currency: c, maximumFractionDigits: 2 }).format(n);
 
 const KIND_LABEL: Record<string, string> = { credit: "Credit card", mortgage: "Mortgage", student: "Student loan" };
 
 // Debts from Plaid Liabilities: APR, balance, and next payment. Renders nothing
-// when there are none (so the Accounts page stays clean for cash-only users).
+// when there are none (so the Accounts page stays clean for cash-only users),
+// but shows an error card if the fetch actually failed (never silent).
 export function LiabilitiesView() {
-  const { data } = useSWR<{ liabilities: Liability[]; configured?: boolean }>("/api/plaid/liabilities", fetchJson, { revalidateOnFocus: false });
+  const { data, error, mutate } = useSWR<{ liabilities: Liability[]; configured?: boolean }>("/api/plaid/liabilities", fetchJson, { revalidateOnFocus: false });
   const liabilities = data?.liabilities ?? [];
+  if (error) return <ErrorState error={error} onRetry={() => mutate()} />;
   if (!liabilities.length) return null;
 
   return (

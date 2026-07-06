@@ -4,12 +4,13 @@ import { useState } from "react";
 import useSWR from "swr";
 import Link from "next/link";
 import { Landmark, RefreshCw, ChevronDown } from "lucide-react";
+import { fetchJson } from "@/lib/fetch-json";
+import { ErrorState } from "./data-state";
 
 interface Account { account_id: string; name: string; mask: string | null; type: string; subtype: string | null; current: number | null; available: number | null; currency: string }
 interface Item { itemId: string; institution: string; accounts: Account[]; error?: string }
 interface Balances { items: Item[]; totalCash: number; configured?: boolean }
 
-const fetchJson = (u: string) => fetch(u).then((r) => r.json());
 const money = (n: number | null, c = "USD") => n == null ? "—" : new Intl.NumberFormat(undefined, { style: "currency", currency: c, maximumFractionDigits: 2 }).format(n);
 
 const TYPE_LABEL: Record<string, string> = {
@@ -17,7 +18,7 @@ const TYPE_LABEL: Record<string, string> = {
 };
 
 export function AccountsView() {
-  const { data, isLoading, mutate } = useSWR<Balances>("/api/plaid/accounts", fetchJson, { revalidateOnFocus: false });
+  const { data, error, isLoading, mutate } = useSWR<Balances>("/api/plaid/accounts", fetchJson, { revalidateOnFocus: false });
 
   // Money → banking accounts only (cash, credit, loans). Brokerage/investment
   // accounts are shown in the Invest section, not here.
@@ -46,10 +47,11 @@ export function AccountsView() {
         </button>
       </div>
 
+      {error && <ErrorState error={error} onRetry={() => mutate()} />}
       {data && data.configured === false && (
         <Empty>Bank connections aren&apos;t available yet.</Empty>
       )}
-      {!isLoading && !hasAny && data?.configured !== false && (
+      {!error && !isLoading && !hasAny && data?.configured !== false && (
         <Empty>
           No accounts connected yet. <Link href="/settings" className="text-brand-400 underline">Connect a bank</Link> to see balances here.
         </Empty>

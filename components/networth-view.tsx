@@ -6,6 +6,8 @@ import useSWR from "swr";
 import Link from "next/link";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { Plus, Trash2, AlertTriangle, ArrowUp, ArrowDown } from "lucide-react";
+import { fetchJson } from "@/lib/fetch-json";
+import { ErrorState } from "./data-state";
 
 interface Item { source: string; label: string; type: string; kind: "asset" | "liability"; amount: number; liquid: boolean }
 interface TrendPt { month: string; netWorth: number; assets: number; liabilities: number }
@@ -17,7 +19,6 @@ interface NetWorth {
 }
 interface ManualItem { id: string; name: string; kind: string; type: string; value: number; notes: string | null }
 
-const fetchJson = (u: string) => fetch(u).then((r) => r.json());
 const money = (n: number) => new Intl.NumberFormat(undefined, { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n);
 const TYPE_LABEL: Record<string, string> = {
   cash: "Cash", investment: "Investments", retirement: "Retirement", real_estate: "Real estate",
@@ -32,7 +33,7 @@ const RANGES: { label: string; months: number }[] = [
 ];
 
 export function NetWorthView() {
-  const { data, isLoading, mutate } = useSWR<NetWorth>("/api/networth", fetchJson, { revalidateOnFocus: false });
+  const { data, error, isLoading, mutate } = useSWR<NetWorth>("/api/networth", fetchJson, { revalidateOnFocus: false });
   const { data: manual, mutate: mutateManual } = useSWR<{ items: ManualItem[] }>("/api/manual-items", fetchJson, { revalidateOnFocus: false });
   const [range, setRange] = useState(12);
   const [showAdd, setShowAdd] = useState(false);
@@ -56,6 +57,7 @@ export function NetWorthView() {
   }, [data, range]);
 
   if (isLoading && !data) return <div className="h-64 animate-pulse rounded-2xl bg-surface-raised" />;
+  if (error && !data) return <ErrorState error={error} onRetry={() => mutate()} />;
 
   const assetTypes = Object.entries(data?.byType ?? {}).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
   const liabilityTypes = Object.entries(data?.byType ?? {}).filter(([, v]) => v < 0).sort((a, b) => a[1] - b[1]);
