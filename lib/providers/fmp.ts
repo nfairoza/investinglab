@@ -47,8 +47,20 @@ function getKey(): string {
 // calls (revisiting a stock, refreshing, multiple components on one page all
 // hit the cache). Keyed by the URL WITHOUT the apikey so the key never lives in
 // the cache keys. TTL is short enough that prices stay fresh-ish.
-const CACHE_TTL_MS = 90_000; // 90s — quotes feel live, but repeat views are free
-const cache = new Map<string, { at: number; data: unknown }>();
+const CACHE_TTL_MS = 90_000; // default: quotes feel live, but repeat views are free
+const cache = new Map<string, { at: number; data: unknown; ttl: number }>();
+
+// Per-endpoint TTLs (P3): quotes churn intraday; fundamentals/profile rarely do,
+// so cache them far longer to slash FMP calls. Matched by URL substring.
+const ENDPOINT_TTL_MS: Array<{ match: RegExp; ttl: number }> = [
+  { match: /\/quote\b/, ttl: 60_000 },                         // 60s
+  { match: /\/(income-statement|cash-flow-statement|balance-sheet|ratios|key-metrics|financial-growth|discounted-cash-flow)\b/, ttl: 24 * 60 * 60 * 1000 }, // 24h
+  { match: /\/(profile|company-outlook)\b/, ttl: 7 * 24 * 60 * 60 * 1000 }, // 7d
+];
+
+function ttlFor(url: string): number {
+  return ENDPOINT_TTL_MS.find((e) => e.match.test(url))?.ttl ?? CACHE_TTL_MS;
+}
 
 function cacheKey(url: string): string {
   return url.replace(/([?&])apikey=[^&]*/i, "$1apikey=__");
@@ -89,7 +101,7 @@ const inflight = new Map<string, Promise<unknown>>();
 function getJson(url: string, attempt = 0): Promise<unknown> {
   const key = cacheKey(url);
   const hit = cache.get(key);
-  if (hit && Date.now() - hit.at < CACHE_TTL_MS) return Promise.resolve(hit.data);
+  if (hit && Date.now() - hit.at < hit.ttl) return Promise.resolve(hit.data);
 
   // Only the first concurrent caller starts a request; the rest await it.
   // (attempt > 0 is an internal retry — it should not re-dedup.)
@@ -127,7 +139,7 @@ async function fetchJsonUncached(url: string, attempt: number): Promise<unknown>
 
   let data: unknown;
   try { data = JSON.parse(text); } catch { data = null; }
-  cache.set(key, { at: Date.now(), data });
+  cache.set(key, { at: Date.now(), data, ttl: ttlFor(url) });
   return data;
 }
 
@@ -180,6 +192,42 @@ export const fmpProvider: MarketDataProvider = {
     } catch (e) {
       return unavailable(NAME, e instanceof Error ? e.message : "quote fetch failed");
     }
+  },
+
+  // Batch quotes (P3): one HTTP call for many symbols via FMP's batch-quote
+  // endpoint, instead of N single-quote calls (which trip the per-minute 429s on
+  // watchlist/rankings/screener). Returns a per-symbol DataResult map; symbols
+  // FMP omits come back as "unavailable" so callers see honest gaps.
+  async getQuotes(symbols): Promise<Record<string, DataResult<Quote>>> {
+    const KEY = getKey();
+    const out: Record<string, DataResult<Quote>> = {};
+    const uniq = Array.from(new Set(symbols.map((s) => s.toUpperCase()).filter(Boolean)));
+    if (!KEY) { for (const s of uniq) out[s] = unavailable(NAME, "MARKET_DATA_API_KEY missing"); return out; }
+    if (uniq.length === 0) return out;
+    // FMP caps batch size; chunk to stay safe.
+    const CHUNK = 50;
+    for (let i = 0; i < uniq.length; i += CHUNK) {
+      const chunk = uniq.slice(i, i + CHUNK);
+      try {
+        const arr = (await getJson(`${BASE}/batch-quote?symbols=${chunk.join(",")}&apikey=${KEY}`)) as any[];
+        const bySym = new Map<string, any>((Array.isArray(arr) ? arr : []).map((q) => [String(q.symbol).toUpperCase(), q]));
+        for (const s of chunk) {
+          const q = bySym.get(s);
+          if (!q) { out[s] = unavailable(NAME, "No quote returned for " + s); continue; }
+          const quote: Quote = {
+            symbol: q.symbol, name: q.name ?? s, price: q.price,
+            change: q.change ?? 0, changePct: q.changePercentage ?? 0,
+            marketCap: q.marketCap ?? null, volume: q.volume ?? null,
+            week52High: q.yearHigh ?? null, week52Low: q.yearLow ?? null, currency: "USD",
+          };
+          out[s] = live(NAME, quote, q.timestamp ? new Date(q.timestamp * 1000).toISOString() : undefined);
+        }
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : "batch quote fetch failed";
+        for (const s of chunk) out[s] = unavailable(NAME, msg);
+      }
+    }
+    return out;
   },
 
   async getFinancials(symbol): Promise<DataResult<Financials>> {

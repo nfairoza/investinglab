@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { marketData } from "@/lib/providers";
+import { marketData, type DataResult, type Quote } from "@/lib/providers";
 import { computeScore, type StockScore } from "@/lib/scoring/score";
 import { getUserClient } from "@/lib/supabase-data";
 import { getUnifiedHoldings } from "@/lib/holdings-server";
@@ -43,13 +43,19 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ scores: hit.scores, source: hit.source, cached: true });
   }
 
+  // Prefetch ALL quotes in one batch call (P3) — the whole universe in a couple
+  // of HTTP requests instead of one per symbol. Each worker still fetches its
+  // own financials/technicals/earnings, but the batch removes the biggest source
+  // of per-minute 429s.
+  const quotes = await marketData.getQuotes(universe).catch(() => ({} as Record<string, DataResult<Quote>>));
+
   // Concurrency cap of 4 keeps us comfortably under FMP's per-minute rate limit;
-  // the provider also caches 90s + dedupes, so repeats are nearly free.
+  // the provider also caches + dedupes, so repeats are nearly free.
   let source: "live" | "demo" | "unavailable" = "unavailable";
   const results = await pool(universe, 4, async (sym) => {
     try {
-      const [quote, financials, technicals, earnings] = await Promise.all([
-        marketData.getQuote(sym),
+      const quote = quotes[sym.toUpperCase()] ?? await marketData.getQuote(sym);
+      const [financials, technicals, earnings] = await Promise.all([
         marketData.getFinancials(sym),
         marketData.getTechnicals(sym),
         marketData.getEarningsDate(sym),

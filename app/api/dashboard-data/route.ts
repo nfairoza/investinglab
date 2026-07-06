@@ -35,16 +35,15 @@ export async function GET(req: NextRequest) {
   const fromClient = (req.nextUrl.searchParams.get("syms") ?? "").split(",").map((s) => s.trim().toUpperCase()).filter(Boolean);
   const symbols = Array.from(new Set([...unified.map((h) => h.symbol), ...fromClient]));
 
-  const quotes: Record<string, DataResult<Quote>> = {};
+  let quotes: Record<string, DataResult<Quote>> = {};
   const histories: Record<string, { date: string; close: number }[]> = {};
 
   if (symbols.length) {
+    // All quotes in one batch call (P3); histories still per-symbol (no batch
+    // endpoint), pooled to stay under the rate limit.
+    quotes = await marketData.getQuotes(symbols).catch(() => ({} as Record<string, DataResult<Quote>>));
     await pool(symbols, 8, async (sym) => {
-      const [q, h] = await Promise.all([
-        marketData.getQuote(sym).catch(() => null),
-        marketData.getPriceHistory(sym).catch(() => null) as Promise<DataResult<PriceHistory> | null>,
-      ]);
-      if (q) quotes[sym] = q;
+      const h = await (marketData.getPriceHistory(sym).catch(() => null) as Promise<DataResult<PriceHistory> | null>);
       histories[sym] = h?.data?.points ?? [];
     });
   }

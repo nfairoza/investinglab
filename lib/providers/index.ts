@@ -1,4 +1,4 @@
-import { MarketDataProvider, CongressTradesProvider, DataResult, ScreenerRow, ScreenerFilters, unavailable } from "./types";
+import { MarketDataProvider, CongressTradesProvider, DataResult, ScreenerRow, ScreenerFilters, Quote, unavailable } from "./types";
 import { fmpProvider, screenStocks as fmpScreenStocks } from "./fmp";
 import { demoProvider } from "./demo";
 import { congressApiProvider } from "./congress-api";
@@ -19,9 +19,20 @@ function market(): MarketDataProvider {
   return hasMarketKey() ? fmpProvider : demoProvider;
 }
 
-export const marketData: MarketDataProvider = {
+export const marketData: MarketDataProvider & {
+  getQuotes: (symbols: string[]) => Promise<Record<string, DataResult<Quote>>>;
+} = {
   name: "auto",
   getQuote: (s) => market().getQuote(s),
+  // Batch quotes: use the active provider's getQuotes if it has one (FMP does —
+  // one HTTP call for many symbols), else fall back to bounded-parallel getQuote.
+  getQuotes: async (symbols) => {
+    const p = market();
+    if (p.getQuotes) return p.getQuotes(symbols);
+    const out: Record<string, DataResult<Quote>> = {};
+    await Promise.all(symbols.map(async (s) => { out[s.toUpperCase()] = await p.getQuote(s); }));
+    return out;
+  },
   getFinancials: (s) => market().getFinancials(s),
   getNews: (s) => market().getNews(s),
   getEarningsDate: (s) => market().getEarningsDate(s),

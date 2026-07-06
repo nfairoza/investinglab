@@ -195,6 +195,9 @@ export interface ScreenerFilters {
 export interface MarketDataProvider {
   name: string;
   getQuote(symbol: string): Promise<DataResult<Quote>>;
+  // Optional batch quotes — one HTTP call for many symbols. Providers that don't
+  // implement it fall back to parallel getQuote() via marketData.getQuotes().
+  getQuotes?(symbols: string[]): Promise<Record<string, DataResult<Quote>>>;
   getFinancials(symbol: string): Promise<DataResult<Financials>>;
   getNews(symbol: string): Promise<DataResult<NewsItem[]>>;
   getEarningsDate(symbol: string): Promise<DataResult<EarningsDate>>;

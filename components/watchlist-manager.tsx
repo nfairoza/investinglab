@@ -16,17 +16,15 @@ async function fetchJson<T>(url: string): Promise<T> {
 }
 
 async function fetchQuotes(symbols: string[]): Promise<Record<string, DataResult<Quote>>> {
-  const entries = await Promise.all(
-    symbols.map(async (s) => {
-      try {
-        const r = await fetch(`/api/quote?symbol=${s}`);
-        return [s, (await r.json()) as DataResult<Quote>] as const;
-      } catch {
-        return [s, { data: null, source: "unavailable", asOf: null, provider: "client", note: "failed" } as DataResult<Quote>] as const;
-      }
-    }),
-  );
-  return Object.fromEntries(entries);
+  if (!symbols.length) return {};
+  // One batch request for the whole watchlist (P3) instead of N /api/quote calls.
+  try {
+    const r = await fetch(`/api/quotes?symbols=${symbols.join(",")}`);
+    const j = (await r.json()) as { quotes?: Record<string, DataResult<Quote>> };
+    return j.quotes ?? {};
+  } catch {
+    return Object.fromEntries(symbols.map((s) => [s, { data: null, source: "unavailable", asOf: null, provider: "client", note: "failed" } as DataResult<Quote>]));
+  }
 }
 
 // Last ~30 daily closes per symbol, for the mini trend sparkline.
