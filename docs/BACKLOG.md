@@ -38,9 +38,11 @@ Phases 0, 1, 2, and 5 of the hardening spec are done. Still open:
 - **P4 visual redesign** — unified Card primitive with source+freshness chip,
   KPI hero rows, chart-theme routing, skeleton/empty/error polish, micro-
   interactions, mobile + a11y pass.
-- **P6 Rukmani** — streaming chat responses, server-side tool use (get_quote /
-  get_portfolio_summary / get_watchlist), and an ai_usage cost-tracking table +
-  admin dashboard card.
+- **P6 Rukmani** — P6.3 (ai_usage cost-tracking table + admin dashboard card)
+  is DONE. Still open: P6.1 streaming chat responses (SSE/ReadableStream) and
+  P6.2 server-side tool use (get_quote / get_portfolio_summary / get_watchlist).
+  Both require rewriting app/api/chat/route.ts + the 709-line chat-widget.tsx —
+  deferred while those files have concurrent (Cursor) edits, to avoid clobbering.
 
 ## Notes
 

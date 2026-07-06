@@ -17,6 +17,7 @@ brokerage" instead of surfacing the error.)
    - `0021_plaid_token_encryption.sql` — Plaid token enc columns
    - `0022_server_cache.sql` — durable server cache
    - `0023_rate_limits.sql` — per-user rate-limit windows
+   - `0024_ai_usage.sql` — AI cost-tracking log (admin dashboard card)
 2. **Set new env vars** in Vercel (and locally in `.env.local`):
    - `SECRETS_ENCRYPTION_KEY` — 32-byte base64 (`openssl rand -base64 32`).
      Required for P1 encryption; without it, keys/tokens fall back to plaintext.
