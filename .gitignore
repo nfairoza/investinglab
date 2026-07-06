@@ -10,3 +10,6 @@ out
 
 # Local database — your data, never committed
 data/db.json
+
+# TypeScript incremental build cache — machine-local, never committed
+tsconfig.tsbuildinfo
