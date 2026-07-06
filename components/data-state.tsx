@@ -55,6 +55,25 @@ export function DataNote({ note, fallback, className = "" }: { note?: string | n
   return <span className={className}>{text}</span>;
 }
 
+// Inline error chip with an optional retry. Regular users see a calm message;
+// admins see the real error text to diagnose. (Skeleton + EmptyState live in
+// components/ui/primitives.tsx — reuse those for loading/empty states.)
+export function ErrorState({ error, onRetry, className = "" }: { error: unknown; onRetry?: () => void; className?: string }) {
+  const isAdmin = useIsAdmin();
+  const raw = error instanceof Error ? error.message : typeof error === "string" ? error : null;
+  const text = isAdmin ? (raw ?? "Something went wrong.") : friendlyMessage(raw);
+  return (
+    <div className={`flex items-center justify-between gap-2 rounded-lg border border-rose-500/30 bg-rose-500/5 px-3 py-2 text-sm text-rose-300 ${className}`}>
+      <span>{text}</span>
+      {onRetry && (
+        <button onClick={onRetry} className="shrink-0 rounded border border-rose-500/40 px-2 py-0.5 text-xs hover:bg-rose-500/10">
+          Retry
+        </button>
+      )}
+    </div>
+  );
+}
+
 // Map a raw error/note to a calm user-facing message. Exported so other places
 // (toasts, inline errors) can reuse the same wording.
 export function friendlyMessage(raw?: string | null): string {
