@@ -2,7 +2,8 @@ import { resolveApiKey } from "./anthropic";
 import {
   callGemini, geminiKey, geminiProModel, geminiFlashModel,
 } from "./gemini";
-import { getRuntimeStrategy } from "./runtime-key";
+import { getRuntimeStrategy, hydrateAiRuntime } from "./runtime-key";
+import { hydrateConnectorCache } from "@/lib/connectors/runtime";
 
 // =============================================================================
 // Task-aware AI router.
@@ -113,6 +114,10 @@ export async function routeText(opts: {
   webSearch?: boolean;
   strategy?: Strategy;
 }): Promise<RouteResult> {
+  // Load persisted (encrypted) AI + connector keys into memory on a cold
+  // serverless instance before resolving which providers are available.
+  await hydrateAiRuntime().catch(() => {});
+  await hydrateConnectorCache().catch(() => {});
   const plan = planRoute(opts.task, opts.strategy ?? resolveStrategy());
   const haveClaude = Boolean(resolveApiKey());
   const haveGemini = Boolean(geminiKey());

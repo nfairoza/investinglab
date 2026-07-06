@@ -12,6 +12,6 @@ export async function POST(req: NextRequest) {
   if (!["smart", "quality", "economy"].includes(s)) {
     return NextResponse.json({ error: "strategy must be smart|quality|economy" }, { status: 400 });
   }
-  setRuntimeStrategy(s);
+  await setRuntimeStrategy(s);
   return NextResponse.json(aiStatus());
 }

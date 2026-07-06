@@ -10,6 +10,6 @@ export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}));
   const model = typeof body?.model === "string" ? body.model : "";
   if (!model.trim()) return NextResponse.json({ error: "model required" }, { status: 400 });
-  setRuntimeModel(model);
+  await setRuntimeModel(model);
   return NextResponse.json(aiStatus());
 }

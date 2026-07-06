@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
   if (!admin) return NextResponse.json({ error: "forbidden", message: "Admin only." }, { status: 403 });
   const body = await req.json().catch(() => ({}));
   if (body?.clear) {
-    setRuntimeAi(null, null);
+    await setRuntimeAi(null, null);
     return NextResponse.json(aiStatus());
   }
   const apiKey = typeof body?.apiKey === "string" ? body.apiKey : "";
@@ -22,6 +22,6 @@ export async function POST(req: NextRequest) {
   if (!apiKey.trim()) {
     return NextResponse.json({ error: "apiKey required" }, { status: 400 });
   }
-  setRuntimeAi(apiKey, model);
+  await setRuntimeAi(apiKey, model);
   return NextResponse.json(aiStatus());
 }

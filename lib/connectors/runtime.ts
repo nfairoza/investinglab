@@ -1,17 +1,54 @@
-// Server-only, in-memory store for connector credentials entered at runtime via
-// the Connectors page. Same model as the AI key: values are held in the server
-// process for this dev session, never sent to the browser, gone on restart.
-// For deployment, set the matching env vars instead.
+// Server-side store for connector credentials entered at runtime via the
+// Connectors page. Values are held in an in-memory cache for fast SYNC reads
+// (getConnectorValue stays synchronous — many callers depend on that) AND
+// persisted encrypted to the app_secrets table so they survive serverless cold
+// starts (P1.1). Resolution order: in-memory cache → app_secrets (hydrated
+// async) → process.env.
 //
-// getConnectorValue() resolves runtime value first, then the environment, so a
-// key added in the UI takes effect immediately and a key in .env keeps working.
+// Nothing here is ever sent to the browser.
+
+import { serviceClient } from "@/lib/service-client";
+import { encryptSecret, decryptSecret, secretsConfigured } from "@/lib/secrets";
 
 const store: Record<string, string> = {};
+let hydrated = false;
+let hydratedAt = 0;
+const HYDRATE_TTL_MS = 60_000; // re-read app_secrets at most once/min per instance
 
-export function setConnectorValues(values: Record<string, string | null>): void {
+// Load persisted secrets into the in-memory cache. Cheap + idempotent; guarded
+// by a short TTL so a serverless instance picks up changes made elsewhere.
+export async function hydrateConnectorCache(force = false): Promise<void> {
+  if (!secretsConfigured()) return;
+  if (!force && hydrated && Date.now() - hydratedAt < HYDRATE_TTL_MS) return;
+  const db = serviceClient();
+  if (!db) return;
+  const { data } = await db.from("app_secrets").select("field, ciphertext, iv");
+  for (const row of data ?? []) {
+    try { store[(row as any).field] = decryptSecret((row as any).ciphertext, (row as any).iv); } catch { /* skip corrupt */ }
+  }
+  hydrated = true;
+  hydratedAt = Date.now();
+}
+
+// Persist connector values (encrypted) AND update the in-memory cache. Falls
+// back to memory-only when encryption/DB isn't configured (local dev).
+export async function setConnectorValues(values: Record<string, string | null>): Promise<void> {
+  const db = secretsConfigured() ? serviceClient() : null;
   for (const [field, value] of Object.entries(values)) {
-    if (value && value.trim()) store[field] = value.trim();
-    else delete store[field];
+    const v = value && value.trim() ? value.trim() : null;
+    if (v) {
+      store[field] = v;
+      if (db) {
+        const { ciphertext, iv } = encryptSecret(v);
+        await db.from("app_secrets").upsert(
+          { field, ciphertext, iv, updated_at: new Date().toISOString() },
+          { onConflict: "field" },
+        );
+      }
+    } else {
+      delete store[field];
+      if (db) await db.from("app_secrets").delete().eq("field", field);
+    }
   }
 }
 

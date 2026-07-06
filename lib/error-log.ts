@@ -1,4 +1,4 @@
-import { createClient as createServiceClient, type SupabaseClient } from "@supabase/supabase-js";
+import { serviceClient } from "@/lib/service-client";
 
 // =============================================================================
 // Error logging — captures user-facing failures to the `error_log` table for the
@@ -21,12 +21,7 @@ export interface LogErrorInput {
   meta?: Record<string, unknown>;
 }
 
-function serviceClient(): SupabaseClient | null {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SECRET_KEY;
-  if (!url || !key) return null;
-  return createServiceClient(url, key, { auth: { persistSession: false } });
-}
+// (Shared service client factory lives in lib/service-client.ts.)
 
 // Heuristic category from a raw message when the caller didn't specify one.
 function inferCategory(msg: string): ErrorCategory {

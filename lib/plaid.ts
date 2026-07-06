@@ -1,5 +1,6 @@
 import { Configuration, PlaidApi, PlaidEnvironments } from "plaid";
-import { createClient as createServiceClient, type SupabaseClient } from "@supabase/supabase-js";
+import { type SupabaseClient } from "@supabase/supabase-js";
+import { serviceClient } from "@/lib/service-client";
 
 // Server-only Plaid client. Credentials come from env (set in Vercel):
 //   PLAID_CLIENT_ID         — identifies the app (same across envs).
@@ -53,14 +54,8 @@ export function plaidItemCap(): number {
   return Number.isFinite(n) && n > 0 ? n : 10;
 }
 
-// Service-role Supabase client for app-wide reads/writes that bypass RLS
-// (the Item-cap counter must see ALL users' items, not just the caller's).
-function serviceClient(): SupabaseClient | null {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SECRET_KEY;
-  if (!url || !key) return null;
-  return createServiceClient(url, key, { auth: { persistSession: false } });
-}
+// (Service-role client for app-wide, RLS-bypassing reads/writes — e.g. the
+// Item-cap counter must see ALL users' items — comes from lib/service-client.)
 
 // App-wide count of Plaid Items EVER created (monotonic — disconnect does NOT
 // decrement it, because the Plaid Trial cap counts items ever created).

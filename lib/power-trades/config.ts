@@ -1,4 +1,5 @@
-import { createClient as createServiceClient, type SupabaseClient } from "@supabase/supabase-js";
+import { type SupabaseClient } from "@supabase/supabase-js";
+import { serviceClient } from "@/lib/service-client";
 import type { PowerTradeSource } from "./types";
 
 // =============================================================================
@@ -46,10 +47,7 @@ export function isSourceActive(source: PowerTradeSource): boolean {
 // Service-role client (bypasses RLS) for the Power Trades tables, which have no
 // policies. Returns null if env isn't configured.
 export function powerServiceClient(): SupabaseClient | null {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SECRET_KEY;
-  if (!url || !key) return null;
-  return createServiceClient(url, key, { auth: { persistSession: false } });
+  return serviceClient();
 }
 
 // The FMP key used by the rest of the app (market + congress data).

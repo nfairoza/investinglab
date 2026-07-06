@@ -32,13 +32,13 @@ export async function POST(req: NextRequest) {
   if (!fieldIds || !envVars) return NextResponse.json({ error: "unknown connector" }, { status: 400 });
 
   if (body?.clear) {
-    setConnectorValues(Object.fromEntries(fieldIds.map((f) => [f, null])));
+    await setConnectorValues(Object.fromEntries(fieldIds.map((f) => [f, null])));
   } else {
     const values = (body?.values ?? {}) as Record<string, string>;
     const allowed = Object.fromEntries(
       fieldIds.filter((f) => typeof values[f] === "string").map((f) => [f, values[f]]),
     );
-    setConnectorValues(allowed);
+    await setConnectorValues(allowed);
   }
 
   const hasRuntime = fieldIds.some((f) => runtimeHas(f));
