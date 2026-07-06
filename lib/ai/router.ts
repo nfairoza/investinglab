@@ -4,6 +4,9 @@ import {
 } from "./gemini";
 import { getRuntimeStrategy, hydrateAiRuntime } from "./runtime-key";
 import { hydrateConnectorCache } from "@/lib/connectors/runtime";
+import { logAiUsage, approxTokens } from "./usage";
+
+const nowMs = () => Date.now();
 
 // =============================================================================
 // Task-aware AI router.
@@ -113,6 +116,7 @@ export async function routeText(opts: {
   maxTokens?: number;
   webSearch?: boolean;
   strategy?: Strategy;
+  userId?: string | null;   // best-effort attribution for cost tracking (P6.3)
 }): Promise<RouteResult> {
   // Load persisted (encrypted) AI + connector keys into memory on a cold
   // serverless instance before resolving which providers are available.
@@ -128,19 +132,26 @@ export async function routeText(opts: {
   const order: Provider[] = plan.primary === "claude" ? ["claude", "gemini"] : ["gemini", "claude"];
   const enabled = order.filter((p) => (p === "claude" ? haveClaude : haveGemini));
 
+  const promptTokens = approxTokens(`${opts.system}\n${opts.user}`);
+
   let lastErr: unknown;
   for (let i = 0; i < enabled.length; i++) {
     const provider = enabled[i];
     const isLast = i === enabled.length - 1;
+    const model = provider === "claude" ? plan.claudeModel : plan.geminiModel;
+    const startedAt = nowMs();
     try {
       if (provider === "claude") {
-        const text = await callClaudeModel({ system: opts.system, user: opts.user, model: plan.claudeModel, maxTokens: opts.maxTokens, webSearch: opts.webSearch });
+        const { text, inputTokens, outputTokens } = await callClaudeModel({ system: opts.system, user: opts.user, model: plan.claudeModel, maxTokens: opts.maxTokens, webSearch: opts.webSearch });
+        void logAiUsage({ task: opts.task, provider: "claude", model, inputTokens, outputTokens, latencyMs: nowMs() - startedAt, ok: true, userId: opts.userId, estimated: false });
         return { text, provider: "claude", model: plan.claudeModel, plan };
       } else {
         const text = await callGemini({ system: opts.system, user: opts.user, webSearch: opts.webSearch, model: plan.geminiModel });
+        void logAiUsage({ task: opts.task, provider: "gemini", model, inputTokens: promptTokens, outputTokens: approxTokens(text), latencyMs: nowMs() - startedAt, ok: true, userId: opts.userId, estimated: true });
         return { text, provider: "gemini", model: plan.geminiModel, plan };
       }
     } catch (e) {
+      void logAiUsage({ task: opts.task, provider, model, inputTokens: promptTokens, outputTokens: 0, latencyMs: nowMs() - startedAt, ok: false, userId: opts.userId, estimated: true });
       lastErr = e;
       // Only fall through to the other provider on a network/connectivity error
       // (an auth/4xx error would just fail again and waste a call). On the last
@@ -160,7 +171,7 @@ export async function routeText(opts: {
 // callClaude() in anthropic.ts but lets the router pick the model per task.
 async function callClaudeModel(opts: {
   system: string; user: string; model: string; maxTokens?: number; webSearch?: boolean;
-}): Promise<string> {
+}): Promise<{ text: string; inputTokens: number | null; outputTokens: number | null }> {
   const key = resolveApiKey();
   if (!key) throw new Error("No Claude key");
   let res: Response;
@@ -186,8 +197,9 @@ async function callClaudeModel(opts: {
     const detail = await res.text().catch(() => "");
     throw new Error(`Anthropic HTTP ${res.status}${detail ? `: ${detail.slice(0, 200)}` : ""}`);
   }
-  const json = (await res.json()) as { content?: Array<{ type: string; text?: string }> };
-  return (json.content ?? []).filter((b) => b.type === "text" && b.text).map((b) => b.text as string).join("\n");
+  const json = (await res.json()) as { content?: Array<{ type: string; text?: string }>; usage?: { input_tokens?: number; output_tokens?: number } };
+  const text = (json.content ?? []).filter((b) => b.type === "text" && b.text).map((b) => b.text as string).join("\n");
+  return { text, inputTokens: json.usage?.input_tokens ?? null, outputTokens: json.usage?.output_tokens ?? null };
 }
 
 // Human-readable strategy label for the UI.
