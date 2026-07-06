@@ -19,9 +19,17 @@ export async function GET() {
   const plaid = getPlaid();
   const liabilities: any[] = [];
 
-  for (const it of items) {
-    try {
-      const resp = await plaid.liabilitiesGet({ access_token: it.access_token });
+  // Fetch every linked institution's liabilities in parallel (was sequential).
+  const results = await Promise.allSettled(
+    items.map((it) => plaid.liabilitiesGet({ access_token: it.access_token })),
+  );
+
+  for (let idx = 0; idx < items.length; idx++) {
+    const it = items[idx];
+    const r = results[idx];
+    if (r.status !== "fulfilled") continue; // item may not support liabilities
+    {
+      const resp = r.value;
       const acctName = new Map((resp.data.accounts ?? []).map((a) => [a.account_id, a]));
       const L = resp.data.liabilities ?? {};
 
@@ -62,7 +70,7 @@ export async function GET() {
           currency: a?.balances?.iso_currency_code ?? "USD",
         });
       }
-    } catch { /* item may not support liabilities */ }
+    }
   }
 
   return NextResponse.json({ liabilities });

@@ -19,9 +19,17 @@ export async function GET() {
   const plaid = getPlaid();
   const holdings: any[] = [];
 
-  for (const it of items) {
-    try {
-      const resp = await plaid.investmentsHoldingsGet({ access_token: it.access_token });
+  // Fetch every linked institution's holdings in parallel (was sequential).
+  const results = await Promise.allSettled(
+    items.map((it) => plaid.investmentsHoldingsGet({ access_token: it.access_token })),
+  );
+
+  for (let idx = 0; idx < items.length; idx++) {
+    const it = items[idx];
+    const r = results[idx];
+    if (r.status !== "fulfilled") continue; // account may not support investments
+    {
+      const resp = r.value;
       const securities = new Map((resp.data.securities ?? []).map((s) => [s.security_id, s]));
       // Account mask (last 4) + name + subtype keyed by account_id, so each
       // holding shows which account it's in. Masks aren't always unique (a user
@@ -65,7 +73,7 @@ export async function GET() {
           isCashEquivalent: (sec as any)?.is_cash_equivalent ?? false,
         });
       }
-    } catch { /* skip item (account may not support investments) */ }
+    }
   }
 
   // Investment cash = sum of cash-equivalent holdings ("US Dollar" / cash sweep).

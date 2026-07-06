@@ -20,41 +20,45 @@ export async function GET(req: NextRequest) {
   if (!items || items.length === 0) return NextResponse.json({ items: [], totalCash: 0 });
 
   const plaid = getPlaid();
-  const out: any[] = [];
   const debugRows: any[] = [];
   let totalCash = 0;
 
-  for (const it of items) {
-    try {
-      const resp = await plaid.accountsBalanceGet({ access_token: it.access_token });
-      if (debug) {
-        for (const a of resp.data.accounts ?? []) {
-          debugRows.push({
-            institution: it.institution_name, name: a.name, mask: a.mask,
-            type: a.type, subtype: a.subtype,
-            available: a.balances?.available ?? null, current: a.balances?.current ?? null,
-          });
-        }
-      }
-      const accounts = (resp.data.accounts ?? []).map((a) => {
-        const bal = a.balances?.current ?? 0;
-        if (a.type === "depository") totalCash += a.balances?.available ?? bal ?? 0;
-        return {
-          account_id: a.account_id,
-          name: a.name,
-          mask: a.mask,
-          type: a.type,
-          subtype: a.subtype,
-          current: a.balances?.current ?? null,
-          available: a.balances?.available ?? null,
-          currency: a.balances?.iso_currency_code ?? "USD",
-        };
-      });
-      out.push({ itemId: it.item_id, institution: it.institution_name, accounts });
-    } catch (e: any) {
-      out.push({ itemId: it.item_id, institution: it.institution_name, accounts: [], error: e?.response?.data?.error_code ?? "fetch_failed" });
+  // Fetch every linked institution in parallel (was sequential await per item).
+  const results = await Promise.allSettled(
+    items.map((it) => plaid.accountsBalanceGet({ access_token: it.access_token })),
+  );
+
+  const out = items.map((it, i) => {
+    const r = results[i];
+    if (r.status !== "fulfilled") {
+      const e: any = r.reason;
+      return { itemId: it.item_id, institution: it.institution_name, accounts: [], error: e?.response?.data?.error_code ?? "fetch_failed" };
     }
-  }
+    if (debug) {
+      for (const a of r.value.data.accounts ?? []) {
+        debugRows.push({
+          institution: it.institution_name, name: a.name, mask: a.mask,
+          type: a.type, subtype: a.subtype,
+          available: a.balances?.available ?? null, current: a.balances?.current ?? null,
+        });
+      }
+    }
+    const accounts = (r.value.data.accounts ?? []).map((a) => {
+      const bal = a.balances?.current ?? 0;
+      if (a.type === "depository") totalCash += a.balances?.available ?? bal ?? 0;
+      return {
+        account_id: a.account_id,
+        name: a.name,
+        mask: a.mask,
+        type: a.type,
+        subtype: a.subtype,
+        current: a.balances?.current ?? null,
+        available: a.balances?.available ?? null,
+        currency: a.balances?.iso_currency_code ?? "USD",
+      };
+    });
+    return { itemId: it.item_id, institution: it.institution_name, accounts };
+  });
 
   if (debug) return NextResponse.json({ debug: debugRows });
   return NextResponse.json({ items: out, totalCash: +totalCash.toFixed(2) });
