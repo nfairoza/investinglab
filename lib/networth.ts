@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { getPlaid, plaidConfigured, PLAID_TOKEN_COLUMNS, resolvePlaidToken } from "@/lib/plaid";
+import { getPlaid, plaidConfigured, selectPlaidItems, resolvePlaidToken } from "@/lib/plaid";
 import { marketData } from "@/lib/providers";
 
 // =============================================================================
@@ -82,7 +82,7 @@ export async function computeNetWorth(ctx: { supabase: SupabaseClient; userId: s
   const haveEtradeHoldings = (etradeCount ?? 0) > 0;
 
   if (plaidConfigured()) {
-    const { data: plaidItems } = await ctx.supabase.from("plaid_items").select(`institution_name, ${PLAID_TOKEN_COLUMNS}`);
+    const { rows: plaidItems } = await selectPlaidItems(ctx.supabase, "institution_name");
     const plaid = getPlaid();
 
     // ── Pass 1: Liabilities (authoritative balance/APR for cards/loans/mortgages) ──

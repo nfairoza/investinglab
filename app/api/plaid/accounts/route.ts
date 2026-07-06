@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getPlaid, plaidConfigured, PLAID_TOKEN_COLUMNS, resolvePlaidToken } from "@/lib/plaid";
+import { getPlaid, plaidConfigured, selectPlaidItems, resolvePlaidToken } from "@/lib/plaid";
 import { getUserClient } from "@/lib/supabase-data";
 
 export const dynamic = "force-dynamic";
@@ -14,9 +14,10 @@ export async function GET(req: NextRequest) {
   if (!plaidConfigured()) return NextResponse.json({ items: [], totalCash: 0, configured: false });
   const debug = req.nextUrl.searchParams.get("debug") === "1" && ctx.isAdmin;
 
-  const { data: items } = await ctx.supabase
-    .from("plaid_items")
-    .select(`item_id, institution_name, ${PLAID_TOKEN_COLUMNS}`);
+  // Resilient to unmigrated enc columns; surfaces a real db error instead of the
+  // connect-brokerage empty state.
+  const { rows: items, error: itemsErr } = await selectPlaidItems(ctx.supabase, "item_id, institution_name");
+  if (itemsErr) return NextResponse.json({ error: "db_error", message: itemsErr.message }, { status: 500 });
   if (!items || items.length === 0) return NextResponse.json({ items: [], totalCash: 0 });
 
   const plaid = getPlaid();

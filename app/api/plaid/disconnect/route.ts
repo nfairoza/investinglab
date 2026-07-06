@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getPlaid, plaidConfigured, PLAID_TOKEN_COLUMNS, resolvePlaidToken } from "@/lib/plaid";
+import { getPlaid, plaidConfigured, selectPlaidItems, resolvePlaidToken } from "@/lib/plaid";
 import { getUserClient } from "@/lib/supabase-data";
 
 export const dynamic = "force-dynamic";
@@ -19,11 +19,10 @@ export async function POST(req: NextRequest) {
   const itemId = typeof body?.itemId === "string" ? body.itemId : "";
   if (!itemId) return NextResponse.json({ error: "itemId required" }, { status: 400 });
 
-  const { data: row } = await ctx.supabase
-    .from("plaid_items")
-    .select(PLAID_TOKEN_COLUMNS)
-    .eq("item_id", itemId)
-    .maybeSingle();
+  // Resilient to unmigrated enc columns; a real DB error surfaces as a 500.
+  const { rows, error: selErr } = await selectPlaidItems(ctx.supabase, "item_id");
+  if (selErr) return NextResponse.json({ error: "db_error", message: selErr.message }, { status: 500 });
+  const row = (rows ?? []).find((r: any) => r.item_id === itemId);
 
   if (!row) return NextResponse.json({ error: "Connection not found." }, { status: 404 });
 

@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { getPlaid, plaidConfigured, PLAID_TOKEN_COLUMNS, resolvePlaidToken } from "@/lib/plaid";
+import { getPlaid, plaidConfigured, selectPlaidItems, resolvePlaidToken } from "@/lib/plaid";
 import { categorize } from "@/lib/money/categorize";
 import { plaidInvestmentCash } from "@/lib/holdings-server";
 import { computeNetWorth, type NetWorthResult } from "@/lib/networth";
@@ -175,7 +175,7 @@ interface DebtLine { name: string; balance: number; apr: number | null; minPayme
 
 async function gatherDebts(ctx: { supabase: SupabaseClient }): Promise<DebtLine[]> {
   if (!plaidConfigured()) return [];
-  const { data: items } = await ctx.supabase.from("plaid_items").select(`institution_name, ${PLAID_TOKEN_COLUMNS}`);
+  const { rows: items } = await selectPlaidItems(ctx.supabase, "institution_name");
   const plaid = getPlaid();
   const debts: DebtLine[] = [];
   for (const it of items ?? []) {

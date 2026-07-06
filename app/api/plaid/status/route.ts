@@ -9,10 +9,11 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   const ctx = await getUserClient();
   if (!ctx) return NextResponse.json({ configured: false, items: [] });
-  const { data } = await ctx.supabase
+  const { data, error } = await ctx.supabase
     .from("plaid_items")
     .select("item_id, institution_name, institution_logo, institution_color, accounts, created_at")
     .order("created_at", { ascending: true });
+  if (error) return NextResponse.json({ error: "db_error", message: error.message }, { status: 500 });
 
   const items = (data ?? []).map((r: any) => {
     const accts = Array.isArray(r.accounts) ? r.accounts : [];

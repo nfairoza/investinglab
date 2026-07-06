@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { getPlaid, plaidConfigured, PLAID_TOKEN_COLUMNS, resolvePlaidToken } from "@/lib/plaid";
+import { getPlaid, plaidConfigured, selectPlaidItems, resolvePlaidToken } from "@/lib/plaid";
 import { CountryCode } from "plaid";
 
 // =============================================================================
@@ -28,7 +28,7 @@ export interface UnifiedHolding {
 // Plaid investment holdings for the user, normalized. Vested-only for awards.
 export async function plaidHoldings(supabase: SupabaseClient): Promise<UnifiedHolding[]> {
   if (!plaidConfigured()) return [];
-  const { data: items } = await supabase.from("plaid_items").select(`item_id, institution_name, ${PLAID_TOKEN_COLUMNS}`);
+  const { rows: items } = await selectPlaidItems(supabase, "item_id, institution_name");
   if (!items?.length) return [];
   const plaid = getPlaid();
   const out: UnifiedHolding[] = [];
@@ -97,7 +97,7 @@ export async function getUnifiedHoldings(
 // kept distinct from bank cash so the two are never conflated).
 export async function plaidInvestmentCash(supabase: SupabaseClient): Promise<number> {
   if (!plaidConfigured()) return 0;
-  const { data: items } = await supabase.from("plaid_items").select(PLAID_TOKEN_COLUMNS);
+  const { rows: items } = await selectPlaidItems(supabase, "");
   if (!items?.length) return 0;
   const plaid = getPlaid();
   let cash = 0;

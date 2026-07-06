@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getPlaid, plaidConfigured, PLAID_TOKEN_COLUMNS, resolvePlaidToken } from "@/lib/plaid";
+import { getPlaid, plaidConfigured, selectPlaidItems, resolvePlaidToken } from "@/lib/plaid";
 import { getUserClient } from "@/lib/supabase-data";
 import { categorize } from "@/lib/money/categorize";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -13,9 +13,7 @@ function merchantKey(name: string | null, fallback: string): string {
 // Pull new activity from Plaid (incremental) and upsert into the cache. Plaid's
 // cursor only returns NEW transactions, so we persist them to read history later.
 async function syncToCache(ctx: { supabase: SupabaseClient; userId: string }) {
-  const { data: items } = await ctx.supabase
-    .from("plaid_items")
-    .select(`item_id, institution_name, cursor, ${PLAID_TOKEN_COLUMNS}`);
+  const { rows: items } = await selectPlaidItems(ctx.supabase, "item_id, institution_name, cursor");
   if (!items?.length) return;
   const plaid = getPlaid();
 
@@ -78,11 +76,13 @@ export async function GET(req: NextRequest) {
   if (!skipSync) await syncToCache(ctx).catch(() => {});
 
   // Read cache + the two override layers.
-  const [{ data: txns }, { data: rules }, { data: overrides }] = await Promise.all([
+  const [{ data: txns, error: txnErr }, { data: rules }, { data: overrides }] = await Promise.all([
     ctx.supabase.from("plaid_transactions").select("*").eq("removed", false).order("date", { ascending: false }).limit(5000),
     ctx.supabase.from("plaid_merchant_rules").select("merchant_key, category"),
     ctx.supabase.from("plaid_txn_overrides").select("*"),
   ]);
+  // A DB error on the main read must surface — not render as "no transactions".
+  if (txnErr) return NextResponse.json({ error: "db_error", message: txnErr.message }, { status: 500 });
 
   const ruleMap = new Map((rules ?? []).map((r: any) => [r.merchant_key, r.category]));
   const ovMap = new Map((overrides ?? []).map((o: any) => [o.transaction_id, o]));

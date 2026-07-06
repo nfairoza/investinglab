@@ -90,8 +90,37 @@ export const PLAID_COUNTRY_CODES = ["US"] as const;
 
 // SELECT list that pulls the columns needed to resolve a token either way.
 export const PLAID_TOKEN_COLUMNS = "access_token, access_token_enc, access_token_iv";
+// Fallback list for DBs where migration 0021 (enc columns) hasn't been applied.
+const PLAID_TOKEN_COLUMNS_LEGACY = "access_token";
 
 interface PlaidTokenRow { access_token?: string | null; access_token_enc?: string | null; access_token_iv?: string | null }
+
+// Postgres "undefined_column" — the enc columns don't exist yet (migration 0021
+// not applied on this DB). We degrade to plaintext-only instead of hard-failing.
+function isUndefinedColumn(err: { code?: string; message?: string } | null): boolean {
+  if (!err) return false;
+  return err.code === "42703" || /column .* does not exist/i.test(err.message ?? "");
+}
+
+// Select plaid_items with the given extra columns + the token columns, resilient
+// to the enc columns not existing yet. Returns { rows, error } where a REAL DB
+// error (anything but a missing-enc-column) is surfaced so callers can 500 —
+// never silently treated as "no linked accounts" (P0.2).
+export async function selectPlaidItems(
+  supabase: { from: (t: string) => any },
+  extraCols: string,
+): Promise<{ rows: any[] | null; error: { message: string } | null }> {
+  const cols = extraCols ? `${extraCols}, ${PLAID_TOKEN_COLUMNS}` : PLAID_TOKEN_COLUMNS;
+  const first = await supabase.from("plaid_items").select(cols);
+  if (!first.error) return { rows: first.data ?? [], error: null };
+  if (isUndefinedColumn(first.error)) {
+    const legacyCols = extraCols ? `${extraCols}, ${PLAID_TOKEN_COLUMNS_LEGACY}` : PLAID_TOKEN_COLUMNS_LEGACY;
+    const retry = await supabase.from("plaid_items").select(legacyCols);
+    if (!retry.error) return { rows: retry.data ?? [], error: null };
+    return { rows: null, error: { message: retry.error.message } };
+  }
+  return { rows: null, error: { message: first.error.message } };
+}
 
 // Decrypt the encrypted token if present; otherwise fall back to plaintext.
 export function resolvePlaidToken(row: PlaidTokenRow): string | null {
