@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { CountryCode } from "plaid";
-import { getPlaid, plaidConfigured, plaidCapReached, recordPlaidItemCreated } from "@/lib/plaid";
+import { getPlaid, plaidConfigured, plaidCapReached, recordPlaidItemCreated, plaidTokenWrite } from "@/lib/plaid";
 import { getUserClient } from "@/lib/supabase-data";
 
 export const dynamic = "force-dynamic";
@@ -61,7 +61,9 @@ export async function POST(req: NextRequest) {
       {
         user_id: ctx.userId,
         item_id: itemId,
-        access_token: accessToken,
+        // Encrypt the token at rest when configured; plaidTokenWrite nulls the
+        // plaintext column in that case (P1.2).
+        ...plaidTokenWrite(accessToken),
         institution_id: institutionId,
         institution_name: institutionName,
         institution_logo: institutionLogo,

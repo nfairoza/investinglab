@@ -1,6 +1,7 @@
 import { Configuration, PlaidApi, PlaidEnvironments } from "plaid";
 import { type SupabaseClient } from "@supabase/supabase-js";
 import { serviceClient } from "@/lib/service-client";
+import { encryptSecret, decryptSecret, secretsConfigured } from "@/lib/secrets";
 
 // Server-only Plaid client. Credentials come from env (set in Vercel):
 //   PLAID_CLIENT_ID         — identifies the app (same across envs).
@@ -81,3 +82,31 @@ export async function recordPlaidItemCreated(userId: string, itemId: string): Pr
 }
 
 export const PLAID_COUNTRY_CODES = ["US"] as const;
+
+// ── Access-token encryption at rest (P1.2) ──────────────────────────────────
+// Tokens are stored encrypted (access_token_enc/iv) when SECRETS_ENCRYPTION_KEY
+// is set. During/after the backfill some rows may still carry the legacy
+// plaintext access_token; resolvePlaidToken handles both transparently.
+
+// SELECT list that pulls the columns needed to resolve a token either way.
+export const PLAID_TOKEN_COLUMNS = "access_token, access_token_enc, access_token_iv";
+
+interface PlaidTokenRow { access_token?: string | null; access_token_enc?: string | null; access_token_iv?: string | null }
+
+// Decrypt the encrypted token if present; otherwise fall back to plaintext.
+export function resolvePlaidToken(row: PlaidTokenRow): string | null {
+  if (row.access_token_enc && row.access_token_iv && secretsConfigured()) {
+    try { return decryptSecret(row.access_token_enc, row.access_token_iv); } catch { /* fall through */ }
+  }
+  return row.access_token ?? null;
+}
+
+// Build the columns to write for a new/updated token. When encryption is
+// configured we write ONLY the encrypted pair and null the plaintext column.
+export function plaidTokenWrite(token: string): Record<string, string | null> {
+  if (secretsConfigured()) {
+    const { ciphertext, iv } = encryptSecret(token);
+    return { access_token_enc: ciphertext, access_token_iv: iv, access_token: null };
+  }
+  return { access_token: token, access_token_enc: null, access_token_iv: null };
+}

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getPlaid, plaidConfigured } from "@/lib/plaid";
+import { getPlaid, plaidConfigured, PLAID_TOKEN_COLUMNS, resolvePlaidToken } from "@/lib/plaid";
 import { getUserClient } from "@/lib/supabase-data";
 
 export const dynamic = "force-dynamic";
@@ -13,7 +13,7 @@ export async function GET() {
 
   const { data: items } = await ctx.supabase
     .from("plaid_items")
-    .select("item_id, institution_name, access_token");
+    .select(`item_id, institution_name, ${PLAID_TOKEN_COLUMNS}`);
   if (!items || items.length === 0) return NextResponse.json({ holdings: [] });
 
   const plaid = getPlaid();
@@ -21,7 +21,11 @@ export async function GET() {
 
   // Fetch every linked institution's holdings in parallel (was sequential).
   const results = await Promise.allSettled(
-    items.map((it) => plaid.investmentsHoldingsGet({ access_token: it.access_token })),
+    items.map((it) => {
+      const token = resolvePlaidToken(it as any);
+      if (!token) return Promise.reject(new Error("no token"));
+      return plaid.investmentsHoldingsGet({ access_token: token });
+    }),
   );
 
   for (let idx = 0; idx < items.length; idx++) {

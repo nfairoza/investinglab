@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getPlaid, plaidConfigured } from "@/lib/plaid";
+import { getPlaid, plaidConfigured, PLAID_TOKEN_COLUMNS, resolvePlaidToken } from "@/lib/plaid";
 import { getUserClient } from "@/lib/supabase-data";
 import { categorize } from "@/lib/money/categorize";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -15,7 +15,7 @@ function merchantKey(name: string | null, fallback: string): string {
 async function syncToCache(ctx: { supabase: SupabaseClient; userId: string }) {
   const { data: items } = await ctx.supabase
     .from("plaid_items")
-    .select("item_id, institution_name, access_token, cursor");
+    .select(`item_id, institution_name, cursor, ${PLAID_TOKEN_COLUMNS}`);
   if (!items?.length) return;
   const plaid = getPlaid();
 
@@ -23,6 +23,8 @@ async function syncToCache(ctx: { supabase: SupabaseClient; userId: string }) {
   // sequential (Plaid's cursor is inherently ordered), but items don't block
   // each other. allSettled so one failing item doesn't abort the rest.
   await Promise.allSettled(items.map(async (it) => {
+    const token = resolvePlaidToken(it as any);
+    if (!token) return;
     let cursor: string | undefined = it.cursor ?? undefined;
     const added: any[] = [];
     const removed: string[] = [];
@@ -32,7 +34,7 @@ async function syncToCache(ctx: { supabase: SupabaseClient; userId: string }) {
     // transactions never change, so once cached they're permanent — only the
     // latest activity arrives on subsequent (incremental) syncs via the cursor.
     for (let guard = 0; guard < 50 && hasMore; guard++) {
-      const resp = await plaid.transactionsSync({ access_token: it.access_token, cursor });
+      const resp = await plaid.transactionsSync({ access_token: token, cursor });
       added.push(...resp.data.added, ...resp.data.modified);
       removed.push(...resp.data.removed.map((r) => r.transaction_id).filter(Boolean) as string[]);
       cursor = resp.data.next_cursor;

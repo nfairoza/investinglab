@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { getPlaid, plaidConfigured } from "@/lib/plaid";
+import { getPlaid, plaidConfigured, PLAID_TOKEN_COLUMNS, resolvePlaidToken } from "@/lib/plaid";
 import { marketData } from "@/lib/providers";
 
 // =============================================================================
@@ -82,13 +82,15 @@ export async function computeNetWorth(ctx: { supabase: SupabaseClient; userId: s
   const haveEtradeHoldings = (etradeCount ?? 0) > 0;
 
   if (plaidConfigured()) {
-    const { data: plaidItems } = await ctx.supabase.from("plaid_items").select("institution_name, access_token");
+    const { data: plaidItems } = await ctx.supabase.from("plaid_items").select(`institution_name, ${PLAID_TOKEN_COLUMNS}`);
     const plaid = getPlaid();
 
     // ── Pass 1: Liabilities (authoritative balance/APR for cards/loans/mortgages) ──
     for (const it of plaidItems ?? []) {
       try {
-        const resp = await plaid.liabilitiesGet({ access_token: it.access_token });
+        const token = resolvePlaidToken(it as any);
+        if (!token) continue;
+        const resp = await plaid.liabilitiesGet({ access_token: token });
         const accts = new Map((resp.data.accounts ?? []).map((a: any) => [a.account_id, a]));
         const L = resp.data.liabilities ?? {};
         const pushLiab = (accountId: string | null | undefined, type: LiabilityType, fallbackName: string) => {
@@ -107,7 +109,9 @@ export async function computeNetWorth(ctx: { supabase: SupabaseClient; userId: s
     // ── Pass 2: Balances for assets + any liability not already captured ──
     for (const it of plaidItems ?? []) {
       try {
-        const resp = await plaid.accountsBalanceGet({ access_token: it.access_token });
+        const token = resolvePlaidToken(it as any);
+        if (!token) continue;
+        const resp = await plaid.accountsBalanceGet({ access_token: token });
         for (const a of resp.data.accounts ?? []) {
           const { type, kind } = classifyPlaidAccount(a);
           const cur = a.balances?.current;

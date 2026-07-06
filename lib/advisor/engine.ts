@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { getPlaid, plaidConfigured } from "@/lib/plaid";
+import { getPlaid, plaidConfigured, PLAID_TOKEN_COLUMNS, resolvePlaidToken } from "@/lib/plaid";
 import { categorize } from "@/lib/money/categorize";
 import { plaidInvestmentCash } from "@/lib/holdings-server";
 import { computeNetWorth, type NetWorthResult } from "@/lib/networth";
@@ -175,12 +175,14 @@ interface DebtLine { name: string; balance: number; apr: number | null; minPayme
 
 async function gatherDebts(ctx: { supabase: SupabaseClient }): Promise<DebtLine[]> {
   if (!plaidConfigured()) return [];
-  const { data: items } = await ctx.supabase.from("plaid_items").select("institution_name, access_token");
+  const { data: items } = await ctx.supabase.from("plaid_items").select(`institution_name, ${PLAID_TOKEN_COLUMNS}`);
   const plaid = getPlaid();
   const debts: DebtLine[] = [];
   for (const it of items ?? []) {
     try {
-      const resp = await plaid.liabilitiesGet({ access_token: it.access_token });
+      const token = resolvePlaidToken(it as any);
+      if (!token) continue;
+      const resp = await plaid.liabilitiesGet({ access_token: token });
       const accts = new Map((resp.data.accounts ?? []).map((a: any) => [a.account_id, a]));
       const L: any = resp.data.liabilities ?? {};
       for (const c of L.credit ?? []) {

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getPlaid, plaidConfigured } from "@/lib/plaid";
+import { getPlaid, plaidConfigured, PLAID_TOKEN_COLUMNS, resolvePlaidToken } from "@/lib/plaid";
 import { getUserClient } from "@/lib/supabase-data";
 
 export const dynamic = "force-dynamic";
@@ -21,16 +21,17 @@ export async function POST(req: NextRequest) {
 
   const { data: row } = await ctx.supabase
     .from("plaid_items")
-    .select("access_token")
+    .select(PLAID_TOKEN_COLUMNS)
     .eq("item_id", itemId)
     .maybeSingle();
 
   if (!row) return NextResponse.json({ error: "Connection not found." }, { status: 404 });
 
   // 1) Remove at Plaid first. If this fails, STOP — do not delete locally.
-  if (row.access_token && plaidConfigured()) {
+  const token = resolvePlaidToken(row as any);
+  if (token && plaidConfigured()) {
     try {
-      await getPlaid().itemRemove({ access_token: row.access_token });
+      await getPlaid().itemRemove({ access_token: token });
     } catch (e: any) {
       const msg = e?.response?.data?.error_message ?? "Couldn't disconnect at Plaid. Please try again.";
       return NextResponse.json({ error: msg }, { status: 502 });

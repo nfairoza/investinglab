@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { getPlaid, plaidConfigured } from "@/lib/plaid";
+import { getPlaid, plaidConfigured, PLAID_TOKEN_COLUMNS, resolvePlaidToken } from "@/lib/plaid";
 import { CountryCode } from "plaid";
 
 // =============================================================================
@@ -28,13 +28,15 @@ export interface UnifiedHolding {
 // Plaid investment holdings for the user, normalized. Vested-only for awards.
 export async function plaidHoldings(supabase: SupabaseClient): Promise<UnifiedHolding[]> {
   if (!plaidConfigured()) return [];
-  const { data: items } = await supabase.from("plaid_items").select("item_id, institution_name, access_token");
+  const { data: items } = await supabase.from("plaid_items").select(`item_id, institution_name, ${PLAID_TOKEN_COLUMNS}`);
   if (!items?.length) return [];
   const plaid = getPlaid();
   const out: UnifiedHolding[] = [];
   for (const it of items as any[]) {
     try {
-      const resp = await plaid.investmentsHoldingsGet({ access_token: it.access_token });
+      const token = resolvePlaidToken(it);
+      if (!token) continue;
+      const resp = await plaid.investmentsHoldingsGet({ access_token: token });
       const secs = new Map((resp.data.securities ?? []).map((s) => [s.security_id, s]));
       for (const h of resp.data.holdings ?? []) {
         const sec: any = secs.get(h.security_id);
@@ -95,18 +97,20 @@ export async function getUnifiedHoldings(
 // kept distinct from bank cash so the two are never conflated).
 export async function plaidInvestmentCash(supabase: SupabaseClient): Promise<number> {
   if (!plaidConfigured()) return 0;
-  const { data: items } = await supabase.from("plaid_items").select("access_token");
+  const { data: items } = await supabase.from("plaid_items").select(PLAID_TOKEN_COLUMNS);
   if (!items?.length) return 0;
   const plaid = getPlaid();
   let cash = 0;
   for (const it of items as any[]) {
+    const token = resolvePlaidToken(it);
+    if (!token) continue;
     // (1) Primary source: brokerages report uninvested cash as a HOLDING — a
     //     cash-equivalent security ("US Dollar" / "Cash") at $1.00. Summing those
     //     holdings is the reliable way to get the sweep balance (E*TRADE leaves
     //     accounts.balances.available null for brokerage accounts).
     let foundHoldingCash = false;
     try {
-      const inv = await plaid.investmentsHoldingsGet({ access_token: it.access_token });
+      const inv = await plaid.investmentsHoldingsGet({ access_token: token });
       const secs = new Map((inv.data.securities ?? []).map((s) => [s.security_id, s]));
       for (const h of inv.data.holdings ?? []) {
         const sec: any = secs.get(h.security_id);
@@ -126,7 +130,7 @@ export async function plaidInvestmentCash(supabase: SupabaseClient): Promise<num
     //     available balance (the cash portion) where the institution reports it.
     if (!foundHoldingCash) {
       try {
-        const resp = await plaid.accountsBalanceGet({ access_token: it.access_token });
+        const resp = await plaid.accountsBalanceGet({ access_token: token });
         for (const a of resp.data.accounts ?? []) {
           if ((a.type === "investment" || a.type === "brokerage") && a.balances?.available != null) {
             cash += Number(a.balances.available) || 0;
