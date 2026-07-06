@@ -20,6 +20,28 @@ current OAuth token (missing GitHub `workflow` scope). Commit it manually with a
 PAT that has `workflow` scope, or add it via the GitHub UI. It runs
 `typecheck → lint → test → build` on push/PR to `authbranch` and `main`.
 
+## Production hardening — remaining spec phases
+
+Phases 0, 1, 2, and 5 of the hardening spec are done. Still open:
+
+- **P0.2 remainder** — ~35 more SWR consumers still use inline fetchers that can
+  hide errors. The core money/invest views are migrated; research/power-trades/
+  admin/misc views remain (lower risk — most already show empty states).
+- **P2 zod validation** — add `zod` and validate body/query in every API route;
+  eliminate the ~113 `: any` usages. (Rate limiting + headers + error hygiene done.)
+- **P2 chat rate limit** — apply guardAiRate to the chat AI route (skipped to
+  avoid a concurrent-edit conflict on app/api/chat/route.ts).
+- **P3 FMP batch quotes** — use FMP batch-quote endpoints where many symbols are
+  requested (watchlist/screener/rankings); per-endpoint TTLs via server_cache;
+  provider-health strip on /connectors. (Retry/backoff/429-cooldown/dedup already
+  exist in lib/providers/fmp.ts.)
+- **P4 visual redesign** — unified Card primitive with source+freshness chip,
+  KPI hero rows, chart-theme routing, skeleton/empty/error polish, micro-
+  interactions, mobile + a11y pass.
+- **P6 Rukmani** — streaming chat responses, server-side tool use (get_quote /
+  get_portfolio_summary / get_watchlist), and an ai_usage cost-tracking table +
+  admin dashboard card.
+
 ## Notes
 
 - `app/api/portfolio-doctor/route.ts` contains the word "TODO" only inside an
