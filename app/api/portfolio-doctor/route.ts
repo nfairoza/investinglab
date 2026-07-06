@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUserClient, readAiCache, writeAiCache } from "@/lib/supabase-data";
+import { guardAiRate } from "@/lib/rate-limit";
 import { getUnifiedHoldings } from "@/lib/holdings-server";
 import { logError } from "@/lib/error-log";
 import { marketData } from "@/lib/providers";
@@ -167,6 +168,7 @@ Include all five horizons. For each horizon, sells should come from current hold
 export async function POST(req: NextRequest) {
   const ctx = await getUserClient();
   if (!ctx) return NextResponse.json({ error: "unauthorized", message: "Sign in to run the Portfolio Doctor." }, { status: 401 });
+  const limited = await guardAiRate(ctx); if (limited) return limited;
   // Unified holdings: DB (manual + E*TRADE) merged with Plaid brokerage feed,
   // vested-only. Real tickers only so the doctor researches priceable names.
   const unified = await getUnifiedHoldings(ctx.supabase, { realTickersOnly: true });

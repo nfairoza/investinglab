@@ -4,6 +4,7 @@ import { resolveApiKey } from "@/lib/ai/anthropic";
 import { geminiKey } from "@/lib/ai/gemini";
 import { routeText } from "@/lib/ai/router";
 import { getUserClient, readSharedPrediction, writeSharedPrediction } from "@/lib/supabase-data";
+import { guardAiRate } from "@/lib/rate-limit";
 import { logError } from "@/lib/error-log";
 
 export const dynamic = "force-dynamic";
@@ -96,6 +97,7 @@ export async function POST(req: NextRequest) {
   // logged-in session (the cache table is authenticated-only).
   const ctx = await getUserClient();
   if (!ctx) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  const limited = await guardAiRate(ctx); if (limited) return limited;
 
   const body = await req.json().catch(() => ({}));
   const symbol = (body?.symbol as string | undefined)?.toUpperCase();

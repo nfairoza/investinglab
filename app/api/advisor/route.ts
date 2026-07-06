@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUserClient, readAiCache, writeAiCache } from "@/lib/supabase-data";
+import { guardAiRate } from "@/lib/rate-limit";
 import { resolveApiKey } from "@/lib/ai/anthropic";
 import { geminiKey } from "@/lib/ai/gemini";
 import { routeText } from "@/lib/ai/router";
@@ -158,6 +159,7 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   const ctx = await getUserClient();
   if (!ctx) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  const limited = await guardAiRate(ctx); if (limited) return limited;
 
   // Explicit refresh → recompute fresh from Plaid (also refreshes the cache).
   const result = await computeAdvisorCached(ctx, true);

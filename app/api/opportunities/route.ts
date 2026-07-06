@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { now } from "@/lib/db";
 import { getUserClient, readAiCache, writeAiCache } from "@/lib/supabase-data";
+import { guardAiRate } from "@/lib/rate-limit";
 import { getUnifiedHoldings, plaidInvestmentCash } from "@/lib/holdings-server";
 import { computeNetWorth } from "@/lib/networth";
 import { congressData } from "@/lib/providers";
@@ -147,6 +148,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const ctx = await getUserClient();
   if (!ctx) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  const limited = await guardAiRate(ctx); if (limited) return limited;
   if (!resolveApiKey() && !geminiKey()) {
     return NextResponse.json({ error: "no_key", message: "Add a Claude or Gemini API key in Connectors to use AI opportunities." }, { status: 400 });
   }
