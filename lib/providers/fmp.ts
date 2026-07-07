@@ -88,6 +88,24 @@ class FmpLimitError extends Error {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+// ── Provider health (P3.3) ──────────────────────────────────────────────────
+// Lightweight in-memory counters for the /connectors health strip: last success,
+// last error, and today's ACTUAL network call count (cache hits don't count).
+// Per serverless instance (best-effort) — resets on cold start.
+interface FmpHealth { lastSuccess: string | null; lastError: string | null; lastErrorAt: string | null; callsToday: number; day: string }
+const health: FmpHealth = { lastSuccess: null, lastError: null, lastErrorAt: null, callsToday: 0, day: "" };
+
+function today(): string { return new Date().toISOString().slice(0, 10); }
+function recordCall(): void {
+  const d = today();
+  if (health.day !== d) { health.day = d; health.callsToday = 0; }
+  health.callsToday += 1;
+}
+export function fmpHealth(): FmpHealth {
+  if (health.day !== today()) return { ...health, callsToday: 0 };
+  return { ...health };
+}
+
 // In-flight request map: collapses duplicate CONCURRENT calls for the same URL
 // into a single HTTP request. The fresh cache only fills after a response
 // returns, so without this two callers firing at the same instant (e.g. the
@@ -119,19 +137,25 @@ function getJson(url: string, attempt = 0): Promise<unknown> {
 
 async function fetchJsonUncached(url: string, attempt: number): Promise<unknown> {
   const key = cacheKey(url);
+  if (attempt === 0) recordCall(); // count only the first attempt as one logical call
   const res = await fetch(url, { cache: "no-store" });
   const text = await res.text();
 
   // Body literally says the quota is exhausted → real (daily/plan) limit.
-  if (/limit reach/i.test(text)) throw new FmpLimitError();
+  if (/limit reach/i.test(text)) {
+    health.lastError = "plan/quota limit reached"; health.lastErrorAt = new Date().toISOString();
+    throw new FmpLimitError();
+  }
 
   // Bare 429 = transient per-minute rate limit (common when a page fires many
   // calls at once). Retry up to 3x with backoff before giving up.
   if (res.status === 429) {
     if (attempt < 3) { await sleep(350 * (attempt + 1)); return getJson(url, attempt + 1); }
+    health.lastError = "rate limit (429)"; health.lastErrorAt = new Date().toISOString();
     throw new FmpLimitError();
   }
   if (!res.ok) {
+    health.lastError = `HTTP ${res.status}`; health.lastErrorAt = new Date().toISOString();
     const err = new Error(`HTTP ${res.status}`);
     (err as any).status = res.status;
     throw err;
@@ -140,6 +164,7 @@ async function fetchJsonUncached(url: string, attempt: number): Promise<unknown>
   let data: unknown;
   try { data = JSON.parse(text); } catch { data = null; }
   cache.set(key, { at: Date.now(), data, ttl: ttlFor(url) });
+  health.lastSuccess = new Date().toISOString();
   return data;
 }
 

@@ -131,6 +131,40 @@ function ConnectorCard({ connector, stat, onChanged }: { connector: Connector; s
   );
 }
 
+interface FmpHealthData { lastSuccess: string | null; lastError: string | null; lastErrorAt: string | null; callsToday: number }
+
+// Provider-health strip (P3.3): last success, last error, today's FMP call count
+// (network calls only — cache hits excluded). Admin-only endpoint; renders
+// nothing for non-admins or when unavailable.
+function ProviderHealthStrip() {
+  const [h, setH] = useState<FmpHealthData | null>(null);
+  const [show, setShow] = useState(false);
+
+  async function load() {
+    try {
+      const r = await fetch("/api/connectors/health");
+      if (!r.ok) return; // non-admin (403) or not configured — hide silently
+      const j = (await r.json()) as { fmp?: FmpHealthData };
+      if (j.fmp) { setH(j.fmp); setShow(true); }
+    } catch { /* hide */ }
+  }
+  useEffect(() => { load(); }, []);
+
+  if (!show || !h) return null;
+  const rel = (iso: string | null) => (iso ? new Date(iso).toLocaleTimeString() : "—");
+  return (
+    <div className="rounded-lg border border-hairline bg-surface p-3 text-xs">
+      <div className="mb-2 font-medium text-ink">Provider health · FMP (this server instance)</div>
+      <div className="flex flex-wrap gap-x-6 gap-y-1 text-ink-dim">
+        <span>Last success: <span className="text-ink">{rel(h.lastSuccess)}</span></span>
+        <span>Calls today: <span className="text-ink">{h.callsToday}</span></span>
+        <span>Last error: {h.lastError ? <span className="text-rose-400">{h.lastError} @ {rel(h.lastErrorAt)}</span> : <span className="text-emerald-400">none</span>}</span>
+      </div>
+      <p className="mt-1 text-[10px] text-ink-faint">Best-effort, per serverless instance — resets on cold start. Cache hits aren&apos;t counted.</p>
+    </div>
+  );
+}
+
 export function Connectors() {
   const [stats, setStats] = useState<Record<string, Stat>>({});
 
@@ -152,6 +186,8 @@ export function Connectors() {
 
   return (
     <div className="space-y-8">
+      <ProviderHealthStrip />
+
       {finance.length > 0 && (
         <section className="space-y-3">
           <SectionHeading title="Finance data" subtitle="Market data, news, and filings that feed research, scoring, and charts." />
@@ -171,10 +207,10 @@ export function Connectors() {
       )}
 
       <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-xs leading-relaxed text-amber-200/90">
-        <span className="font-medium">Where keys live.</span> Keys you save here are held on your own
-        server for this session only — never in the browser, never committed. To make them permanent,
-        put them in <code className="rounded bg-surface-raised px-1">.env.local</code> (already done for your
-        FMP, Claude, Gemini, and E*TRADE keys) — those show as <span className="text-amber-100">from environment</span>.
+        <span className="font-medium">Where keys live.</span> Keys you save here are stored encrypted on the
+        server (AES-256-GCM) and persist across restarts — never in the browser, never committed. Keys set
+        via <code className="rounded bg-surface-raised px-1">.env.local</code> / hosting env vars still work
+        and show as <span className="text-amber-100">from environment</span>.
       </div>
     </div>
   );
