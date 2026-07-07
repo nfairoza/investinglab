@@ -4,7 +4,7 @@ import useSWR from "swr";
 import { Sparkles } from "lucide-react";
 import { fetchJson } from "@/lib/fetch-json";
 import { ErrorState } from "../data-state";
-import { Skeleton } from "../ui/primitives";
+import { Skeleton, Card } from "../ui/primitives";
 
 interface ProviderStat { calls: number; costUsd: number }
 interface Bucket { calls: number; costUsd: number; byProvider: Record<string, ProviderStat> }
@@ -19,18 +19,15 @@ export function AiCostCard() {
   const { data, error, isLoading, mutate } = useSWR<Usage>("/api/admin/ai-usage", fetchJson, { revalidateOnFocus: false });
 
   return (
-    <div className="rounded-2xl glass p-5">
-      <div className="flex items-center gap-2 text-sm font-semibold text-ink">
-        <Sparkles size={16} className="text-brand-400" /> AI usage &amp; cost
-      </div>
+    <Card icon={<Sparkles size={16} className="text-brand-400" />} title="AI usage & cost">
       {isLoading ? (
-        <div className="mt-3 space-y-2">{[0, 1].map((i) => <Skeleton key={i} className="h-10 w-full" />)}</div>
+        <div className="space-y-2">{[0, 1].map((i) => <Skeleton key={i} className="h-10 w-full" />)}</div>
       ) : error ? (
-        <div className="mt-3"><ErrorState error={error} onRetry={() => mutate()} /></div>
+        <ErrorState error={error} onRetry={() => mutate()} />
       ) : !data ? (
-        <p className="mt-2 text-sm text-ink-dim">No usage recorded yet.</p>
+        <p className="text-sm text-ink-dim">No usage recorded yet.</p>
       ) : (
-        <div className="mt-3 space-y-3">
+        <div className="space-y-3">
           {([["Last 24h", data.day], ["Last 7 days", data.week]] as const).map(([label, b]) => (
             <div key={label} className="rounded-xl border border-hairline bg-surface p-3">
               <div className="flex items-baseline justify-between">
@@ -52,6 +49,6 @@ export function AiCostCard() {
           <p className="text-[11px] text-ink-faint">Estimated from public list prices — indicative, not billing. Gemini token counts are approximate.</p>
         </div>
       )}
-    </div>
+    </Card>
   );
 }

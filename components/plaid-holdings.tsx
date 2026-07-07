@@ -3,7 +3,7 @@
 import useSWR from "swr";
 import { fetchJson } from "@/lib/fetch-json";
 import { ErrorState } from "./data-state";
-import { Skeleton, EmptyState } from "./ui/primitives";
+import { Skeleton, EmptyState, Card } from "./ui/primitives";
 
 interface Holding {
   symbol: string; name: string | null; quantity: number;
@@ -25,10 +25,7 @@ export function PlaidHoldings() {
   const holdings = data?.holdings ?? [];
 
   const Shell = ({ children }: { children: React.ReactNode }) => (
-    <div className="rounded-2xl glass p-5">
-      <div className="mb-3 text-sm font-semibold text-ink">Linked brokerage holdings (via Plaid)</div>
-      {children}
-    </div>
+    <Card title="Linked brokerage holdings (via Plaid)">{children}</Card>
   );
 
   if (isLoading) {
