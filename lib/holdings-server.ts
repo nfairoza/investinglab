@@ -39,7 +39,7 @@ export async function plaidHoldings(supabase: SupabaseClient): Promise<UnifiedHo
       const resp = await plaid.investmentsHoldingsGet({ access_token: token });
       const secs = new Map((resp.data.securities ?? []).map((s) => [s.security_id, s]));
       for (const h of resp.data.holdings ?? []) {
-        const sec: any = secs.get(h.security_id);
+        const sec = secs.get(h.security_id);
         const ticker = sec?.ticker_symbol?.trim() || null;
         const hasRealTicker = !!ticker && /^[A-Z][A-Z.\-]{0,5}$/.test(ticker.toUpperCase());
         // Vested-only: if Plaid reports a vested split, count just the vested part.
@@ -76,7 +76,9 @@ export async function getUnifiedHoldings(
     supabase.from("holdings").select("symbol,shares,avg_cost,source"),
     plaidHoldings(supabase),
   ]);
-  const db: UnifiedHolding[] = (dbRows ?? []).map((h: any) => ({
+  const db: UnifiedHolding[] = (dbRows ?? []).map((h: {
+    symbol: string; shares: number | string; avg_cost: number | string; source?: string | null;
+  }) => ({
     symbol: String(h.symbol).toUpperCase(),
     shares: Number(h.shares) || 0,
     avgCost: Number(h.avg_cost) || 0,
@@ -113,7 +115,7 @@ export async function plaidInvestmentCash(supabase: SupabaseClient): Promise<num
       const inv = await plaid.investmentsHoldingsGet({ access_token: token });
       const secs = new Map((inv.data.securities ?? []).map((s) => [s.security_id, s]));
       for (const h of inv.data.holdings ?? []) {
-        const sec: any = secs.get(h.security_id);
+        const sec = secs.get(h.security_id);
         const name = String(sec?.name ?? "").toLowerCase();
         const isCash = sec?.is_cash_equivalent || (sec?.type ?? "").toLowerCase() === "cash"
           || /\b(us dollar|u s dollar|usd|cash)\b/.test(name);

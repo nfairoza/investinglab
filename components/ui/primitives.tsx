@@ -12,7 +12,7 @@ import { DataBadge, DataTimestamp } from "../data-state";
 // ── GlassCard ────────────────────────────────────────────────────────────────
 export function GlassCard({
   children, className, hover = false, as: As = "div", ...rest
-}: { children: React.ReactNode; className?: string; hover?: boolean; as?: any } & React.HTMLAttributes<HTMLElement>) {
+}: { children: React.ReactNode; className?: string; hover?: boolean; as?: React.ElementType } & React.HTMLAttributes<HTMLElement>) {
   return (
     <As className={clsx("glass p-5", hover && "card-hover", className)} {...rest}>
       {children}

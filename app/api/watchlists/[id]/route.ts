@@ -3,7 +3,22 @@ import { getUserClient } from "@/lib/supabase-data";
 
 export const dynamic = "force-dynamic";
 
-function toItem(r: any) {
+interface WatchItemRow {
+  id: string;
+  symbol: string;
+  note?: string | null;
+  ideal_buy?: number | null;
+  fair_value?: string | null;
+  bull_case?: string | null;
+  bear_case?: string | null;
+  catalyst?: string | null;
+  ai_action?: string | null;
+  analyzed_at?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+function toItem(r: WatchItemRow) {
   return {
     id: r.id, symbol: r.symbol, note: r.note ?? undefined, idealBuy: r.ideal_buy ?? undefined,
     fairValue: r.fair_value ?? undefined, bullCase: r.bull_case ?? undefined, bearCase: r.bear_case ?? undefined,

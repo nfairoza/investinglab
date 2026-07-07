@@ -189,8 +189,9 @@ async function callClaudeModel(opts: {
       cache: "no-store",
       signal: AbortSignal.timeout(40_000),
     });
-  } catch (e: any) {
-    const cause = e?.cause?.message || e?.cause?.code || e?.message || "unknown";
+  } catch (e) {
+    const err = e as { cause?: { message?: string; code?: string }; message?: string };
+    const cause = err?.cause?.message || err?.cause?.code || err?.message || "unknown";
     throw new Error(`Network error reaching api.anthropic.com: ${cause}`);
   }
   if (!res.ok) {

@@ -31,7 +31,7 @@ export function GlowSparkline({ data, height = 96 }: { data: { v: number }[]; he
         {/* main line + gradient fill, highlight the last point */}
         <Area
           dataKey="v" stroke={stroke} strokeWidth={2} fill={`url(#${id})`} isAnimationActive
-          dot={(p: any) => (p.index === lastIdx
+          dot={(p: { index: number; cx?: number; cy?: number }) => (p.index === lastIdx
             ? <Dot key="last" cx={p.cx} cy={p.cy} r={3.5} fill={stroke} stroke="var(--bg)" strokeWidth={2} />
             : (null as any))}
           activeDot={false}

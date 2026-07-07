@@ -286,7 +286,7 @@ export async function syncSecForm4(limit = MAX_FILINGS_PER_RUN): Promise<{ inges
 
   let ingested = 0, errors = 0;
   const normalized: Form4Row[] = [];
-  const rawRows: any[] = [];
+  const rawRows: Record<string, unknown>[] = [];
 
   try {
     const feedUrl = `${SEC_BASE}/cgi-bin/browse-edgar?action=getcurrent&type=4&owner=include&output=atom&start=0&count=${Math.min(limit * 2, 200)}`;

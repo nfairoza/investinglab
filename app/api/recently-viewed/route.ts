@@ -24,5 +24,5 @@ export async function GET() {
   const ctx = await getUserClient();
   if (!ctx) return NextResponse.json({ symbols: [] });
   const { data } = await ctx.supabase.from("recently_viewed").select("symbol").order("viewed_at", { ascending: false }).limit(20);
-  return NextResponse.json({ symbols: (data ?? []).map((r: any) => r.symbol) });
+  return NextResponse.json({ symbols: (data ?? []).map((r: { symbol: string }) => r.symbol) });
 }

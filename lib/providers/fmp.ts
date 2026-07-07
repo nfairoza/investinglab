@@ -299,8 +299,8 @@ export const fmpProvider: MarketDataProvider = {
         summary: n.text,
       }));
       return live(NAME, items);
-    } catch (e: any) {
-      if (e?.status === 402) return unavailable(NAME, "News requires a paid FMP plan");
+    } catch (e) {
+      if ((e as { status?: number })?.status === 402) return unavailable(NAME, "News requires a paid FMP plan");
       return unavailable(NAME, e instanceof Error ? e.message : "news fetch failed");
     }
   },
@@ -312,7 +312,7 @@ export const fmpProvider: MarketDataProvider = {
       const arr = (await getJson(`${BASE}/earnings-calendar?symbol=${symbol}&apikey=${KEY}`)) as any[];
       const today = new Date().toISOString().slice(0, 10);
       const future = Array.isArray(arr)
-        ? arr.map((e: any) => e.date as string).filter((d) => d >= today).sort()
+        ? arr.map((e: { date: string }) => e.date as string).filter((d) => d >= today).sort()
         : [];
       return live(NAME, { symbol, next: future[0] ?? null });
     } catch (e) {
@@ -480,8 +480,8 @@ export const fmpProvider: MarketDataProvider = {
         secLink: t.url ?? t.link ?? null,
       }));
       return live(NAME, trades);
-    } catch (e: any) {
-      if (e?.status === 402) return unavailable(NAME, "Insider data requires a paid FMP plan");
+    } catch (e) {
+      if ((e as { status?: number })?.status === 402) return unavailable(NAME, "Insider data requires a paid FMP plan");
       return unavailable(NAME, e instanceof Error ? e.message : "insider trades fetch failed");
     }
   },
@@ -515,12 +515,12 @@ export const fmpProvider: MarketDataProvider = {
       if (!Array.isArray(arr) || arr.length === 0) return unavailable(NAME, "No price history for " + symbol);
       // FMP returns newest-first; reverse to oldest -> newest for left-to-right charts.
       const points = arr
-        .map((p: any) => ({ date: p.date as string, close: Number(p.price ?? p.close) }))
+        .map((p: { date: string; price?: number; close?: number }) => ({ date: p.date as string, close: Number(p.price ?? p.close) }))
         .filter((p) => p.date && Number.isFinite(p.close))
         .reverse();
       return live(NAME, { symbol, points });
-    } catch (e: any) {
-      if (e?.status === 402) return unavailable(NAME, "Price history requires a paid FMP plan");
+    } catch (e) {
+      if ((e as { status?: number })?.status === 402) return unavailable(NAME, "Price history requires a paid FMP plan");
       return unavailable(NAME, e instanceof Error ? e.message : "price history fetch failed");
     }
   },
@@ -574,9 +574,9 @@ export async function screenStocks(filters: ScreenerFilters): Promise<DataResult
       dividend: num(r.lastAnnualDividend ?? r.dividend),
     })).filter((r) => r.symbol);
     return live(NAME, rows);
-  } catch (e: any) {
-    if (e?.status === 402) return unavailable(NAME, "Stock screener requires a paid FMP plan");
-    if (e?.status === 429) return unavailable(NAME, "FMP rate/quota limit reached — try again shortly");
+  } catch (e) {
+    if ((e as { status?: number })?.status === 402) return unavailable(NAME, "Stock screener requires a paid FMP plan");
+    if ((e as { status?: number })?.status === 429) return unavailable(NAME, "FMP rate/quota limit reached — try again shortly");
     return unavailable(NAME, e instanceof Error ? e.message : "screener fetch failed");
   }
 }

@@ -145,7 +145,7 @@ export function PriceChart({ symbol }: { symbol: string }) {
                 filter={`url(#grad-${symbol}-blur)`} isAnimationActive={false} dot={false} activeDot={false} legendType="none" />
               {/* crisp line + gradient fill, glowing last point */}
               <Area dataKey="close" stroke={stroke} strokeWidth={2} fill={`url(#grad-${symbol})`}
-                dot={(p: any) => (p.index === points.length - 1
+                dot={(p: { index: number; cx?: number; cy?: number }) => (p.index === points.length - 1
                   ? <Dot key="last" cx={p.cx} cy={p.cy} r={3.5} fill={stroke} stroke="var(--bg)" strokeWidth={2} />
                   : (null as any))}
                 activeDot={{ r: 4, fill: stroke, stroke: "var(--bg)", strokeWidth: 2 }} />

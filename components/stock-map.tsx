@@ -7,8 +7,9 @@ import { useRouter } from "next/navigation";
 import { DataBadge, DataTimestamp } from "./data-state";
 import type { MapNode } from "@/app/api/map/route";
 import type { Holding } from "@/lib/db";
+import type { DataSource } from "@/lib/providers/types";
 
-async function getMap(url: string): Promise<{ nodes: MapNode[]; sectors: string[]; period?: string; periods?: string[]; source: any; asOf: string }> {
+async function getMap(url: string): Promise<{ nodes: MapNode[]; sectors: string[]; period?: string; periods?: string[]; source: DataSource; asOf: string }> {
   const r = await fetch(url);
   return r.json();
 }
@@ -35,8 +36,11 @@ function colorFor(pct: number, scale: number): string {
 
 // Custom treemap cell — colored by change, shows symbol + %.
 // Text uses a drop shadow + bold weight so it stays readable on any tile color.
-function Cell(props: any) {
-  const { x, y, width, height, name, changePct, router, scale } = props;
+function Cell(props: {
+  x?: number; y?: number; width?: number; height?: number; name?: string;
+  changePct?: number; router?: { push: (url: string) => void }; scale?: number;
+}) {
+  const { x = 0, y = 0, width = 0, height = 0, name, changePct = 0, router, scale } = props;
   if (width < 2 || height < 2) return null;
   const fill = colorFor(changePct ?? 0, scale ?? 3);
   const big = width > 36 && height > 22;
@@ -189,7 +193,7 @@ export function StockMap() {
                 >
                   <Tooltip
                     contentStyle={{ background: "var(--tooltip-bg)", border: "1px solid var(--hairline-strong)", borderRadius: 10, fontSize: 12, color: "var(--text)" }}
-                    formatter={(v: number, _n: string, p: any) => {
+                    formatter={(v: number, _n: string, p: { payload?: MapNode }) => {
                       const pct = p?.payload?.changePct;
                       return [`${pct != null ? (pct >= 0 ? "+" : "") + pct.toFixed(2) + "%" : ""} · cap ${(v / 1e9).toFixed(0)}B`, p?.payload?.name];
                     }}

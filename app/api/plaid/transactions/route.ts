@@ -5,6 +5,7 @@ import { parseBody } from "@/lib/validate";
 import { z } from "zod";
 import { categorize } from "@/lib/money/categorize";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Transaction } from "plaid";
 
 export const dynamic = "force-dynamic";
 
@@ -26,7 +27,7 @@ async function syncToCache(ctx: { supabase: SupabaseClient; userId: string }) {
     const token = resolvePlaidToken(it as any);
     if (!token) return;
     let cursor: string | undefined = it.cursor ?? undefined;
-    const added: any[] = [];
+    const added: Transaction[] = [];
     const removed: string[] = [];
     let hasMore = true;
     // Higher page guard so the FIRST sync pulls the full available history
@@ -86,8 +87,9 @@ export async function GET(req: NextRequest) {
   // A DB error on the main read must surface — not render as "no transactions".
   if (txnErr) return NextResponse.json({ error: "db_error", message: txnErr.message }, { status: 500 });
 
-  const ruleMap = new Map((rules ?? []).map((r: any) => [r.merchant_key, r.category]));
-  const ovMap = new Map((overrides ?? []).map((o: any) => [o.transaction_id, o]));
+  interface TxnOverride { transaction_id: string; category?: string | null; is_transfer?: boolean | null; excluded?: boolean | null }
+  const ruleMap = new Map((rules ?? []).map((r: { merchant_key: string; category: string }) => [r.merchant_key, r.category]));
+  const ovMap = new Map((overrides ?? []).map((o: TxnOverride) => [o.transaction_id, o]));
 
   const account = sp.get("account");
   const category = sp.get("category");
@@ -96,7 +98,20 @@ export async function GET(req: NextRequest) {
   const q = (sp.get("q") ?? "").toLowerCase();
   const limit = Math.min(Number(sp.get("limit")) || 1000, 5000);
 
-  const out = (txns ?? []).map((t: any) => {
+  interface TxnRow {
+    transaction_id: string;
+    account_id: string;
+    date: string;
+    name: string;
+    merchant: string | null;
+    amount: number | string;
+    currency: string;
+    plaid_category: string | null;
+    plaid_detailed: string | null;
+    institution: string | null;
+    pending: boolean;
+  }
+  const out = (txns ?? []).map((t: TxnRow) => {
     const ov = ovMap.get(t.transaction_id);
     const rule = ruleMap.get(merchantKey(t.merchant, t.name));
     // Priority: user override → user merchant rule → smart categorizer (merchant

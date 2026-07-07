@@ -20,12 +20,28 @@ interface SyncedHolding {
 }
 
 // Pull the first finite, non-zero number from a list of candidate values.
-function firstNum(...vals: any[]): number | null {
+function firstNum(...vals: unknown[]): number | null {
   for (const v of vals) {
     const n = Number(v);
     if (Number.isFinite(n) && n !== 0) return n;
   }
   return null;
+}
+
+// Minimal shape of an E*TRADE portfolio Position (only the fields we read).
+interface EtradePosition {
+  quantity?: number | string;
+  pricePaid?: number | string;
+  costPerShare?: number | string;
+  totalCost?: number | string;
+  costBasis?: number | string;
+  daysGain?: number | string;
+  daysGainPct?: number | string;
+  totalGain?: number | string;
+  totalGainPct?: number | string;
+  marketValue?: number | string;
+  Performance?: { pricePaid?: number | string; totalCost?: number | string };
+  Product?: { securityType?: string; symbol?: string };
 }
 
 function asArray<T>(v: T | T[] | undefined | null): T[] {
@@ -66,14 +82,14 @@ export async function GET() {
     // E*TRADE nesting: PortfolioResponse.AccountPortfolio[].Position[]
     // Either level can come back as a single object instead of an array.
     const accountPortfolios = asArray<any>(data?.PortfolioResponse?.AccountPortfolio);
-    const rawPositions: any[] = accountPortfolios.flatMap((ap) => asArray<any>(ap?.Position));
+    const rawPositions: EtradePosition[] = accountPortfolios.flatMap((ap) => asArray<EtradePosition>(ap?.Position));
 
     // Per E*TRADE's documented schema, cost-basis fields live on the BASE
     // Position object (not always in a sub-view): `pricePaid` (avg cost/share),
     // `totalCost` (total), `costPerShare`. We also read E*TRADE's own computed
     // `totalGain`/`totalGainPct` from the base + Performance sub-object so the
     // gain shown matches E*TRADE exactly.
-    function avgCostOf(pos: any, shares: number): number {
+    function avgCostOf(pos: EtradePosition, shares: number): number {
       const perf = pos.Performance ?? {};
       const perShare = firstNum(pos.pricePaid, pos.costPerShare, perf.pricePaid);
       if (perShare) return perShare;
@@ -83,16 +99,16 @@ export async function GET() {
     }
 
     const holdings: SyncedHolding[] = rawPositions
-      .filter((pos: any) => {
+      .filter((pos: EtradePosition) => {
         const sec = pos?.Product?.securityType ?? "";
         return sec === "EQ" && pos?.Product?.symbol;
       })
-      .map((pos: any) => {
+      .map((pos: EtradePosition) => {
         const shares = Number(pos.quantity ?? 0);
         const avgCost = avgCostOf(pos, shares);
-        const num = (v: any) => (Number.isFinite(Number(v)) ? Number(v) : undefined);
+        const num = (v: unknown) => (Number.isFinite(Number(v)) ? Number(v) : undefined);
         return {
-          symbol: String(pos.Product.symbol).toUpperCase(),
+          symbol: String(pos.Product!.symbol).toUpperCase(),
           shares,
           avgCost: Number.isFinite(avgCost) ? +avgCost.toFixed(4) : 0,
           note: `Synced from E*TRADE (${accountLabel})`,
@@ -113,8 +129,8 @@ export async function GET() {
       totalPositions: rawPositions.length,
       equityPositions: holdings.length,
     });
-  } catch (e: any) {
-    const status = e?.status === 401 ? 401 : 500;
+  } catch (e) {
+    const status = (e as { status?: number })?.status === 401 ? 401 : 500;
     const message =
       status === 401
         ? "E*TRADE session expired — click Reconnect to log in again."

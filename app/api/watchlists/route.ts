@@ -22,7 +22,9 @@ export async function GET() {
   const counts: Record<string, number> = {};
   for (const it of items ?? []) counts[it.list_id] = (counts[it.list_id] ?? 0) + 1;
 
-  return NextResponse.json((lists ?? []).map((l: any) => ({
+  return NextResponse.json((lists ?? []).map((l: {
+    id: string; name: string; kind: string; preset_key?: string | null; created_at: string;
+  }) => ({
     id: l.id, name: l.name, kind: l.kind, presetKey: l.preset_key ?? null,
     count: counts[l.id] ?? 0, createdAt: l.created_at,
   })));

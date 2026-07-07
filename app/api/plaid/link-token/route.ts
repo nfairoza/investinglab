@@ -41,8 +41,8 @@ export async function POST() {
       ...(process.env.PLAID_REDIRECT_URI ? { redirect_uri: process.env.PLAID_REDIRECT_URI } : {}),
     });
     return NextResponse.json({ link_token: resp.data.link_token });
-  } catch (e: any) {
-    const msg = e?.response?.data?.error_message ?? (e instanceof Error ? e.message : "Failed to create link token");
+  } catch (e) {
+    const msg = (e as { response?: { data?: { error_message?: string } } })?.response?.data?.error_message ?? (e instanceof Error ? e.message : "Failed to create link token");
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

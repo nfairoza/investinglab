@@ -51,7 +51,9 @@ export async function GET() {
     .order("month", { ascending: true });
 
   // Change vs last month.
-  const trend = (trendRows ?? []).map((t: any) => ({
+  const trend = (trendRows ?? []).map((t: {
+    month: string; net_worth: number | string; total_assets: number | string; total_liabilities: number | string;
+  }) => ({
     month: t.month,
     netWorth: Number(t.net_worth),
     assets: Number(t.total_assets),

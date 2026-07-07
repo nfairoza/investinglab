@@ -46,8 +46,8 @@ export async function GET() {
   ]);
   const held = new Set<string>();
   const holdingSyms = Array.from(new Set(unified.map((h) => h.symbol)));
-  const watchSyms = (wl ?? []).map((w: any) => String(w.symbol).toUpperCase());
-  const recentSyms = (rv ?? []).map((r: any) => String(r.symbol).toUpperCase());
+  const watchSyms = (wl ?? []).map((w: { symbol: string }) => String(w.symbol).toUpperCase());
+  const recentSyms = (rv ?? []).map((r: { symbol: string }) => String(r.symbol).toUpperCase());
   [...holdingSyms, ...watchSyms].forEach((s) => held.add(s));
 
   try {

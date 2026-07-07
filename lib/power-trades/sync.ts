@@ -159,7 +159,7 @@ export async function syncFmpCongress(pages = 3): Promise<{ ingested: number; no
 
   let ingested = 0, errors = 0;
   const normalizedRows: NormalizedRow[] = [];
-  const rawRows: any[] = [];
+  const rawRows: Record<string, unknown>[] = [];
 
   try {
     const reqs: Promise<{ chamber: "house" | "senate"; rows: any[] }>[] = [];
@@ -228,7 +228,7 @@ export async function refreshPersonCounts(sb: SupabaseClient): Promise<void> {
   const d365 = new Date(now - 365 * 86400000).toISOString().slice(0, 10);
   for (const p of people) {
     const { data: trades } = await sb.from("power_trade_records").select("disclosure_date").eq("person_id", p.id);
-    const dates = (trades ?? []).map((t: any) => t.disclosure_date).filter(Boolean) as string[];
+    const dates = (trades ?? []).map((t: { disclosure_date: string | null }) => t.disclosure_date).filter(Boolean) as string[];
     const c = (since: string) => dates.filter((d) => d >= since).length;
     await sb.from("power_people").update({
       trade_count_30d: c(d30), trade_count_90d: c(d90), trade_count_1y: c(d365), trade_count_all: dates.length,

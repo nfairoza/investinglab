@@ -29,7 +29,7 @@ export async function callGemini(opts: {
   const key = geminiKey();
   if (!key) throw new Error("No GEMINI_API_KEY configured");
 
-  const body: any = {
+  const body: Record<string, unknown> = {
     contents: [{ role: "user", parts: [{ text: opts.user }] }],
     systemInstruction: { parts: [{ text: opts.system }] },
   };
@@ -69,7 +69,7 @@ export async function streamGemini(opts: {
   if (!key) throw new Error("No GEMINI_API_KEY configured");
 
   const contents = opts.messages.map((m) => {
-    const parts: any[] = [];
+    const parts: Record<string, unknown>[] = [];
     for (const img of m.images ?? []) {
       parts.push({ inlineData: { mimeType: img.mediaType, data: img.data } });
     }
@@ -77,7 +77,7 @@ export async function streamGemini(opts: {
     return { role: m.role === "assistant" ? "model" : "user", parts };
   });
 
-  const body: any = {
+  const body: Record<string, unknown> = {
     contents,
     systemInstruction: { parts: [{ text: opts.system }] },
   };

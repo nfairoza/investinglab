@@ -41,7 +41,7 @@ export async function GET(req: NextRequest) {
 
   // Distinct categories present (for filter chips) — cheap aggregate.
   const { data: cats } = await sb.from("error_log").select("category");
-  const categories = Array.from(new Set((cats ?? []).map((c: any) => c.category))).sort();
+  const categories = Array.from(new Set((cats ?? []).map((c: { category: string }) => c.category))).sort();
 
   return NextResponse.json({ rows: data ?? [], total: count ?? 0, categories });
 }

@@ -177,8 +177,8 @@ export async function POST(req: NextRequest) {
     if (realHeadlines.length > 0) {
       const aiTakeaways = new Map<string, string>(
         (prediction?.keyHeadlines ?? [])
-          .filter((h: any) => h?.title && h?.takeaway)
-          .map((h: any) => [String(h.title).toLowerCase().slice(0, 40), String(h.takeaway)]),
+          .filter((h: { title?: string; takeaway?: string }) => h?.title && h?.takeaway)
+          .map((h: { title?: string; takeaway?: string }) => [String(h.title).toLowerCase().slice(0, 40), String(h.takeaway)]),
       );
       prediction.keyHeadlines = realHeadlines.map((h) => ({
         title: h.title,
@@ -189,7 +189,7 @@ export async function POST(req: NextRequest) {
     } else if (Array.isArray(prediction?.keyHeadlines)) {
       // No real news available → drop AI-invented links to avoid 404s; keep
       // the title+takeaway text only (no clickable broken URLs).
-      prediction.keyHeadlines = prediction.keyHeadlines.map((h: any) => ({ title: h?.title ?? "", takeaway: h?.takeaway ?? "" }));
+      prediction.keyHeadlines = prediction.keyHeadlines.map((h: { title?: string; takeaway?: string }) => ({ title: h?.title ?? "", takeaway: h?.takeaway ?? "" }));
     }
 
     const aiName = provider === "claude" ? "Claude" : "Gemini";

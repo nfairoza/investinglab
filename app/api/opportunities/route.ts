@@ -37,7 +37,7 @@ Rules:
 - This is educational analysis, NOT financial advice, and you must not place trades.
 Return ONLY valid JSON (no markdown) matching the schema given.`;
 
-function buildPrompt(cashLines: string, holdings: any[], watchlist: string[], congressBlock: string): string {
+function buildPrompt(cashLines: string, holdings: { symbol: string; shares: number; avgCost: number }[], watchlist: string[], congressBlock: string): string {
   const hold = holdings.map((h) => `${h.symbol} (${h.shares} sh @ $${h.avgCost})`).join(", ") || "none";
   return `${cashLines}
 
@@ -102,7 +102,7 @@ async function buildCongressBlock(): Promise<string> {
   }
 }
 
-async function generate(cashInfo: { total: number; bank: number; investment: number }, holdings: any[], watchlist: string[], useCongress: boolean) {
+async function generate(cashInfo: { total: number; bank: number; investment: number }, holdings: { symbol: string; shares: number; avgCost: number }[], watchlist: string[], useCongress: boolean) {
   const congressBlock = useCongress ? await buildCongressBlock() : "";
   const cashLines = `Available cash to deploy: $${cashInfo.total.toLocaleString()} total. This is REAL — do not assume any other amount.
   Breakdown: $${cashInfo.bank.toLocaleString()} bank/depository cash + $${cashInfo.investment.toLocaleString()} uninvested brokerage cash.
@@ -172,7 +172,7 @@ export async function POST(req: NextRequest) {
   const investment = invCash;
   const cashInfo = { total: bank + investment, bank, investment };
   const holdingList = unified.map((h) => ({ symbol: h.symbol, shares: h.shares, avgCost: h.avgCost }));
-  const watchlist = (wl ?? []).map((w: any) => w.symbol);
+  const watchlist = (wl ?? []).map((w: { symbol: string }) => w.symbol);
 
   try {
     const result = await generate(cashInfo, holdingList, watchlist, useCongress);

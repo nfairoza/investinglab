@@ -6,7 +6,22 @@ import { z } from "zod";
 
 export const dynamic = "force-dynamic";
 
-function toEntry(r: any): JournalEntry {
+interface JournalRow {
+  id: string;
+  symbol: string;
+  side: JournalEntry["side"];
+  entry_reason?: string | null;
+  target_price?: number | null;
+  stop_loss?: number | null;
+  exit_criteria?: string | null;
+  status: JournalEntry["status"];
+  result_1w?: string | null;
+  result_1m?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+function toEntry(r: JournalRow): JournalEntry {
   return {
     id: r.id,
     symbol: r.symbol,

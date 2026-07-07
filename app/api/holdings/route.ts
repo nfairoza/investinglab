@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { getUserClient } from "@/lib/supabase-data";
 import { plaidHoldings } from "@/lib/holdings-server";
 import type { Holding } from "@/lib/db";
@@ -7,7 +8,24 @@ import { z } from "zod";
 
 export const dynamic = "force-dynamic";
 
-function toHolding(r: any): Holding {
+interface HoldingRow {
+  id: string;
+  symbol: string;
+  shares: number | string;
+  avg_cost: number | string;
+  note?: string | null;
+  source?: string | null;
+  asset_type?: Holding["assetType"] | null;
+  days_gain?: number | null;
+  days_gain_pct?: number | null;
+  total_gain?: number | null;
+  total_gain_pct?: number | null;
+  market_value?: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
+function toHolding(r: HoldingRow): Holding {
   return {
     id: r.id,
     symbol: r.symbol,
@@ -26,7 +44,7 @@ function toHolding(r: any): Holding {
   };
 }
 
-async function listHoldings(ctx: { supabase: any }) {
+async function listHoldings(ctx: { supabase: SupabaseClient }) {
   const { data } = await ctx.supabase.from("holdings").select("*").order("created_at", { ascending: true });
   return (data ?? []).map(toHolding);
 }
@@ -68,7 +86,7 @@ export async function POST(req: NextRequest) {
   }));
   if (!parsed.ok) return parsed.response;
   const body = parsed.data;
-  const num = (v: any) => (Number.isFinite(Number(v)) ? Number(v) : null);
+  const num = (v: unknown) => (Number.isFinite(Number(v)) ? Number(v) : null);
 
   // Bulk replace from a broker sync (E*TRADE / Robinhood).
   if (body.replace === true && Array.isArray(body.holdings)) {

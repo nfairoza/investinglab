@@ -22,9 +22,9 @@ export async function GET() {
     sb.from("power_sources").select("*"),
   ]);
 
-  const count = (rows: any[] | null, key: string) => {
+  const count = (rows: Record<string, unknown>[] | null, key: string) => {
     const m: Record<string, number> = {};
-    for (const r of rows ?? []) m[r[key] ?? "unknown"] = (m[r[key] ?? "unknown"] ?? 0) + 1;
+    for (const r of rows ?? []) m[String(r[key] ?? "unknown")] = (m[String(r[key] ?? "unknown")] ?? 0) + 1;
     return m;
   };
 

@@ -78,8 +78,11 @@ export async function GET(req: NextRequest) {
   const { data, error } = await query;
   if (error) return NextResponse.json({ rows: [], error: error.message }, { status: 500 });
 
-  const dbRows = (data ?? []).map((r: any) => ({ ...r, oge_url: r.identifiers?.ogeUrl ?? null, in_current_feed: (r.trade_count_all ?? 0) > 0, is_known_seed: false }));
-  const dbNames = new Set(dbRows.map((r: any) => String(r.canonical_name).toLowerCase()));
+  const dbRows = (data ?? []).map((r: {
+    canonical_name: string; identifiers?: { ogeUrl?: string | null } | null; trade_count_all?: number | null;
+    [key: string]: unknown;
+  }) => ({ ...r, oge_url: r.identifiers?.ogeUrl ?? null, in_current_feed: (r.trade_count_all ?? 0) > 0, is_known_seed: false }));
+  const dbNames = new Set(dbRows.map((r) => String(r.canonical_name).toLowerCase()));
 
   // Seed people to merge in: search matches when querying, else the whole roster
   // (filtered by category). Skip anyone already present in the DB rows.

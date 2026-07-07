@@ -108,9 +108,10 @@ export async function callClaude(opts: {
       // Don't hang forever if the network silently stalls — fail over to Gemini.
       signal: AbortSignal.timeout(30_000),
     });
-  } catch (e: any) {
+  } catch (e) {
     // Surface the real network cause (proxy/SSL/DNS) instead of bare "fetch failed".
-    const cause = e?.cause?.message || e?.cause?.code || e?.message || "unknown";
+    const err = e as { cause?: { message?: string; code?: string }; message?: string };
+    const cause = err?.cause?.message || err?.cause?.code || err?.message || "unknown";
     throw new Error(`Network error reaching api.anthropic.com: ${cause}. If you're on a corporate network, a proxy/SSL filter may be blocking it.`);
   }
 

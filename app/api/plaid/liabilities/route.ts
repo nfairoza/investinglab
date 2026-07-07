@@ -16,7 +16,7 @@ export async function GET() {
   if (!items || items.length === 0) return NextResponse.json({ liabilities: [] });
 
   const plaid = getPlaid();
-  const liabilities: any[] = [];
+  const liabilities: Record<string, unknown>[] = [];
 
   // Fetch every linked institution's liabilities in parallel (was sequential).
   const results = await Promise.allSettled(

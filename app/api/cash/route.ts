@@ -5,7 +5,13 @@ import { z } from "zod";
 
 export const dynamic = "force-dynamic";
 
-function toCash(r: any) {
+interface CashRow {
+  amount: number | string;
+  source?: string | null;
+  updated_at?: string | null;
+}
+
+function toCash(r: CashRow | null) {
   return r
     ? { amount: Number(r.amount), source: r.source ?? "manual", updatedAt: r.updated_at ?? null }
     : { amount: 0, source: "manual" as const, updatedAt: null };

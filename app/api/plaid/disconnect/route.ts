@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
   // Resilient to unmigrated enc columns; a real DB error surfaces as a 500.
   const { rows, error: selErr } = await selectPlaidItems(ctx.supabase, "item_id");
   if (selErr) return NextResponse.json({ error: "db_error", message: selErr.message }, { status: 500 });
-  const row = (rows ?? []).find((r: any) => r.item_id === itemId);
+  const row = (rows ?? []).find((r: { item_id: string }) => r.item_id === itemId);
 
   if (!row) return NextResponse.json({ error: "Connection not found." }, { status: 404 });
 
@@ -31,8 +31,8 @@ export async function POST(req: NextRequest) {
   if (token && plaidConfigured()) {
     try {
       await getPlaid().itemRemove({ access_token: token });
-    } catch (e: any) {
-      const msg = e?.response?.data?.error_message ?? "Couldn't disconnect at Plaid. Please try again.";
+    } catch (e) {
+      const msg = (e as { response?: { data?: { error_message?: string } } })?.response?.data?.error_message ?? "Couldn't disconnect at Plaid. Please try again.";
       return NextResponse.json({ error: msg }, { status: 502 });
     }
   }

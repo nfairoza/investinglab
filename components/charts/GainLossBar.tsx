@@ -43,7 +43,7 @@ export function GainLossBar({ holdings, title = "Gain / loss by holding" }: { ho
             <ReferenceLine x={0} stroke="#475569" />
             <Tooltip
               contentStyle={{ background: "var(--tooltip-bg)", border: "1px solid var(--hairline-gold)", borderRadius: 10, fontSize: 12 }}
-              formatter={(v: number, _: string, props: any) => {
+              formatter={(v: number, _: string, props: { payload?: HoldingGain }) => {
                 const { gainPct } = props.payload as HoldingGain;
                 const sign = v >= 0 ? "▲ up" : "▼ down";
                 return [`${fmt(v)} (${gainPct.toFixed(1)}%) ${sign}`];

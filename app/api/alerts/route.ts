@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { getUserClient } from "@/lib/supabase-data";
 import type { Alert } from "@/lib/db";
 import { parseBody, zSymbol } from "@/lib/validate";
@@ -6,7 +7,27 @@ import { z } from "zod";
 
 export const dynamic = "force-dynamic";
 
-function toAlert(r: any): Alert {
+interface AlertRow {
+  id: string;
+  symbol: string;
+  type: Alert["type"];
+  direction?: Alert["direction"] | null;
+  price?: number | null;
+  move_pct?: number | null;
+  within_days?: number | null;
+  score_op?: Alert["scoreOp"] | null;
+  score_value?: number | null;
+  note?: string | null;
+  enabled: boolean;
+  expires_at?: string | null;
+  last_triggered_at?: string | null;
+  last_value?: number | null;
+  trigger_count?: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
+function toAlert(r: AlertRow): Alert {
   return {
     id: r.id,
     symbol: r.symbol,
@@ -30,13 +51,13 @@ function toAlert(r: any): Alert {
 
 // Drop time-bound alerts whose expiry has passed. Best-effort: a failed delete
 // just means they get cleaned up on a later read.
-async function pruneExpired(ctx: { supabase: any }) {
+async function pruneExpired(ctx: { supabase: SupabaseClient }) {
   try {
     await ctx.supabase.from("alerts").delete().not("expires_at", "is", null).lt("expires_at", new Date().toISOString());
   } catch { /* ignore — listing still filters below */ }
 }
 
-async function listAlerts(ctx: { supabase: any }) {
+async function listAlerts(ctx: { supabase: SupabaseClient }) {
   await pruneExpired(ctx);
   const { data } = await ctx.supabase.from("alerts").select("*").order("created_at", { ascending: false });
   const nowMs = Date.now();

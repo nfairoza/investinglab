@@ -34,7 +34,7 @@ export async function GET(req: NextRequest) {
     getUnifiedHoldings(ctx.supabase, { realTickersOnly: true }).catch(() => []),
     ctx.supabase.from("watch_list_items").select("symbol"),
   ]);
-  const extra = [...holdings.map((h) => h.symbol), ...((wl ?? []).map((w: any) => String(w.symbol).toUpperCase()))];
+  const extra = [...holdings.map((h) => h.symbol), ...((wl ?? []).map((w: { symbol: string }) => String(w.symbol).toUpperCase()))];
   const universe = Array.from(new Set([...SEED, ...extra]));
 
   const cacheK = universe.slice().sort().join(",");

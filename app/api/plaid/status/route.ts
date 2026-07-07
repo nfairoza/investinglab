@@ -15,7 +15,21 @@ export async function GET() {
     .order("created_at", { ascending: true });
   if (error) return NextResponse.json({ error: "db_error", message: error.message }, { status: 500 });
 
-  const items = (data ?? []).map((r: any) => {
+  interface PlaidAccountJson {
+    name: string;
+    mask?: string | null;
+    type?: string | null;
+    subtype?: string | null;
+  }
+  interface PlaidItemRow {
+    item_id: string;
+    institution_name?: string | null;
+    institution_logo?: string | null;
+    institution_color?: string | null;
+    accounts?: PlaidAccountJson[] | null;
+    created_at: string;
+  }
+  const items = (data ?? []).map((r: PlaidItemRow) => {
     const accts = Array.isArray(r.accounts) ? r.accounts : [];
     return {
       itemId: r.item_id,
@@ -23,7 +37,7 @@ export async function GET() {
       logo: r.institution_logo ?? null,
       color: r.institution_color ?? null,
       accountCount: accts.length,
-      accounts: accts.map((a: any) => ({
+      accounts: accts.map((a: PlaidAccountJson) => ({
         name: a.name,
         mask: a.mask ?? null,
         type: a.type ?? null,

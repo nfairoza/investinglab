@@ -183,25 +183,25 @@ async function gatherDebts(ctx: { supabase: SupabaseClient }): Promise<DebtLine[
       const token = resolvePlaidToken(it as any);
       if (!token) continue;
       const resp = await plaid.liabilitiesGet({ access_token: token });
-      const accts = new Map((resp.data.accounts ?? []).map((a: any) => [a.account_id, a]));
-      const L: any = resp.data.liabilities ?? {};
+      const accts = new Map((resp.data.accounts ?? []).map((a) => [a.account_id, a]));
+      const L = resp.data.liabilities ?? {};
       for (const c of L.credit ?? []) {
-        const a: any = accts.get(c.account_id);
+        const a = c.account_id ? accts.get(c.account_id) : undefined;
         const bal = a?.balances?.current;
         if (bal == null) continue;
         // Plaid credit APRs is an array; use the purchase/balance-transfer APR if present, else the max.
-        const aprs: number[] = (c.aprs ?? []).map((x: any) => Number(x.apr_percentage)).filter((n: number) => Number.isFinite(n));
+        const aprs: number[] = (c.aprs ?? []).map((x) => Number(x.apr_percentage)).filter((n: number) => Number.isFinite(n));
         const apr = aprs.length ? Math.max(...aprs) : null;
         debts.push({ name: `${it.institution_name ?? "Card"} · ${a?.name ?? "Credit card"}`, balance: Math.abs(Number(bal)), apr, minPayment: c.minimum_payment_amount ?? null, kind: "credit_card" });
       }
       for (const s of L.student ?? []) {
-        const a: any = accts.get(s.account_id);
+        const a = s.account_id ? accts.get(s.account_id) : undefined;
         const bal = a?.balances?.current;
         if (bal == null) continue;
         debts.push({ name: `${it.institution_name ?? "Loan"} · ${a?.name ?? "Student loan"}`, balance: Math.abs(Number(bal)), apr: s.interest_rate_percentage != null ? Number(s.interest_rate_percentage) : null, minPayment: s.minimum_payment_amount ?? null, kind: "student" });
       }
       for (const m of L.mortgage ?? []) {
-        const a: any = accts.get(m.account_id);
+        const a = m.account_id ? accts.get(m.account_id) : undefined;
         const bal = a?.balances?.current;
         if (bal == null) continue;
         const apr = m.interest_rate?.percentage != null ? Number(m.interest_rate.percentage) : null;

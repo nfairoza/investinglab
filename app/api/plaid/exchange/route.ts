@@ -78,8 +78,8 @@ export async function POST(req: NextRequest) {
     await recordPlaidItemCreated(ctx.userId, itemId).catch(() => {});
 
     return NextResponse.json({ ok: true, institution: institutionName, accounts: accounts.length });
-  } catch (e: any) {
-    const msg = e?.response?.data?.error_message ?? (e instanceof Error ? e.message : "Failed to link account");
+  } catch (e) {
+    const msg = (e as { response?: { data?: { error_message?: string } } })?.response?.data?.error_message ?? (e instanceof Error ? e.message : "Failed to link account");
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

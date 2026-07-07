@@ -18,7 +18,27 @@ export async function GET() {
   if (!items || items.length === 0) return NextResponse.json({ holdings: [] });
 
   const plaid = getPlaid();
-  const holdings: any[] = [];
+  interface PlaidHoldingOut {
+    symbol: string;
+    name: string | null;
+    hasRealTicker: boolean;
+    quantity: number;
+    price: number | null;
+    value: number | null;
+    costBasis: number | null;
+    currency: string;
+    institution: string | null;
+    accountId: string | null;
+    accountMask: string | null;
+    accountName: string | null;
+    vestedQuantity: number | null;
+    vestedValue: number | null;
+    potentialValue: number | null;
+    hasVesting: boolean;
+    secType: string | null;
+    isCashEquivalent: boolean;
+  }
+  const holdings: PlaidHoldingOut[] = [];
 
   // Fetch every linked institution's holdings in parallel (was sequential).
   const results = await Promise.allSettled(

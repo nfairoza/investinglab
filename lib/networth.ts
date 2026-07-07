@@ -43,7 +43,7 @@ export interface NetWorthResult {
 }
 
 // Map Plaid account.type/subtype to our type taxonomy.
-function classifyPlaidAccount(a: any): { type: ItemType; kind: "asset" | "liability" } {
+function classifyPlaidAccount(a: { type?: string | null; subtype?: string | null }): { type: ItemType; kind: "asset" | "liability" } {
   const t = a.type as string;
   const sub = (a.subtype as string) ?? "";
   if (t === "credit") return { type: "credit_card", kind: "liability" };
@@ -91,10 +91,10 @@ export async function computeNetWorth(ctx: { supabase: SupabaseClient; userId: s
         const token = resolvePlaidToken(it as any);
         if (!token) continue;
         const resp = await plaid.liabilitiesGet({ access_token: token });
-        const accts = new Map((resp.data.accounts ?? []).map((a: any) => [a.account_id, a]));
+        const accts = new Map((resp.data.accounts ?? []).map((a) => [a.account_id, a]));
         const L = resp.data.liabilities ?? {};
         const pushLiab = (accountId: string | null | undefined, type: LiabilityType, fallbackName: string) => {
-          const a: any = accountId ? accts.get(accountId) : null;
+          const a = accountId ? accts.get(accountId) : null;
           const bal = a?.balances?.current;
           if (bal == null) return;
           liabilityAccountIds.add(accountId ?? "");
@@ -139,7 +139,7 @@ export async function computeNetWorth(ctx: { supabase: SupabaseClient; userId: s
   // ── Manual + E*TRADE stock holdings (live-priced) → taxable investment asset ──
   const { data: hRows } = await ctx.supabase.from("holdings").select("symbol, shares, market_value");
   if (hRows?.length) {
-    const symbols = Array.from(new Set(hRows.map((h: any) => String(h.symbol).toUpperCase())));
+    const symbols = Array.from(new Set(hRows.map((h: { symbol: string }) => String(h.symbol).toUpperCase())));
     const px: Record<string, number> = {};
     await Promise.all(symbols.map(async (s) => { try { const q = await marketData.getQuote(s); if (q.data?.price) px[s] = q.data.price; } catch { /* ignore */ } }));
     let val = 0;

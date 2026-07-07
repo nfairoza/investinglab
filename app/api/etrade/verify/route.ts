@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
     // Fetch and cache the account list using the freshly minted access token.
     const data = await etradeGet<any>("/accounts/list.json", { token, secret });
     const raw = data?.AccountListResponse?.Accounts?.Account ?? [];
-    const accounts: EtradeAccount[] = (Array.isArray(raw) ? raw : [raw]).map((a: any) => ({
+    const accounts: EtradeAccount[] = (Array.isArray(raw) ? raw : [raw]).map((a: Record<string, unknown>) => ({
       accountId: String(a.accountId ?? ""),
       accountIdKey: String(a.accountIdKey ?? ""),
       accountName: String(a.accountDesc ?? a.accountName ?? a.accountId ?? ""),

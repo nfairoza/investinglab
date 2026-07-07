@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
   if (!items || items.length === 0) return NextResponse.json({ items: [], totalCash: 0 });
 
   const plaid = getPlaid();
-  const debugRows: any[] = [];
+  const debugRows: Record<string, unknown>[] = [];
   let totalCash = 0;
 
   // Fetch every linked institution in parallel (was sequential await per item).
@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
   const out = items.map((it, i) => {
     const r = results[i];
     if (r.status !== "fulfilled") {
-      const e: any = r.reason;
+      const e = r.reason as { response?: { data?: { error_code?: string } } };
       return { itemId: it.item_id, institution: it.institution_name, accounts: [], error: e?.response?.data?.error_code ?? "fetch_failed" };
     }
     if (debug) {

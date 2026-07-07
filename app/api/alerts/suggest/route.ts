@@ -78,7 +78,7 @@ export async function POST() {
     ctx.supabase.from("watch_list_items").select("symbol"),
   ]);
   const holdingSyms = Array.from(new Set(unified.map((h) => h.symbol)));
-  const watchlist = (wl ?? []).map((w: any) => w.symbol);
+  const watchlist = (wl ?? []).map((w: { symbol: string }) => w.symbol);
 
   try {
     const { text, provider, model } = await routeText({

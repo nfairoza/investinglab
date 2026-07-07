@@ -5,7 +5,7 @@ import { getBrokerCtx, readBrokerConnection } from "@/lib/broker-store";
 
 export const dynamic = "force-dynamic";
 
-function firstNum(...vals: any[]): number | null {
+function firstNum(...vals: unknown[]): number | null {
   for (const v of vals) {
     const n = Number(v);
     if (Number.isFinite(n)) return n;
@@ -55,8 +55,8 @@ export async function GET() {
     );
 
     return NextResponse.json({ amount, source: "etrade", updatedAt: new Date().toISOString(), accountName: account?.accountName ?? accountIdKey });
-  } catch (e: any) {
-    const status = e?.status === 401 ? 401 : 500;
+  } catch (e) {
+    const status = (e as { status?: number })?.status === 401 ? 401 : 500;
     const message = status === 401
       ? "E*TRADE session expired — reconnect in Connectors."
       : (e instanceof Error ? e.message : "Failed to fetch balance");
