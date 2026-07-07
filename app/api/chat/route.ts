@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { resolveApiKey } from "@/lib/ai/anthropic";
 import { streamGemini, geminiKey } from "@/lib/ai/gemini";
-import { marketData } from "@/lib/providers";
+import { marketData, type DataResult, type Quote } from "@/lib/providers";
 import { planRoute, type AiTask } from "@/lib/ai/router";
 import { getUserClient } from "@/lib/supabase-data";
 import { computeAdvisor } from "@/lib/advisor/engine";
+import { guardAiRate } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -102,6 +103,30 @@ async function gatherLiveData(messages: ChatMessage[], ctx: ChatContext): Promis
   );
   const live = blocks.filter(Boolean).join("\n\n");
   return live ? `\n\nLIVE DATA (fetched just now for tickers in the question):\n${live}` : "";
+}
+
+// Does the question ask about the WATCHLIST as a whole ("how's my watchlist",
+// "which of my watchlist is up", "anything on my watchlist to buy")? The system
+// prompt lists watchlist symbols but no prices — so batch-fetch live quotes for
+// them (one HTTP call via the P3 batch endpoint) so Rukmani answers with real
+// numbers instead of guessing. Capped to keep the prompt bounded.
+function needsWatchlistData(text: string): boolean {
+  return /\bwatch\s?list\b|watching|my list/i.test(text);
+}
+
+async function gatherWatchlistData(text: string, ctx: ChatContext): Promise<string> {
+  if (!needsWatchlistData(text) || ctx.watchlist.length === 0) return "";
+  const syms = ctx.watchlist.slice(0, 40);
+  const quotes = await marketData.getQuotes(syms).catch(() => ({} as Record<string, DataResult<Quote>>));
+  const lines = syms
+    .map((s) => {
+      const q = quotes[s.toUpperCase()]?.data;
+      if (!q) return null;
+      return `  ${s}: $${q.price} (${q.changePct >= 0 ? "+" : ""}${q.changePct?.toFixed(2)}% today), 52wk $${q.week52Low}–$${q.week52High}`;
+    })
+    .filter(Boolean)
+    .join("\n");
+  return lines ? `\n\nWATCHLIST LIVE QUOTES (fetched just now — the user's watchlist with current prices):\n${lines}` : "";
 }
 
 // Does the question touch the user's MONEY (banking) side? If so we attach the
@@ -308,13 +333,21 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "messages required" }, { status: 400 });
   }
 
+  // Per-user rate limit (P2) — chat is the most-hit AI endpoint. Admins exempt.
+  if (session) {
+    const limited = await guardAiRate({ userId: session.userId, isAdmin: session.isAdmin }, "chat");
+    if (limited) return limited;
+  }
+
   // Fetch live quotes + news for tickers in the question, append to the system.
   const liveData = await gatherLiveData(messages, ctx);
   // If the question touches banking/spending/debt, attach the user's accounts +
   // transactions + computed analysis so Rukmani can trace figures to real lines.
   const lastUserText = [...messages].reverse().find((m) => m.role === "user")?.content ?? "";
   const moneyData = session && needsMoneyContext(lastUserText) ? await gatherMoneyData(session) : "";
-  const system = buildSystem(ctx) + liveData + moneyData;
+  // Live watchlist quotes when the user asks about their watchlist as a whole.
+  const watchData = await gatherWatchlistData(lastUserText, ctx);
+  const system = buildSystem(ctx) + liveData + watchData + moneyData;
   const recent = messages.slice(-12); // keep last 12 messages for context
 
   // Smart routing: classify the latest user turn and let the router decide which
