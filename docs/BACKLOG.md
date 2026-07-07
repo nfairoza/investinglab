@@ -29,10 +29,10 @@ Phases 0, 1, 2, and 5 of the hardening spec are done. Still open:
   admin/misc views remain (lower risk — most already show empty states).
 - **P2 zod validation** — DONE for request validation: zod + lib/validate
   (parseBody/parseQuery, zSymbol) with unit tests, applied to every input route
-  EXCEPT app/api/chat/route.ts (concurrent Cursor edits — do when freed) and
-  power-trades/manual-record (delegates validation to its lib). STILL OPEN: the
-  broader `: any` type cleanup (~113 usages) — separate from request validation.
-  (Rate limiting + headers + error hygiene already done.)
+  EXCEPT power-trades/manual-record (delegates validation to its lib); chat is
+  now validated too. `: any` cleanup: DONE — 114 -> 28 (~22 intentionally kept
+  for genuinely-dynamic external JSON where a wrong type is worse than any).
+  Rate limiting + headers + error hygiene done. Phase 2 is effectively complete.
 - **P2 chat rate limit** — DONE (guardAiRate on /api/chat, admins exempt).
 - **P3 FMP data quality** — DONE. Per-endpoint cache TTLs (quotes 60s /
   fundamentals 24h / profile 7d), batch quotes (fmpProvider.getQuotes +
