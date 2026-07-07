@@ -122,7 +122,7 @@ async function gatherMoneyData(session: { supabase: any; userId: string }): Prom
     const [{ data: txns }, advisor] = await Promise.all([
       session.supabase
         .from("plaid_transactions")
-        .select("date,name,merchant,amount,plaid_category,institution")
+        .select("transaction_id,date,name,merchant,amount,plaid_category,institution")
         .eq("removed", false)
         .order("date", { ascending: false })
         .limit(120),
@@ -163,12 +163,18 @@ async function gatherMoneyData(session: { supabase: any; userId: string }): Prom
     }
 
     if (rows.length) {
-      out += `\nRECENT TRANSACTIONS (latest ${rows.length}, newest first — date · amount · name · category · bank):\n`;
+      out += `\nRECENT TRANSACTIONS (latest ${rows.length}, newest first — id · date · amount · name · category · bank):\n`;
       for (const t of rows) {
         const amt = Number(t.amount);
-        out += `  ${t.date} · ${amt < 0 ? "-" : "+"}$${Math.abs(amt).toLocaleString()} · ${t.merchant || t.name} · ${t.plaid_category ?? "Uncategorized"} · ${t.institution ?? "—"}\n`;
+        out += `  ${t.transaction_id} · ${t.date} · ${amt < 0 ? "-" : "+"}$${Math.abs(amt).toLocaleString()} · ${t.merchant || t.name} · ${t.plaid_category ?? "Uncategorized"} · ${t.institution ?? "—"}\n`;
       }
-      out += `\nWhen explaining a computed figure (e.g. a loan payment or category total), cite the specific transactions above (date, amount, merchant, bank) that make it up, and show how they sum.\n`;
+      out += `
+FORMATTING TRANSACTIONS — IMPORTANT:
+- When you list more than ~2 transactions (a breakdown, "what made up X", spending by merchant, etc.), present them as a GitHub-flavored MARKDOWN TABLE, not as a bullet/paragraph list. Use a header row, a |---| separator row, and one row per transaction. The app renders this as a clean, scrollable table.
+- Make each transaction clickable so the user can open it: link the Date (or Amount) cell to its transaction using a relative markdown link of the form [June 1](/transactions?txn=THE_TRANSACTION_ID), substituting that row's id from the list above. Never expose the raw id text itself — only use it inside the link URL.
+- Right-align amount columns conceptually by ordering columns sensibly (Date, Amount, Description/Merchant, Category). End multi-row breakdowns with a TOTAL row.
+- When explaining a computed figure (a loan payment, a category total), cite the specific transactions that make it up and show how they sum.
+`;
     }
     return out;
   } catch {

@@ -65,14 +65,23 @@ export function TransactionsView() {
   const params = useSearchParams();
   const [q, setQ] = useState("");
   const [category, setCategory] = useState("");
-  // Deep-link: /transactions?category=LOAN_PAYMENTS&q=… pre-filters the list
-  // (e.g. from the "Unusual this month" insight). Opens the filter panel so the
-  // active filter is visible.
+  // Deep-link target for a single transaction (e.g. from a chat answer:
+  // /transactions?txn=<id>). When present we highlight + scroll to that row.
+  const [highlightId, setHighlightId] = useState<string | null>(null);
+  // Deep-link: /transactions?category=LOAN_PAYMENTS&q=…&from=…&to=…&txn=<id>
+  // pre-filters/targets the list (e.g. from an insight card or a chat link).
+  // Opens the filter panel so any active filter is visible.
   useEffect(() => {
     const c = params.get("category");
     const query = params.get("q");
+    const fromP = params.get("from");
+    const toP = params.get("to");
+    const txn = params.get("txn");
     if (c) { setCategory(c); setShowFilters(true); }
     if (query) setQ(query);
+    if (fromP) { setFrom(fromP); setShowFilters(true); }
+    if (toP) { setTo(toP); setShowFilters(true); }
+    if (txn) setHighlightId(txn);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const [account, setAccount] = useState("");
@@ -90,6 +99,17 @@ export function TransactionsView() {
   const categories = useMemo(() => Array.from(new Set(txns.map((t) => t.category))).sort(), [txns]);
   const accounts = useMemo(() => Array.from(new Set(txns.map((t) => t.institution).filter(Boolean) as string[])).sort(), [txns]);
   const insights = useMemo(() => buildInsights(txns), [txns]);
+
+  // Once data is in, scroll the deep-linked transaction into view and flash a
+  // highlight ring, then clear it so the row settles back to normal.
+  useEffect(() => {
+    if (!highlightId || isLoading) return;
+    const el = document.getElementById(`txn-${highlightId}`);
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+    const t = setTimeout(() => setHighlightId(null), 2800);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [highlightId, isLoading, txns.length]);
 
   const filtered = txns.filter((t) => {
     if (category && t.category !== category) return false;
@@ -207,8 +227,10 @@ export function TransactionsView() {
       <div className="space-y-1.5">
         {filtered.map((t) => {
           const ins = insights.get(t.id);
+          const isTarget = highlightId === t.id;
           return (
-            <div key={t.id} className={`rounded-xl border border-hairline bg-surface p-3 ${t.excluded ? "opacity-50" : ""}`}>
+            <div key={t.id} id={`txn-${t.id}`}
+              className={`rounded-xl border bg-surface p-3 transition-all duration-500 ${t.excluded ? "opacity-50" : ""} ${isTarget ? "border-brand-500/70 ring-2 ring-brand-500/40 bg-brand-500/[0.06]" : "border-hairline"}`}>
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <div className="flex items-center gap-1.5">
