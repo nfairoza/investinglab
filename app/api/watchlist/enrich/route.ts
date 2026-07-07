@@ -5,6 +5,8 @@ import { geminiKey } from "@/lib/ai/gemini";
 import { routeText } from "@/lib/ai/router";
 import { parseLooseJson } from "@/lib/ai/json";
 import { getUserClient } from "@/lib/supabase-data";
+import { parseBody } from "@/lib/validate";
+import { z } from "zod";
 
 export const dynamic = "force-dynamic";
 
@@ -19,8 +21,9 @@ false precision. Return ONLY valid JSON (no markdown).`;
 export async function POST(req: NextRequest) {
   const ctx = await getUserClient();
   if (!ctx) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  const body = await req.json().catch(() => ({}));
-  const id = String(body?.id ?? "");
+  const parsed = await parseBody(req, z.object({ id: z.string().min(1) }));
+  if (!parsed.ok) return parsed.response;
+  const { id } = parsed.data;
   const { data: item } = await ctx.supabase.from("watch_list_items").select("*").eq("id", id).maybeSingle();
   if (!item) return NextResponse.json({ error: "watch item not found" }, { status: 404 });
 

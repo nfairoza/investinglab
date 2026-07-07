@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getPlaid, plaidConfigured, selectPlaidItems, resolvePlaidToken } from "@/lib/plaid";
 import { getUserClient } from "@/lib/supabase-data";
+import { parseBody } from "@/lib/validate";
+import { z } from "zod";
 import { categorize } from "@/lib/money/categorize";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -135,9 +137,17 @@ export async function GET(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
   const ctx = await getUserClient();
   if (!ctx) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  const body = await req.json().catch(() => ({}));
-  const transactionId = String(body?.transactionId ?? "");
-  if (!transactionId) return NextResponse.json({ error: "transactionId required" }, { status: 400 });
+  const parsed = await parseBody(req, z.object({
+    transactionId: z.string().min(1),
+    category: z.string().max(60).optional(),
+    isTransfer: z.boolean().optional(),
+    excluded: z.boolean().optional(),
+    applyToMerchant: z.boolean().optional(),
+    merchant: z.string().max(120).optional(),
+  }));
+  if (!parsed.ok) return parsed.response;
+  const body = parsed.data;
+  const transactionId = body.transactionId;
 
   // Per-transaction override.
   const patch: Record<string, any> = { user_id: ctx.userId, transaction_id: transactionId, updated_at: new Date().toISOString() };

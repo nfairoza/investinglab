@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUserClient } from "@/lib/supabase-data";
 import { ensureDefaultList } from "@/lib/watchlists";
+import { parseBody } from "@/lib/validate";
+import { z } from "zod";
 
 export const dynamic = "force-dynamic";
 
@@ -30,9 +32,9 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   const ctx = await getUserClient();
   if (!ctx) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  const body = await req.json().catch(() => ({}));
-  const name = String(body?.name ?? "").trim().slice(0, 80);
-  if (!name) return NextResponse.json({ error: "name required" }, { status: 400 });
+  const parsed = await parseBody(req, z.object({ name: z.string().trim().min(1).max(80) }));
+  if (!parsed.ok) return parsed.response;
+  const { name } = parsed.data;
 
   const { data, error } = await ctx.supabase
     .from("watch_lists").insert({ user_id: ctx.userId, name, kind: "custom" })
@@ -45,10 +47,9 @@ export async function POST(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
   const ctx = await getUserClient();
   if (!ctx) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  const body = await req.json().catch(() => ({}));
-  const id = String(body?.id ?? "");
-  const name = String(body?.name ?? "").trim().slice(0, 80);
-  if (!id || !name) return NextResponse.json({ error: "id and name required" }, { status: 400 });
+  const parsed = await parseBody(req, z.object({ id: z.string().min(1), name: z.string().trim().min(1).max(80) }));
+  if (!parsed.ok) return parsed.response;
+  const { id, name } = parsed.data;
   await ctx.supabase.from("watch_lists").update({ name, updated_at: new Date().toISOString() }).eq("id", id);
   return NextResponse.json({ ok: true });
 }

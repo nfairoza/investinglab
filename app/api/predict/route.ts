@@ -5,6 +5,8 @@ import { geminiKey } from "@/lib/ai/gemini";
 import { routeText } from "@/lib/ai/router";
 import { getUserClient, readSharedPrediction, writeSharedPrediction } from "@/lib/supabase-data";
 import { guardAiRate } from "@/lib/rate-limit";
+import { parseBody, zSymbol } from "@/lib/validate";
+import { z } from "zod";
 import { logError } from "@/lib/error-log";
 
 export const dynamic = "force-dynamic";
@@ -99,10 +101,10 @@ export async function POST(req: NextRequest) {
   if (!ctx) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const limited = await guardAiRate(ctx); if (limited) return limited;
 
-  const body = await req.json().catch(() => ({}));
-  const symbol = (body?.symbol as string | undefined)?.toUpperCase();
-  if (!symbol) return NextResponse.json({ error: "symbol required" }, { status: 400 });
-  const forceRefresh = body?.refresh === true;
+  const parsed = await parseBody(req, z.object({ symbol: zSymbol, refresh: z.boolean().optional() }));
+  if (!parsed.ok) return parsed.response;
+  const { symbol } = parsed.data;
+  const forceRefresh = parsed.data.refresh === true;
 
   // Serve the shared cache when it's fresh (<2h) unless an explicit refresh was
   // requested. Market-only prediction → identical for every user → reuse it.
