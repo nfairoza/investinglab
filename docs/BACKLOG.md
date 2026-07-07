@@ -36,9 +36,14 @@ Phases 0, 1, 2, and 5 of the hardening spec are done. Still open:
   marketData.getQuotes + /api/quotes; wired into rankings, dashboard-data,
   watchlist), and a provider-health strip on /connectors. (Retry/backoff/
   429-cooldown/dedup already existed.)
-- **P4 visual redesign** — unified Card primitive with source+freshness chip,
-  KPI hero rows, chart-theme routing, skeleton/empty/error polish, micro-
-  interactions, mobile + a11y pass.
+- **P4 visual redesign** — FOUNDATION DONE: unified Card primitive (title +
+  icon + DataResult freshness/source chips + footer) in components/ui/primitives,
+  shimmer Skeleton (.skeleton), adopted in dashboard Watchlist / AI cost / Plaid
+  holdings cards. Motion (--ease-out, card-hover 260ms), focus-visible rings,
+  reduced-motion, and mobile touch/a11y already landed in prior phases (#111-115).
+  STILL OPEN: migrate remaining dashboard/overview/money cards onto Card so every
+  data surface shows a source+freshness chip; KPI hero rows using font-display;
+  route any stray Recharts usage through chart-theme.ts.
 - **P6 Rukmani** — P6.3 (ai_usage cost-tracking table + admin dashboard card)
   is DONE. Still open: P6.1 streaming chat responses (SSE/ReadableStream) and
   P6.2 server-side tool use (get_quote / get_portfolio_summary / get_watchlist).
