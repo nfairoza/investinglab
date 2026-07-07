@@ -27,11 +27,12 @@ Phases 0, 1, 2, and 5 of the hardening spec are done. Still open:
 - **P0.2 remainder** — ~35 more SWR consumers still use inline fetchers that can
   hide errors. The core money/invest views are migrated; research/power-trades/
   admin/misc views remain (lower risk — most already show empty states).
-- **P2 zod validation** — FOUNDATION DONE: zod installed + lib/validate
-  (parseBody/parseQuery -> stable 400, zSymbol) with unit tests; applied to
-  predict, watchlist enrich, watchlists create/rename, plaid transactions PATCH.
-  STILL OPEN: sweep the remaining ~35 API routes and eliminate the ~113 `: any`
-  usages. (Rate limiting + headers + error hygiene already done.)
+- **P2 zod validation** — DONE for request validation: zod + lib/validate
+  (parseBody/parseQuery, zSymbol) with unit tests, applied to every input route
+  EXCEPT app/api/chat/route.ts (concurrent Cursor edits — do when freed) and
+  power-trades/manual-record (delegates validation to its lib). STILL OPEN: the
+  broader `: any` type cleanup (~113 usages) — separate from request validation.
+  (Rate limiting + headers + error hygiene already done.)
 - **P2 chat rate limit** — apply guardAiRate to the chat AI route (skipped to
   avoid a concurrent-edit conflict on app/api/chat/route.ts).
 - **P3 FMP data quality** — DONE. Per-endpoint cache TTLs (quotes 60s /
