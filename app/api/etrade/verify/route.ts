@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { fetchAccessToken, etradeGet } from "@/lib/etrade/client";
 import type { EtradeAccount } from "@/lib/broker-store";
 import { getBrokerCtx, readBrokerConnection, writeBrokerConnection, replaceBrokerConnection } from "@/lib/broker-store";
+import { parseBody } from "@/lib/validate";
+import { z } from "zod";
 
 export const dynamic = "force-dynamic";
 
@@ -13,8 +15,9 @@ export const dynamic = "force-dynamic";
 export async function POST(req: NextRequest) {
   const ctx = await getBrokerCtx();
   if (!ctx) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  const body = await req.json().catch(() => ({}));
-  const code = typeof body?.code === "string" ? body.code.trim() : "";
+  const parsed = await parseBody(req, z.object({ code: z.string().optional() }));
+  if (!parsed.ok) return parsed.response;
+  const code = (parsed.data.code ?? "").trim();
   if (!code) return NextResponse.json({ error: "Verification code required." }, { status: 400 });
 
   const conn = await readBrokerConnection(ctx, "etrade");

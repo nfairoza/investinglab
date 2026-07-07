@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUserClient } from "@/lib/supabase-data";
+import { parseBody } from "@/lib/validate";
+import { z } from "zod";
 
 export const dynamic = "force-dynamic";
 
@@ -23,12 +25,19 @@ export async function GET() {
 export async function PUT(req: NextRequest) {
   const ctx = await getUserClient();
   if (!ctx) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  const body = await req.json().catch(() => ({}));
+  const parsed = await parseBody(req, z.object({
+    displayName: z.string().optional(),
+    phone: z.string().optional(),
+    baseCurrency: z.string().optional(),
+    beginnerMode: z.boolean().optional(),
+  }));
+  if (!parsed.ok) return parsed.response;
+  const body = parsed.data;
 
   const { data } = await ctx.supabase.from("user_prefs").select("prefs").maybeSingle();
   const prefs = { ...((data?.prefs as Record<string, unknown>) ?? {}) };
   for (const f of FIELDS) {
-    if (f in body) prefs[f] = body[f];
+    if (f in body) prefs[f] = (body as Record<string, unknown>)[f];
   }
   await ctx.supabase.from("user_prefs").upsert(
     { user_id: ctx.userId, prefs, updated_at: new Date().toISOString() },

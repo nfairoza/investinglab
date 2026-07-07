@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUserClient } from "@/lib/supabase-data";
 import type { JournalEntry } from "@/lib/db";
+import { parseBody } from "@/lib/validate";
+import { z } from "zod";
 
 export const dynamic = "force-dynamic";
 
@@ -31,10 +33,23 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   const ctx = await getUserClient();
   if (!ctx) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  const body = await req.json().catch(() => ({}));
+  const parsed = await parseBody(req, z.object({
+    id: z.string().optional(),
+    status: z.string().optional(),
+    result1w: z.any().optional(),
+    result1m: z.any().optional(),
+    symbol: z.string().optional(),
+    entryReason: z.string().optional(),
+    side: z.string().optional(),
+    targetPrice: z.coerce.number().optional(),
+    stopLoss: z.coerce.number().optional(),
+    exitCriteria: z.string().optional(),
+  }));
+  if (!parsed.ok) return parsed.response;
+  const body = parsed.data;
 
   // Patch existing entry.
-  if (body?.id) {
+  if (body.id) {
     const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
     if (body.status !== undefined) patch.status = body.status;
     if (body.result1w !== undefined) patch.result_1w = body.result1w;

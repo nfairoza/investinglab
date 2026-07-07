@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUserClient } from "@/lib/supabase-data";
 import type { Alert } from "@/lib/db";
+import { parseBody, zSymbol } from "@/lib/validate";
+import { z } from "zod";
 
 export const dynamic = "force-dynamic";
 
@@ -53,10 +55,22 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   const ctx = await getUserClient();
   if (!ctx) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  const body = await req.json().catch(() => ({}));
-  const symbol = String(body?.symbol ?? "").toUpperCase().trim();
-  const type = body?.type as Alert["type"];
-  if (!symbol) return NextResponse.json({ error: "symbol required" }, { status: 400 });
+  const parsed = await parseBody(req, z.object({
+    symbol: zSymbol,
+    type: z.string(),
+    price: z.coerce.number().optional(),
+    movePct: z.coerce.number().optional(),
+    withinDays: z.coerce.number().optional(),
+    scoreValue: z.coerce.number().optional(),
+    scoreOp: z.string().optional(),
+    direction: z.string().optional(),
+    note: z.string().max(2000).optional(),
+    expiresAt: z.string().optional(),
+  }));
+  if (!parsed.ok) return parsed.response;
+  const body = parsed.data;
+  const symbol = body.symbol;
+  const type = body.type as Alert["type"];
   if (!["price", "dayMove", "earnings", "score"].includes(type)) {
     return NextResponse.json({ error: "valid type required" }, { status: 400 });
   }
@@ -98,9 +112,15 @@ export async function POST(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
   const ctx = await getUserClient();
   if (!ctx) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  const body = await req.json().catch(() => ({}));
-  const id = String(body?.id ?? "");
-  if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
+  const parsed = await parseBody(req, z.object({
+    id: z.string().min(1),
+    enabled: z.boolean().optional(),
+    expiresAt: z.string().nullable().optional(),
+    trigger: z.object({ value: z.number(), at: z.string().optional() }).optional(),
+  }));
+  if (!parsed.ok) return parsed.response;
+  const body = parsed.data;
+  const id = body.id;
 
   const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
   if (typeof body.enabled === "boolean") patch.enabled = body.enabled;

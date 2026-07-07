@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUserClient } from "@/lib/supabase-data";
 import { presetByKey } from "@/lib/screener/presets";
+import { parseBody } from "@/lib/validate";
+import { z } from "zod";
 
 export const dynamic = "force-dynamic";
 
@@ -10,8 +12,9 @@ export const dynamic = "force-dynamic";
 export async function POST(req: NextRequest) {
   const ctx = await getUserClient();
   if (!ctx) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  const body = await req.json().catch(() => ({}));
-  const presetKey = String(body?.presetKey ?? "");
+  const parsed = await parseBody(req, z.object({ presetKey: z.string().optional() }));
+  if (!parsed.ok) return parsed.response;
+  const presetKey = String(parsed.data.presetKey ?? "");
   const preset = presetByKey(presetKey);
   if (!preset) return NextResponse.json({ error: "unknown preset" }, { status: 400 });
 

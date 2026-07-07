@@ -7,6 +7,8 @@ import { aiStatus } from "@/lib/ai/anthropic";
 import { routeText } from "@/lib/ai/router";
 import { getUserClient } from "@/lib/supabase-data";
 import { isDailyStale } from "@/lib/daily-cache";
+import { parseBody, zSymbol } from "@/lib/validate";
+import { z } from "zod";
 
 export const dynamic = "force-dynamic";
 
@@ -144,9 +146,9 @@ export async function GET(req: NextRequest) {
 
 // POST — ADMIN ONLY force refresh. Regenerates and overwrites the shared cache.
 export async function POST(req: NextRequest) {
-  const body = await req.json().catch(() => ({}));
-  const symbol = (body?.symbol as string | undefined)?.toUpperCase();
-  if (!symbol) return NextResponse.json({ error: "symbol required" }, { status: 400 });
+  const parsed = await parseBody(req, z.object({ symbol: zSymbol }));
+  if (!parsed.ok) return parsed.response;
+  const { symbol } = parsed.data;
   const ctx = await getUserClient();
   if (!ctx?.isAdmin) return NextResponse.json({ error: "forbidden" }, { status: 403 });
 

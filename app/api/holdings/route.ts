@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getUserClient } from "@/lib/supabase-data";
 import { plaidHoldings } from "@/lib/holdings-server";
 import type { Holding } from "@/lib/db";
+import { parseBody } from "@/lib/validate";
+import { z } from "zod";
 
 export const dynamic = "force-dynamic";
 
@@ -55,11 +57,21 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const ctx = await getUserClient();
   if (!ctx) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  const body = await req.json().catch(() => ({}));
+  const parsed = await parseBody(req, z.object({
+    replace: z.boolean().optional(),
+    holdings: z.array(z.any()).optional(),
+    source: z.string().optional(),
+    symbol: z.string().optional(),
+    shares: z.coerce.number().optional(),
+    avgCost: z.coerce.number().optional(),
+    note: z.string().optional(),
+  }));
+  if (!parsed.ok) return parsed.response;
+  const body = parsed.data;
   const num = (v: any) => (Number.isFinite(Number(v)) ? Number(v) : null);
 
   // Bulk replace from a broker sync (E*TRADE / Robinhood).
-  if (body?.replace === true && Array.isArray(body?.holdings)) {
+  if (body.replace === true && Array.isArray(body.holdings)) {
     const src = String(body.source ?? body.holdings[0]?.source ?? "etrade");
     const rows = (body.holdings as any[]).map((h) => ({
       user_id: ctx.userId,

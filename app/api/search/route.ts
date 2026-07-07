@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getConnectorValue } from "@/lib/connectors/runtime";
+import { parseBody } from "@/lib/validate";
+import { z } from "zod";
 
 export const dynamic = "force-dynamic";
 
@@ -59,8 +61,9 @@ export async function GET(req: NextRequest) {
 
 // POST /api/search { symbol } — validate a single ticker exists (exact-ish).
 export async function POST(req: NextRequest) {
-  const body = await req.json().catch(() => ({}));
-  const symbol = String(body?.symbol ?? "").trim().toUpperCase();
+  const parsed = await parseBody(req, z.object({ symbol: z.string().optional() }));
+  if (!parsed.ok) return parsed.response;
+  const symbol = String(parsed.data.symbol ?? "").trim().toUpperCase();
   if (!symbol) return NextResponse.json({ valid: false });
   const key = getConnectorValue("MARKET_DATA_API_KEY") || getConnectorValue("FINANCIAL_DATA_API_KEY") || "";
   if (!key) return NextResponse.json({ valid: true, note: "unchecked (no key)" }); // don't block when no key

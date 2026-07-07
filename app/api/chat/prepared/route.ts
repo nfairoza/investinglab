@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUserClient, readAiCache, writeAiCache } from "@/lib/supabase-data";
+import { parseBody } from "@/lib/validate";
+import { z } from "zod";
 
 export const dynamic = "force-dynamic";
 
@@ -36,9 +38,13 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const ctx = await getUserClient();
   if (!ctx) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  const body = await req.json().catch(() => ({}));
-  const prompt = typeof body?.prompt === "string" ? body.prompt : "";
-  const answer = typeof body?.answer === "string" ? body.answer : "";
+  const parsed = await parseBody(req, z.object({
+    prompt: z.string().optional(),
+    answer: z.string().optional(),
+  }));
+  if (!parsed.ok) return parsed.response;
+  const prompt = parsed.data.prompt ?? "";
+  const answer = parsed.data.answer ?? "";
   if (!prompt || !answer) return NextResponse.json({ ok: false });
   const entry = await readAiCache(ctx, KEY);
   const map = (entry?.data as Record<string, { a: string; at: number }> | undefined) ?? {};

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUserClient } from "@/lib/supabase-data";
 import { logError, type ErrorCategory } from "@/lib/error-log";
+import { parseBody } from "@/lib/validate";
+import { z } from "zod";
 
 export const dynamic = "force-dynamic";
 
@@ -11,8 +13,17 @@ export const dynamic = "force-dynamic";
 export async function POST(req: NextRequest) {
   const ctx = await getUserClient();
   // Still log even if unauthenticated (rare), but capture identity when present.
-  const body = await req.json().catch(() => ({}));
-  const message = String(body?.message ?? "").slice(0, 4000);
+  const parsed = await parseBody(req, z.object({
+    message: z.string().optional(),
+    category: z.string().optional(),
+    section: z.string().optional(),
+    statusCode: z.number().optional(),
+    path: z.string().optional(),
+    severity: z.string().optional(),
+  }));
+  if (!parsed.ok) return parsed.response;
+  const body = parsed.data;
+  const message = String(body.message ?? "").slice(0, 4000);
   if (!message) return NextResponse.json({ ok: false }, { status: 400 });
 
   let email: string | null = null;

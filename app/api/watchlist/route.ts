@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getUserClient } from "@/lib/supabase-data";
 import { ensureDefaultList } from "@/lib/watchlists";
 import type { WatchItem } from "@/lib/db";
+import { parseBody, zSymbol } from "@/lib/validate";
+import { z } from "zod";
 
 export const dynamic = "force-dynamic";
 
@@ -34,9 +36,14 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   const ctx = await getUserClient();
   if (!ctx) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  const body = await req.json().catch(() => ({}));
-  const symbol = String(body?.symbol ?? "").toUpperCase();
-  if (!symbol) return NextResponse.json({ error: "symbol required" }, { status: 400 });
+  const parsed = await parseBody(req, z.object({
+    symbol: zSymbol,
+    idealBuy: z.coerce.number().optional(),
+    note: z.string().optional(),
+  }));
+  if (!parsed.ok) return parsed.response;
+  const body = parsed.data;
+  const symbol = body.symbol;
   const listId = await ensureDefaultList(ctx);
 
   const { data: existing } = await ctx.supabase
@@ -62,8 +69,9 @@ export async function POST(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
   const ctx = await getUserClient();
   if (!ctx) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  const body = await req.json().catch(() => ({}));
-  const order: string[] = Array.isArray(body?.order) ? body.order : [];
+  const parsed = await parseBody(req, z.object({ order: z.array(z.string()).optional() }));
+  if (!parsed.ok) return parsed.response;
+  const order: string[] = parsed.data.order ?? [];
   if (!order.length) return NextResponse.json({ error: "order array required" }, { status: 400 });
   const listId = await ensureDefaultList(ctx);
   await Promise.all(order.map((id, i) => ctx.supabase.from("watch_list_items").update({ sort_order: i }).eq("id", id)));

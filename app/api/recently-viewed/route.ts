@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUserClient } from "@/lib/supabase-data";
+import { parseBody, zSymbol } from "@/lib/validate";
+import { z } from "zod";
 
 export const dynamic = "force-dynamic";
 
@@ -8,9 +10,9 @@ export const dynamic = "force-dynamic";
 export async function POST(req: NextRequest) {
   const ctx = await getUserClient();
   if (!ctx) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  const body = await req.json().catch(() => ({}));
-  const symbol = String(body?.symbol ?? "").toUpperCase().trim();
-  if (!symbol || symbol.length > 12) return NextResponse.json({ error: "symbol required" }, { status: 400 });
+  const parsed = await parseBody(req, z.object({ symbol: zSymbol }));
+  if (!parsed.ok) return parsed.response;
+  const { symbol } = parsed.data;
   await ctx.supabase.from("recently_viewed").upsert(
     { user_id: ctx.userId, symbol, viewed_at: new Date().toISOString() },
     { onConflict: "user_id,symbol" },

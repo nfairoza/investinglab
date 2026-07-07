@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUserClient } from "@/lib/supabase-data";
+import { parseBody } from "@/lib/validate";
+import { z } from "zod";
 
 export const dynamic = "force-dynamic";
 
@@ -20,8 +22,9 @@ export async function GET() {
 export async function PUT(req: NextRequest) {
   const ctx = await getUserClient();
   if (!ctx) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  const body = await req.json().catch(() => ({}));
-  const amount = Number(body?.amount);
+  const parsed = await parseBody(req, z.object({ amount: z.coerce.number().optional() }));
+  if (!parsed.ok) return parsed.response;
+  const amount = Number(parsed.data.amount);
   if (!Number.isFinite(amount) || amount < 0) {
     return NextResponse.json({ error: "amount must be a non-negative number" }, { status: 400 });
   }

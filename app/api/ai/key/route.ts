@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { setRuntimeAi } from "@/lib/ai/runtime-key";
 import { aiStatus } from "@/lib/ai/anthropic";
 import { getAdminClient } from "@/lib/supabase-data";
+import { parseBody } from "@/lib/validate";
+import { z } from "zod";
 
 export const dynamic = "force-dynamic";
 
@@ -12,13 +14,19 @@ export const dynamic = "force-dynamic";
 export async function POST(req: NextRequest) {
   const admin = await getAdminClient();
   if (!admin) return NextResponse.json({ error: "forbidden", message: "Admin only." }, { status: 403 });
-  const body = await req.json().catch(() => ({}));
-  if (body?.clear) {
+  const parsed = await parseBody(req, z.object({
+    clear: z.boolean().optional(),
+    apiKey: z.string().optional(),
+    model: z.string().optional(),
+  }));
+  if (!parsed.ok) return parsed.response;
+  const { clear, apiKey: rawKey, model: rawModel } = parsed.data;
+  if (clear) {
     await setRuntimeAi(null, null);
     return NextResponse.json(aiStatus());
   }
-  const apiKey = typeof body?.apiKey === "string" ? body.apiKey : "";
-  const model = typeof body?.model === "string" ? body.model : null;
+  const apiKey = rawKey ?? "";
+  const model = rawModel ?? null;
   if (!apiKey.trim()) {
     return NextResponse.json({ error: "apiKey required" }, { status: 400 });
   }

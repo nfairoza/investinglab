@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUserClient } from "@/lib/supabase-data";
+import { parseBody, zSymbol } from "@/lib/validate";
+import { z } from "zod";
 
 export const dynamic = "force-dynamic";
 
@@ -7,9 +9,14 @@ export const dynamic = "force-dynamic";
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const ctx = await getUserClient();
   if (!ctx) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  const body = await req.json().catch(() => ({}));
-  const symbol = String(body?.symbol ?? "").toUpperCase().trim();
-  if (!symbol) return NextResponse.json({ error: "symbol required" }, { status: 400 });
+  const parsed = await parseBody(req, z.object({
+    symbol: zSymbol,
+    note: z.string().optional(),
+    idealBuy: z.coerce.number().optional(),
+  }));
+  if (!parsed.ok) return parsed.response;
+  const body = parsed.data;
+  const symbol = body.symbol;
 
   // Don't add to a followed list (those are live references, not item stores).
   const { data: list } = await ctx.supabase.from("watch_lists").select("kind").eq("id", params.id).maybeSingle();
