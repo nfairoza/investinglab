@@ -33,8 +33,7 @@ Phases 0, 1, 2, and 5 of the hardening spec are done. Still open:
   power-trades/manual-record (delegates validation to its lib). STILL OPEN: the
   broader `: any` type cleanup (~113 usages) — separate from request validation.
   (Rate limiting + headers + error hygiene already done.)
-- **P2 chat rate limit** — apply guardAiRate to the chat AI route (skipped to
-  avoid a concurrent-edit conflict on app/api/chat/route.ts).
+- **P2 chat rate limit** — DONE (guardAiRate on /api/chat, admins exempt).
 - **P3 FMP data quality** — DONE. Per-endpoint cache TTLs (quotes 60s /
   fundamentals 24h / profile 7d), batch quotes (fmpProvider.getQuotes +
   marketData.getQuotes + /api/quotes; wired into rankings, dashboard-data,
@@ -48,11 +47,16 @@ Phases 0, 1, 2, and 5 of the hardening spec are done. Still open:
   STILL OPEN: migrate remaining dashboard/overview/money cards onto Card so every
   data surface shows a source+freshness chip; KPI hero rows using font-display;
   route any stray Recharts usage through chart-theme.ts.
-- **P6 Rukmani** — P6.3 (ai_usage cost-tracking table + admin dashboard card)
-  is DONE. Still open: P6.1 streaming chat responses (SSE/ReadableStream) and
-  P6.2 server-side tool use (get_quote / get_portfolio_summary / get_watchlist).
-  Both require rewriting app/api/chat/route.ts + the 709-line chat-widget.tsx —
-  deferred while those files have concurrent (Cursor) edits, to avoid clobbering.
+- **P6 Rukmani** — P6.3 (ai_usage cost tracking) DONE. P6.1 streaming: already
+  live — the chat route streams via SSE passthrough (Anthropic native + a Gemini
+  re-emit). P6.2 tool use: the intended data (get_portfolio_summary, get_quote,
+  get_watchlist) is now injected server-side deterministically — holdings with
+  live price/gain, per-ticker quotes+news for tickers in the question, and (new)
+  batch-fetched live watchlist quotes. TRUE function-calling (buffer stream ->
+  detect tool_use -> execute -> re-request) was NOT done: it would unwind the
+  working SSE-passthrough architecture for little gain since the data is already
+  supplied. Revisit only if a genuinely dynamic tool (e.g. run a screener mid-
+  chat) is needed.
 
 ## Notes
 
