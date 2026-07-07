@@ -8,6 +8,7 @@ import { DataBadge, DataTimestamp, ErrorState } from "./data-state";
 import { MotionLoader } from "./motion-loader";
 import { fetchJson as fetcher } from "@/lib/fetch-json";
 import type { DataSource } from "@/lib/providers/types";
+import { Card } from "./ui/primitives";
 
 interface ScoredTrade {
   id: string;
@@ -343,16 +344,16 @@ export function CongressAlphaFeed() {
           <div className="space-y-4">
             {/* Politician quick-filter — click a name to filter the feed to them */}
             {topMembers.length > 0 && (
-              <div className="rounded-xl glass p-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-sm font-semibold text-ink"><Users size={15} className="text-brand-400" /> People in current feed</div>
-                  {member && (
-                    <button onClick={() => setMember(null)} className="inline-flex items-center gap-1 rounded border border-hairline px-1.5 py-0.5 text-[11px] text-ink-dim hover:text-ink">
-                      <X size={11} /> Clear
-                    </button>
-                  )}
-                </div>
-                <p className="mt-0.5 text-[11px] text-ink-faint">Showing people with parsed records in the currently enabled sources. Tap a name to see all their trades (widens to All conviction · 1yr). For the full roster, open the People Directory.</p>
+              <Card
+                icon={<Users size={15} className="text-brand-400" />}
+                title="People in current feed"
+                headerRight={member ? (
+                  <button onClick={() => setMember(null)} className="inline-flex items-center gap-1 rounded border border-hairline px-1.5 py-0.5 text-[11px] text-ink-dim hover:text-ink">
+                    <X size={11} /> Clear
+                  </button>
+                ) : undefined}
+              >
+                <p className="text-[11px] text-ink-faint">Showing people with parsed records in the currently enabled sources. Tap a name to see all their trades (widens to All conviction · 1yr). For the full roster, open the People Directory.</p>
                 <div className="mt-2 flex flex-wrap gap-1.5">
                   {topMembers.map(([name, count]) => (
                     <button key={name} onClick={() => pickMember(name)}
@@ -361,7 +362,7 @@ export function CongressAlphaFeed() {
                     </button>
                   ))}
                 </div>
-              </div>
+              </Card>
             )}
 
             {/* Module 2: Legislative Conflict Inspector */}
@@ -414,9 +415,8 @@ export function CongressAlphaFeed() {
 
             {/* Module 3: Macro / Roster */}
             {data.macro && (
-              <div className="rounded-xl glass p-4">
-                <div className="text-sm font-semibold text-ink">Capitol Hill macro ({data.windowDays ?? days}d)</div>
-                <div className="mt-2 text-xs text-ink-faint">Net buying/selling by sector (min disclosed $)</div>
+              <Card title={`Capitol Hill macro (${data.windowDays ?? days}d)`}>
+                <div className="text-xs text-ink-faint">Net buying/selling by sector (min disclosed $)</div>
                 <div className="mt-2 space-y-1">
                   {data.macro.sectors.slice(0, 6).map((s) => (
                     <div key={s.sector} className="flex items-center gap-2 text-xs">
@@ -438,7 +438,7 @@ export function CongressAlphaFeed() {
                     </li>
                   ))}
                 </ul>
-              </div>
+              </Card>
             )}
           </div>
         </div>

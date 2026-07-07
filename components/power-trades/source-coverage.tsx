@@ -3,6 +3,7 @@
 import useSWR from "swr";
 import { CheckCircle2, Clock } from "lucide-react";
 import { fetchJson } from "@/lib/fetch-json";
+import { Card } from "../ui/primitives";
 
 interface SourceStatus { source: string; label: string; built: boolean; enabled: boolean; lastSyncAt: string | null }
 
@@ -14,12 +15,11 @@ export function SourceCoverage() {
 
   return (
     <div className="space-y-4">
-      <div className="rounded-2xl glass p-5">
-        <div className="flex items-center gap-2 text-sm font-semibold text-ink"><CheckCircle2 size={16} className="text-emerald-400" /> Enabled</div>
+      <Card icon={<CheckCircle2 size={16} className="text-emerald-400" />} title="Enabled">
         {enabled.length === 0 ? (
-          <p className="mt-2 text-sm text-ink-dim">No sources enabled yet.</p>
+          <p className="text-sm text-ink-dim">No sources enabled yet.</p>
         ) : (
-          <ul className="mt-3 space-y-2">
+          <ul className="space-y-2">
             {enabled.map((s) => (
               <li key={s.source} className="flex items-center justify-between text-sm">
                 <span className="text-ink-dim">{s.label}</span>
@@ -28,11 +28,10 @@ export function SourceCoverage() {
             ))}
           </ul>
         )}
-      </div>
+      </Card>
 
-      <div className="rounded-2xl glass p-5">
-        <div className="flex items-center gap-2 text-sm font-semibold text-ink"><Clock size={16} className="text-amber-400" /> Coming</div>
-        <ul className="mt-3 space-y-1.5">
+      <Card icon={<Clock size={16} className="text-amber-400" />} title="Coming">
+        <ul className="space-y-1.5">
           {coming.map((s) => (
             <li key={s.source} className="flex items-center justify-between text-sm">
               <span className="text-ink-dim">{s.label}</span>
@@ -56,7 +55,7 @@ export function SourceCoverage() {
           2025-04-15</span>, so lobbying context is unavailable (a commercial agreement would be required to revive
           it). Quiver is an optional future add.
         </p>
-      </div>
+      </Card>
     </div>
   );
 }

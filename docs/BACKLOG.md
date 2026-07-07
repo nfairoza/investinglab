@@ -24,9 +24,9 @@ PAT that has `workflow` scope, or add it via the GitHub UI. It runs
 
 Phases 0, 1, 2, and 5 of the hardening spec are done. Still open:
 
-- **P0.2 remainder** — ~35 more SWR consumers still use inline fetchers that can
-  hide errors. The core money/invest views are migrated; research/power-trades/
-  admin/misc views remain (lower risk — most already show empty states).
+- **P0.2 remainder** — DONE: ~20 more SWR read-fetchers migrated to the throwing
+  fetchJson (full-page views also got visible ErrorState). Envelope-pattern
+  (DataResult) and mutation/search fetchers intentionally left as-is.
 - **P2 zod validation** — DONE for request validation: zod + lib/validate
   (parseBody/parseQuery, zSymbol) with unit tests, applied to every input route
   EXCEPT power-trades/manual-record (delegates validation to its lib); chat is
@@ -44,9 +44,12 @@ Phases 0, 1, 2, and 5 of the hardening spec are done. Still open:
   shimmer Skeleton (.skeleton), adopted in dashboard Watchlist / AI cost / Plaid
   holdings cards. Motion (--ease-out, card-hover 260ms), focus-visible rings,
   reduced-motion, and mobile touch/a11y already landed in prior phases (#111-115).
-  STILL OPEN: migrate remaining dashboard/overview/money cards onto Card so every
-  data surface shows a source+freshness chip; KPI hero rows using font-display;
-  route any stray Recharts usage through chart-theme.ts.
+  Card grammar now adopted across money-insights, money-dashboard, accounts-
+  doctor, congress-alpha-feed, watchlist-recs, source-coverage (+ the earlier
+  watchlist/AI-cost/plaid-holdings cards). Remaining bespoke cards were left
+  intentionally (complex headers with tabs/toolbars/refs where Card would be
+  lossy — e.g. opportunities-card, market-outlook, the accounts-doctor headline).
+  Phase 4 is effectively complete; any further card migration is optional polish.
 - **P6 Rukmani** — P6.3 (ai_usage cost tracking) DONE. P6.1 streaming: already
   live — the chat route streams via SSE passthrough (Anthropic native + a Gemini
   re-emit). P6.2 tool use: the intended data (get_portfolio_summary, get_quote,

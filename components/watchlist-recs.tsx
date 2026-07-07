@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Sparkles, Plus } from "lucide-react";
 import { AddToList } from "./add-to-list";
 import { fetchJson } from "@/lib/fetch-json";
+import { Card } from "./ui/primitives";
 
 // "You might like" — AI watchlist recommendations from holdings + watch lists +
 // recently-viewed. Auto-refreshes at most once / 24h server-side; NO refresh
@@ -19,10 +20,7 @@ export function WatchlistRecs() {
   if (recs.length === 0) return null;
 
   return (
-    <div className="rounded-2xl glass p-4">
-      <div className="mb-2 flex items-center gap-1.5 text-sm font-semibold text-ink">
-        <Sparkles size={15} className="text-brand-400" /> You might like
-      </div>
+    <Card icon={<Sparkles size={15} className="text-brand-400" />} title="You might like">
       <div className="space-y-1.5">
         {recs.map((r) => (
           <div key={r.symbol} className="flex items-center gap-3 rounded-lg px-2 py-1.5 hover:bg-surface">
@@ -37,6 +35,6 @@ export function WatchlistRecs() {
       </div>
       <p className="mt-2 text-[10px] text-ink-faint">Ideas based on your holdings, lists & recent views — not financial advice.</p>
       {addSymbol && <AddToList symbol={addSymbol} onClose={() => setAddSymbol(null)} />}
-    </div>
+    </Card>
   );
 }

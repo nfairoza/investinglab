@@ -5,6 +5,7 @@ import Link from "next/link";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { TrendingUp, TrendingDown, Sparkles, AlertTriangle, ArrowUpRight, ArrowDownRight, Repeat, Wallet, CircleSlash } from "lucide-react";
 import { fetchJson } from "@/lib/fetch-json";
+import { Card } from "./ui/primitives";
 
 interface CategoryAnomaly { category: string; thisMonth: number; typicalMonth: number; deltaPct: number; deltaAmount: number; isNew: boolean; direction: "up" | "down" }
 interface BillChange { merchant: string; previousAmount: number; newAmount: number; deltaPct: number; deltaAmount: number; stableMonths: number; changedOn: string; direction: "up" | "down" }
@@ -50,14 +51,13 @@ export function MoneyInsights({ compact = false }: { compact?: boolean }) {
     const topCat = categoryAnomalies[0];
     if (!topIncome && !topBill && !topCat) return null;
     return (
-      <div className="rounded-2xl glass p-5">
-        <div className="flex items-center gap-2 text-sm font-semibold text-ink"><Sparkles size={16} className="text-brand-400" /> Spotted in your money</div>
-        <div className="mt-3 space-y-2">
+      <Card icon={<Sparkles size={16} className="text-brand-400" />} title="Spotted in your money">
+        <div className="space-y-2">
           {topIncome && <IncomeChangeRow c={topIncome} />}
           {topBill && <BillChangeRow b={topBill} />}
           {!topIncome && topCat && <AnomalyRow a={topCat} />}
         </div>
-      </div>
+      </Card>
     );
   }
 
@@ -65,45 +65,41 @@ export function MoneyInsights({ compact = false }: { compact?: boolean }) {
     <div className="space-y-4">
       {/* Income changes — paycheck/deposit raised, lowered, or stopped */}
       {incomeChanges.length > 0 && (
-        <div className="rounded-2xl glass p-5">
-          <div className="flex items-center gap-2 text-sm font-semibold text-ink"><Wallet size={16} className="text-brand-400" /> Income changes</div>
-          <p className="mt-0.5 text-xs text-ink-faint">Regular deposits that changed amount or stopped.</p>
+        <Card icon={<Wallet size={16} className="text-brand-400" />} title="Income changes">
+          <p className="text-xs text-ink-faint">Regular deposits that changed amount or stopped.</p>
           <div className="mt-3 space-y-2">
             {incomeChanges.map((c) => <IncomeChangeRow key={c.source} c={c} />)}
           </div>
-        </div>
+        </Card>
       )}
       {/* Recurring-bill price changes */}
       {billChanges.length > 0 && (
-        <div className="rounded-2xl glass p-5">
-          <div className="flex items-center gap-2 text-sm font-semibold text-ink"><Repeat size={16} className="text-brand-400" /> Bill changes</div>
-          <p className="mt-0.5 text-xs text-ink-faint">Recurring charges that stepped up or down after holding steady.</p>
+        <Card icon={<Repeat size={16} className="text-brand-400" />} title="Bill changes">
+          <p className="text-xs text-ink-faint">Recurring charges that stepped up or down after holding steady.</p>
           <div className="mt-3 space-y-2">
             {billChanges.map((b) => <BillChangeRow key={b.merchant} b={b} />)}
           </div>
-        </div>
+        </Card>
       )}
 
       {/* Variable-bill trends (utilities) */}
       {billTrends.length > 0 && (
-        <div className="rounded-2xl glass p-5">
-          <div className="flex items-center gap-2 text-sm font-semibold text-ink"><TrendingUp size={16} className="text-brand-400" /> Bills that move</div>
-          <p className="mt-0.5 text-xs text-ink-faint">Variable bills (utilities and the like) over the last year.</p>
+        <Card icon={<TrendingUp size={16} className="text-brand-400" />} title="Bills that move">
+          <p className="text-xs text-ink-faint">Variable bills (utilities and the like) over the last year.</p>
           <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2">
             {billTrends.map((t) => <BillTrendCard key={t.merchant} t={t} />)}
           </div>
-        </div>
+        </Card>
       )}
 
       {/* Category anomalies */}
       {categoryAnomalies.length > 0 && (
-        <div className="rounded-2xl glass p-5">
-          <div className="flex items-center gap-2 text-sm font-semibold text-ink"><AlertTriangle size={16} className="text-amber-400" /> Unusual this month</div>
-          <p className="mt-0.5 text-xs text-ink-faint">Categories where this month differs from your own typical spend.</p>
+        <Card icon={<AlertTriangle size={16} className="text-amber-400" />} title="Unusual this month">
+          <p className="text-xs text-ink-faint">Categories where this month differs from your own typical spend.</p>
           <div className="mt-3 space-y-2">
             {categoryAnomalies.map((a) => <AnomalyRow key={a.category} a={a} />)}
           </div>
-        </div>
+        </Card>
       )}
 
       {monthsOfData < 3 && (

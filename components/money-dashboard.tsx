@@ -9,6 +9,7 @@ import { GradientStat } from "./dashboard-extras";
 import { MoneyInsights } from "./money-insights";
 import { ConnectEmptyState } from "./connect-empty-state";
 import { fetchJson } from "@/lib/fetch-json";
+import { Card } from "./ui/primitives";
 
 interface Account { account_id: string; name: string; mask: string | null; type: string; subtype: string | null; current: number | null; available: number | null; currency: string }
 interface Item { itemId: string; institution: string; accounts: Account[]; error?: string }
@@ -106,9 +107,8 @@ export function MoneyDashboard() {
       {/* Spending by category */}
       {spend.cats.length > 0 && (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          <div className="rounded-2xl glass p-5">
-            <div className="text-sm font-semibold text-ink">Spending by category</div>
-            <div className="mt-2 h-52">
+          <Card title="Spending by category">
+            <div className="h-52">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie data={spend.cats} dataKey="value" nameKey="name" innerRadius={50} outerRadius={80} paddingAngle={2}>
@@ -123,10 +123,9 @@ export function MoneyDashboard() {
                 </PieChart>
               </ResponsiveContainer>
             </div>
-          </div>
-          <div className="rounded-2xl glass p-5">
-            <div className="text-sm font-semibold text-ink">Top categories</div>
-            <p className="mt-0.5 text-[11px] text-ink-faint">Tap a category to ask Rukmani.</p>
+          </Card>
+          <Card title="Top categories">
+            <p className="text-[11px] text-ink-faint">Tap a category to ask Rukmani.</p>
             <ul className="mt-2 space-y-1">
               {spend.cats.slice(0, 6).map((c, i) => (
                 <li key={c.name}>
@@ -139,29 +138,28 @@ export function MoneyDashboard() {
                 </li>
               ))}
             </ul>
-          </div>
+          </Card>
         </div>
       )}
 
       {/* Surplus routing hint + recurring bills — what a person actually wants to know */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         {adv?.surplus?.available && adv.surplus.surplus > 0 && (
-          <div className="rounded-2xl glass p-5">
-            <div className="flex items-center gap-2 text-sm font-semibold text-ink"><PiggyBank size={16} className="text-brand-400" /> Spare cash this month</div>
-            <div className="mt-2 text-2xl font-bold text-ink">{money(adv.surplus.surplus)}</div>
+          <Card icon={<PiggyBank size={16} className="text-brand-400" />} title="Spare cash this month">
+            <div className="text-2xl font-bold text-ink">{money(adv.surplus.surplus)}</div>
             <div className="mt-1 inline-flex items-center gap-1.5 rounded-lg border border-brand-500/30 bg-brand-500/10 px-3 py-1 text-sm text-brand-200">
               <ArrowRight size={14} /> Best next move: {adv.surplus.destination}
             </div>
             <Link href="/advisor" className="mt-3 block text-xs text-brand-300 hover:underline">See your full plan →</Link>
-          </div>
+          </Card>
         )}
         {recurring.length > 0 && (
-          <div className="rounded-2xl glass p-5">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-sm font-semibold text-ink"><Repeat size={16} className="text-brand-400" /> Recurring bills</div>
-              <span className="text-xs text-ink-faint">~{money(recurringTotal)}/mo</span>
-            </div>
-            <ul className="mt-3 divide-y divide-hairline">
+          <Card
+            icon={<Repeat size={16} className="text-brand-400" />}
+            title="Recurring bills"
+            headerRight={<span className="text-xs text-ink-faint">~{money(recurringTotal)}/mo</span>}
+          >
+            <ul className="divide-y divide-hairline">
               {recurring.slice(0, 5).map((r) => (
                 <li key={r.merchant}>
                   <button onClick={() => ask(`I pay about ${money(r.amount)}/mo for ${r.merchant} (seen across ${r.months} months). Is this worth keeping, and are there ways to reduce it?`)}
@@ -172,7 +170,7 @@ export function MoneyDashboard() {
                 </li>
               ))}
             </ul>
-          </div>
+          </Card>
         )}
       </div>
 

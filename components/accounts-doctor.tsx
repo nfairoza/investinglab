@@ -8,6 +8,7 @@ import {
   PiggyBank, Repeat, Wallet, TrendingDown, ShieldCheck,
 } from "lucide-react";
 import { fetchJson } from "@/lib/fetch-json";
+import { Card } from "./ui/primitives";
 
 interface Analysis { summary: string; cut: string[]; redirect: string[]; watch: string[]; alarming?: string[]; ideas?: string[] }
 interface DoctorResp { analysis: Analysis | null; model: string | null; generatedAt: string | null; cached?: boolean }
@@ -109,10 +110,9 @@ export function AccountsDoctor() {
 
       {/* Computed detail: cashflow, emergency fund, debt, recurring */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <div className="rounded-2xl glass p-5">
-          <div className="text-sm font-semibold text-ink">This month&apos;s cashflow</div>
+        <Card title="This month&apos;s cashflow">
           {r?.spending.available ? (
-            <div className="mt-3 space-y-2 text-sm">
+            <div className="space-y-2 text-sm">
               <Line label="Income" value={money(r.spending.monthIncome)} tone="emerald" />
               <Line label="Expenses" value={money(r.spending.monthExpenses)} tone="rose" />
               <div className="flex items-center justify-between border-t border-hairline pt-2 font-semibold">
@@ -126,11 +126,10 @@ export function AccountsDoctor() {
               )}
             </div>
           ) : <MissingLine href="/transactions" text="Link a checking account to see cashflow." />}
-        </div>
+        </Card>
 
-        <div className="rounded-2xl glass p-5">
-          <div className="text-sm font-semibold text-ink">Emergency fund &amp; debt</div>
-          <div className="mt-3 space-y-2 text-sm text-ink-dim">
+        <Card title="Emergency fund &amp; debt">
+          <div className="space-y-2 text-sm text-ink-dim">
             {efStep?.mathSummary ? <p>{efStep.mathSummary}</p> : <p className="text-ink-faint">Emergency-fund runway needs linked cash + spending.</p>}
             {debtStep && debtStep.computedFacts.length > 0 ? (
               <div className="rounded-lg border border-hairline bg-surface p-2.5">
@@ -141,17 +140,17 @@ export function AccountsDoctor() {
               </div>
             ) : <p className="text-ink-faint">No debt linked.</p>}
           </div>
-        </div>
+        </Card>
       </div>
 
       {/* Recurring bills */}
       {(r?.spending.recurring.length ?? 0) > 0 && (
-        <div className="rounded-2xl glass p-5">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-sm font-semibold text-ink"><Repeat size={16} className="text-brand-400" /> Recurring bills</div>
-            <span className="text-xs text-ink-faint">~{money(recurringTotal)}/mo</span>
-          </div>
-          <ul className="mt-3 divide-y divide-hairline">
+        <Card
+          icon={<Repeat size={16} className="text-brand-400" />}
+          title="Recurring bills"
+          headerRight={<span className="text-xs text-ink-faint">~{money(recurringTotal)}/mo</span>}
+        >
+          <ul className="divide-y divide-hairline">
             {r!.spending.recurring.slice(0, 8).map((x) => (
               <li key={x.merchant} className="flex items-center justify-between py-1.5 text-sm">
                 <span className="truncate text-ink-dim">{x.merchant}<span className="text-ink-faint"> · {x.months} mo</span></span>
@@ -159,20 +158,23 @@ export function AccountsDoctor() {
               </li>
             ))}
           </ul>
-        </div>
+        </Card>
       )}
 
       {/* AI narrative checkup */}
-      <div className="rounded-2xl glass p-5 space-y-3">
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2 text-sm font-semibold text-ink"><Stethoscope size={16} className="text-brand-400" /> Rukmani&apos;s diagnosis</div>
-          <div className="flex items-center gap-2">
+      <Card
+        icon={<Stethoscope size={16} className="text-brand-400" />}
+        title="Rukmani&apos;s diagnosis"
+        headerRight={
+          <>
             {when && <span className="text-[10px] text-ink-faint">as of {when}</span>}
             <button onClick={run} disabled={busy} className="inline-flex items-center gap-1 rounded-md border border-hairline px-2.5 py-1 text-[11px] text-ink-dim hover:bg-surface hover:text-ink disabled:opacity-50">
               <RefreshCw size={11} className={busy ? "animate-spin" : ""} /> {a ? "Re-analyze" : "Run checkup"}
             </button>
-          </div>
-        </div>
+          </>
+        }
+        bodyClassName="space-y-3"
+      >
         {busy && !a && <p className="text-sm text-ink-dim">Running your checkup…</p>}
         {err && <p className="text-xs text-rose-400">{err}</p>}
         {!a && !busy && !err && <p className="text-sm text-ink-dim">Run a checkup for a plain-English diagnosis — what to cut, where money should go, anything alarming, and ideas. Cached for a day to save tokens.</p>}
@@ -189,7 +191,7 @@ export function AccountsDoctor() {
             <p className="text-[11px] text-ink-faint">Numbers computed by rukMoney before narration{data?.model ? ` · narrated by ${data.model}` : ""}. Cached for a day. Educational only — not financial advice.</p>
           </>
         )}
-      </div>
+      </Card>
 
       <div className="flex flex-wrap gap-2">
         <Link href="/spending" className="rounded-lg border border-hairline px-3 py-1.5 text-xs text-ink-dim hover:bg-surface hover:text-ink">Spending →</Link>
