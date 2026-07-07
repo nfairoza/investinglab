@@ -3,6 +3,8 @@
 import { useState } from "react";
 import useSWR from "swr";
 import { Search, ExternalLink, Coins } from "lucide-react";
+import { fetchJson } from "@/lib/fetch-json";
+import { ErrorState } from "../data-state";
 
 // Influence Context — campaign finance (FEC) + lobbying (OpenSecrets).
 // CRITICAL: this is NOT trades. No buy/sell styling, no Alpha score, no "trade"
@@ -14,7 +16,6 @@ interface InfluenceRecord {
   amount: number | null; amount_label: string | null; cycle_or_year: string | null;
   issue_or_industry: string | null; attribution: string | null;
 }
-const fetchJson = (u: string) => fetch(u).then((r) => r.json());
 
 const TYPE_LABEL: Record<string, string> = {
   campaign_contribution: "Contribution", committee_summary: "Committee", lobbying: "Lobbying",
@@ -26,7 +27,7 @@ export function InfluenceContext() {
   const [q, setQ] = useState("");
   const [source, setSource] = useState("all");
   const qs = new URLSearchParams({ q, source, limit: "300" }).toString();
-  const { data, isLoading } = useSWR<{ rows: InfluenceRecord[] }>(`/api/power-trades/influence?${qs}`, fetchJson, { revalidateOnFocus: false, keepPreviousData: true });
+  const { data, error, isLoading, mutate } = useSWR<{ rows: InfluenceRecord[] }>(`/api/power-trades/influence?${qs}`, fetchJson, { revalidateOnFocus: false, keepPreviousData: true });
   const rows = data?.rows ?? [];
 
   return (
@@ -55,7 +56,9 @@ export function InfluenceContext() {
         </div>
       </div>
 
-      {!isLoading && rows.length === 0 && (
+      {error && !data && <ErrorState error={error} onRetry={() => mutate()} />}
+
+      {!error && !isLoading && rows.length === 0 && (
         <div className="rounded-2xl border border-hairline bg-surface p-6 text-center text-sm text-ink-dim">
           <Coins size={22} className="mx-auto text-ink-faint" />
           <p className="mt-2">No verified influence records yet. An admin needs to run an FEC / OpenSecrets sync, or the enabled sources don&apos;t cover this filter. No records → nothing shown (never fabricated).</p>

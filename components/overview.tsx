@@ -7,8 +7,8 @@ import { ArrowUp, ArrowDown, Plus, TrendingUp, Sparkles, Scale, ChevronRight, Se
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import { MoneyInsights } from "./money-insights";
 import { WatchlistRecs } from "./watchlist-recs";
+import { fetchJson } from "@/lib/fetch-json";
 
-const fetchJson = (u: string) => fetch(u).then((r) => r.json());
 const money = (n: number) => new Intl.NumberFormat(undefined, { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n);
 const COLORS = ["#16D27E", "#0EA6C9", "#11B4AE", "#34E0A1", "#60A5FA", "#F59E0B", "#FB7185", "#A78BFA", "#22D3EE"];
 const TYPE_LABEL: Record<string, string> = {

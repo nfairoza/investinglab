@@ -8,6 +8,7 @@ import { Landmark, ChevronDown, Receipt, PieChart as PieIcon, Scale, ArrowRight,
 import { GradientStat } from "./dashboard-extras";
 import { MoneyInsights } from "./money-insights";
 import { ConnectEmptyState } from "./connect-empty-state";
+import { fetchJson } from "@/lib/fetch-json";
 
 interface Account { account_id: string; name: string; mask: string | null; type: string; subtype: string | null; current: number | null; available: number | null; currency: string }
 interface Item { itemId: string; institution: string; accounts: Account[]; error?: string }
@@ -20,7 +21,6 @@ interface AdvisorResp { result?: {
   spending: { available: boolean; recurring: { merchant: string; amount: number; months: number }[] };
 } }
 
-const fetchJson = (u: string) => fetch(u).then((r) => r.json());
 const money = (n: number | null, c = "USD") => n == null ? "—" : new Intl.NumberFormat(undefined, { style: "currency", currency: c, maximumFractionDigits: 0 }).format(n);
 const COLORS = ["#16D27E", "#0EA6C9", "#11B4AE", "#34E0A1", "#60A5FA", "#F59E0B", "#FB7185", "#FBBF24", "#A78BFA", "#22D3EE"];
 

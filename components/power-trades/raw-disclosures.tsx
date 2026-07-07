@@ -4,13 +4,14 @@ import { useState } from "react";
 import useSWR from "swr";
 import Link from "next/link";
 import { Search, ExternalLink, FileText } from "lucide-react";
+import { fetchJson } from "@/lib/fetch-json";
+import { ErrorState } from "../data-state";
 
 interface Trade {
   id: string; source: string; source_url: string | null; person_name: string; person_role: string | null;
   relationship: string | null; ticker: string | null; asset_name: string | null; transaction_type: string | null;
   transaction_date: string | null; disclosure_date: string | null; amount_label: string | null; chamber_or_branch: string | null;
 }
-const fetchJson = (u: string) => fetch(u).then((r) => r.json());
 
 const TYPE_CLS: Record<string, string> = {
   buy: "border-emerald-500/40 text-emerald-300", sell: "border-rose-500/40 text-rose-300",
@@ -21,7 +22,7 @@ export function RawDisclosures() {
   const [q, setQ] = useState("");
   const [windowKey, setWindowKey] = useState("90d");
   const qs = new URLSearchParams({ q, window: windowKey, limit: "300" }).toString();
-  const { data, isLoading } = useSWR<{ rows: Trade[] }>(`/api/power-trades/trades?${qs}`, fetchJson, { revalidateOnFocus: false, keepPreviousData: true });
+  const { data, error, isLoading, mutate } = useSWR<{ rows: Trade[] }>(`/api/power-trades/trades?${qs}`, fetchJson, { revalidateOnFocus: false, keepPreviousData: true });
   const rows = data?.rows ?? [];
 
   return (
@@ -42,7 +43,9 @@ export function RawDisclosures() {
         </div>
       </div>
 
-      {!isLoading && rows.length === 0 && (
+      {error && !data && <ErrorState error={error} onRetry={() => mutate()} />}
+
+      {!error && !isLoading && rows.length === 0 && (
         <div className="rounded-2xl border border-hairline bg-surface p-6 text-center text-sm text-ink-dim">
           <FileText size={22} className="mx-auto text-ink-faint" />
           <p className="mt-2">No disclosures for this window. Try <span className="text-ink">All-time</span>. If still empty, the source (FMP) hasn&apos;t been synced yet, or doesn&apos;t cover this filter.</p>

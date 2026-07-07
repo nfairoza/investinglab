@@ -2,6 +2,7 @@
 
 import useSWR from "swr";
 import { Landmark, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { fetchJson } from "@/lib/fetch-json";
 
 interface AdminStatus {
   configured: boolean;
@@ -11,8 +12,6 @@ interface AdminStatus {
   nearCap: boolean;
   atCap: boolean;
 }
-
-const fetchJson = (u: string) => fetch(u).then((r) => r.json());
 
 // Admin-only read-only Plaid status: configured/env + app-wide connection usage.
 // No key fields are ever shown or editable — keys live in env only.

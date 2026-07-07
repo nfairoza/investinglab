@@ -2,9 +2,9 @@
 
 import useSWR from "swr";
 import { CheckCircle2, Clock } from "lucide-react";
+import { fetchJson } from "@/lib/fetch-json";
 
 interface SourceStatus { source: string; label: string; built: boolean; enabled: boolean; lastSyncAt: string | null }
-const fetchJson = (u: string) => fetch(u).then((r) => r.json());
 
 export function SourceCoverage() {
   const { data } = useSWR<{ sources: SourceStatus[] }>("/api/power-trades/coverage", fetchJson, { revalidateOnFocus: false });

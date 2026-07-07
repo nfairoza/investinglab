@@ -3,6 +3,8 @@
 import React, { useMemo, useState } from "react";
 import useSWR from "swr";
 import { Search, RefreshCw, Trash2, AlertTriangle } from "lucide-react";
+import { fetchJson } from "@/lib/fetch-json";
+import { ErrorState } from "../data-state";
 
 interface ErrorRow {
   id: string;
@@ -18,8 +20,6 @@ interface ErrorRow {
   created_at: string;
 }
 interface Resp { rows: ErrorRow[]; total: number; categories: string[]; error?: string }
-
-const fetchJson = (u: string) => fetch(u).then((r) => r.json());
 
 const CAT_CLS: Record<string, string> = {
   ai: "border-violet-500/40 bg-violet-500/10 text-violet-300",
@@ -52,7 +52,7 @@ export function AdminErrors() {
     return p.toString();
   }, [category, severity, q, from, to]);
 
-  const { data, isLoading, mutate } = useSWR<Resp>(`/api/admin/errors?${qs}`, fetchJson, { revalidateOnFocus: false, keepPreviousData: true });
+  const { data, error, isLoading, mutate } = useSWR<Resp>(`/api/admin/errors?${qs}`, fetchJson, { revalidateOnFocus: false, keepPreviousData: true });
   const rows = data?.rows ?? [];
   const categories = ["all", ...(data?.categories ?? [])];
 
@@ -124,7 +124,9 @@ export function AdminErrors() {
       </div>
 
       {/* Table */}
-      {data?.error ? (
+      {error ? (
+        <ErrorState error={error} onRetry={() => mutate()} />
+      ) : data?.error ? (
         <div className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-4 text-sm text-amber-200">
           Couldn&apos;t load errors: {data.error}. Make sure migration 0011_error_log.sql is applied and SUPABASE_SECRET_KEY is set.
         </div>

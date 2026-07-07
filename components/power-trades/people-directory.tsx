@@ -4,6 +4,8 @@ import { useState } from "react";
 import useSWR from "swr";
 import { Search, Users, ExternalLink } from "lucide-react";
 import { PersonDetail } from "./person-detail";
+import { fetchJson } from "@/lib/fetch-json";
+import { ErrorState } from "../data-state";
 
 interface Person {
   id: string; canonical_name: string; category: string; party: string | null; state: string | null;
@@ -12,7 +14,6 @@ interface Person {
   in_current_feed?: boolean; empty_reason?: string | null; source_enabled?: boolean;
   covered_by_source?: string | null; is_known_seed?: boolean; oge_url?: string | null;
 }
-const fetchJson = (u: string) => fetch(u).then((r) => r.json());
 
 const CATS = ["all", "congress", "executive", "corporate_insider", "lobbyist", "donor", "celebrity", "other"];
 
@@ -21,7 +22,7 @@ export function PeopleDirectory() {
   const [category, setCategory] = useState("all");
   const [selected, setSelected] = useState<string | null>(null);
   const qs = new URLSearchParams({ q, category, limit: "150" }).toString();
-  const { data, isLoading } = useSWR<{ rows: Person[] }>(`/api/power-trades/people?${qs}`, fetchJson, { revalidateOnFocus: false, keepPreviousData: true });
+  const { data, error, isLoading, mutate } = useSWR<{ rows: Person[] }>(`/api/power-trades/people?${qs}`, fetchJson, { revalidateOnFocus: false, keepPreviousData: true });
   const rows = data?.rows ?? [];
 
   return (
@@ -38,7 +39,9 @@ export function PeopleDirectory() {
         </select>
       </div>
 
-      {!isLoading && rows.length === 0 && (
+      {error && !data && <ErrorState error={error} onRetry={() => mutate()} />}
+
+      {!error && !isLoading && rows.length === 0 && (
         <div className="rounded-2xl border border-hairline bg-surface p-6 text-center text-sm text-ink-dim">
           <Users size={22} className="mx-auto text-ink-faint" />
           <p className="mt-2">

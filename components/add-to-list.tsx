@@ -3,12 +3,12 @@
 import { useState } from "react";
 import useSWR from "swr";
 import { Plus, X, Check } from "lucide-react";
+import { fetchJson } from "@/lib/fetch-json";
 
 // "+" → add a single symbol to one or more user-created lists. Mirrors the
 // Robinhood "Add to Your Lists" sheet: checkboxes per custom list + create-new.
 // Followed lists are NOT shown (they're live references, not item stores).
 interface ListRow { id: string; name: string; kind: string; count: number }
-const fetchJson = (u: string) => fetch(u).then((r) => r.json());
 
 export function AddToList({ symbol, onClose }: { symbol: string; onClose: () => void }) {
   const { data: lists, mutate } = useSWR<ListRow[]>("/api/watchlists", fetchJson, { revalidateOnFocus: false });

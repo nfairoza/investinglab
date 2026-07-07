@@ -6,12 +6,12 @@ import useSWR from "swr";
 import { Plus, Star, ExternalLink, Trash2, Pencil } from "lucide-react";
 import { WatchlistManager } from "./watchlist-manager";
 import { WatchlistRecs } from "./watchlist-recs";
+import { fetchJson } from "@/lib/fetch-json";
 
 // Multi-list watchlist shell: a list selector across the top, then the selected
 // list's content. Default + custom lists use the editable WatchlistManager;
 // followed (trending) lists link out to their live detail page.
 interface ListRow { id: string; name: string; kind: string; presetKey: string | null; count: number }
-const fetchJson = (u: string) => fetch(u).then((r) => r.json());
 
 export function WatchlistPage() {
   const { data: lists, mutate } = useSWR<ListRow[]>("/api/watchlists", fetchJson, { revalidateOnFocus: false });

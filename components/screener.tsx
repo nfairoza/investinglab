@@ -8,9 +8,12 @@ import { DataBadge } from "./data-state";
 import { useIsAdmin } from "./use-is-admin";
 import { ScreenerFiltersPanel, EMPTY_FILTERS, type ScreenFormFilters } from "./screener-filters";
 import type { DataResult, ScreenerRow, ScreenerFilters } from "@/lib/providers/types";
+import { fetchJson as fetchJsonRaw } from "@/lib/fetch-json";
 
+// The screener endpoint returns a DataResult envelope (with its own `source`/`note`
+// honesty fields) even when data is unavailable, so this read intentionally keeps
+// a non-throwing fetcher — the component reads `data.source` regardless of status.
 const fetchJson = (u: string) => fetch(u).then((r) => r.json() as Promise<DataResult<ScreenerRow[]>>);
-const fetchJsonRaw = (u: string) => fetch(u).then((r) => r.json());
 
 interface PresetCard { key: string; label: string; blurb: string; category: string; filters: ScreenerFilters; image: string }
 interface ListRow { id: string; name: string; kind: string; presetKey: string | null; count: number }

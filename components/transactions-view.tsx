@@ -5,6 +5,8 @@ import { useSearchParams } from "next/navigation";
 import useSWR from "swr";
 import Link from "next/link";
 import { Search, SlidersHorizontal, X, Repeat, Sparkles, AlertTriangle } from "lucide-react";
+import { fetchJson } from "@/lib/fetch-json";
+import { ErrorState } from "./data-state";
 
 interface Txn {
   id: string; date: string; name: string; merchant: string | null;
@@ -12,7 +14,6 @@ interface Txn {
   pending: boolean; isTransfer: boolean; excluded: boolean;
 }
 
-const fetchJson = (u: string) => fetch(u).then((r) => r.json());
 const money = (n: number, c = "USD") => new Intl.NumberFormat(undefined, { style: "currency", currency: c, maximumFractionDigits: 2 }).format(n);
 
 const CATEGORIES = [
@@ -91,7 +92,7 @@ export function TransactionsView() {
   const [flag, setFlag] = useState<FlagFilter>("all");
   const [showFilters, setShowFilters] = useState(false);
 
-  const { data, isLoading, mutate } = useSWR<{ transactions: Txn[]; configured?: boolean }>(
+  const { data, error, isLoading, mutate } = useSWR<{ transactions: Txn[]; configured?: boolean }>(
     "/api/plaid/transactions", fetchJson, { revalidateOnFocus: false },
   );
 
@@ -151,6 +152,7 @@ export function TransactionsView() {
   }
 
   if (data?.configured === false) return <Empty>Bank connections aren&apos;t available yet.</Empty>;
+  if (error && !data) return <ErrorState error={error} onRetry={() => mutate()} />;
   if (!isLoading && txns.length === 0) {
     return <Empty>No transactions yet. <Link href="/settings" className="text-brand-400 underline">Connect a bank</Link> to see your spending here.</Empty>;
   }

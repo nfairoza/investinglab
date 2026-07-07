@@ -3,6 +3,7 @@
 import useSWR from "swr";
 import Link from "next/link";
 import { X, ExternalLink } from "lucide-react";
+import { fetchJson } from "@/lib/fetch-json";
 
 // Inline detail panel for a person in the directory. Reads the SAME local APIs
 // (trades + influence) filtered by name — no navigation, no page reload.
@@ -15,7 +16,6 @@ interface Influence {
   id: string; source: string; record_type: string; source_url: string;
   counterparty_name: string | null; issue_or_industry: string | null; amount_label: string | null; cycle_or_year: string | null; state: string | null;
 }
-const fetchJson = (u: string) => fetch(u).then((r) => r.json());
 
 const TYPE_CLS: Record<string, string> = {
   buy: "border-emerald-500/40 text-emerald-300", sell: "border-rose-500/40 text-rose-300",

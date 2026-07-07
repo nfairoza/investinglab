@@ -4,6 +4,7 @@ import { useCallback, useState } from "react";
 import useSWR from "swr";
 import { usePlaidLink } from "react-plaid-link";
 import { Landmark, Plus, Trash2, ChevronDown } from "lucide-react";
+import { fetchJson } from "@/lib/fetch-json";
 
 // Plaid Link locks page scroll while open (sets overflow/position on body) and
 // occasionally fails to restore it if the flow ends abruptly. Fully reset the
@@ -31,8 +32,6 @@ interface Status { configured: boolean; items: StatusItem[] }
 const TYPE_LABEL: Record<string, string> = {
   depository: "Cash", credit: "Credit card", loan: "Loan", investment: "Investment", brokerage: "Brokerage", other: "Account",
 };
-
-const fetchJson = (u: string) => fetch(u).then((r) => r.json());
 
 // Reusable Plaid "connect" button — fetches a link token then opens Plaid Link.
 // Exported so empty states across Invest/Money can nudge users to connect.

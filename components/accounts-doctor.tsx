@@ -7,6 +7,7 @@ import {
   Stethoscope, RefreshCw, Scissors, ArrowRight, Eye, AlertTriangle, Lightbulb,
   PiggyBank, Repeat, Wallet, TrendingDown, ShieldCheck,
 } from "lucide-react";
+import { fetchJson } from "@/lib/fetch-json";
 
 interface Analysis { summary: string; cut: string[]; redirect: string[]; watch: string[]; alarming?: string[]; ideas?: string[] }
 interface DoctorResp { analysis: Analysis | null; model: string | null; generatedAt: string | null; cached?: boolean }
@@ -21,7 +22,6 @@ interface AdvisorResp { result?: {
   spending: { available: boolean; monthIncome: number; monthExpenses: number; net: number; recurring: { merchant: string; amount: number; months: number }[]; topCategories: { category: string; amount: number }[] };
 } }
 
-const fetchJson = (u: string) => fetch(u).then((r) => r.json());
 const money = (n: number | null | undefined) => n == null ? "—" : new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n);
 
 export function AccountsDoctor() {

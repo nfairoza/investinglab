@@ -4,6 +4,8 @@ import { useState } from "react";
 import useSWR from "swr";
 import { RefreshCw, ShieldCheck } from "lucide-react";
 import { ManualExecutiveEntry } from "./manual-executive-entry";
+import { fetchJson } from "@/lib/fetch-json";
+import { ErrorState } from "../data-state";
 
 interface Diag {
   provider: string; fmpKeyConfigured: boolean;
@@ -19,11 +21,10 @@ interface Diag {
   runs: { id: string; source: string; started_at: string; finished_at: string | null; rows_ingested: number; rows_normalized: number; errors: number; note: string | null }[];
   error?: string;
 }
-const fetchJson = (u: string) => fetch(u).then((r) => r.json());
 
 // ADMIN ONLY (gated by the parent tab + the API route).
 export function SourceDiagnostics() {
-  const { data, mutate, isLoading } = useSWR<Diag>("/api/power-trades/diagnostics", fetchJson, { revalidateOnFocus: false });
+  const { data, error, mutate, isLoading } = useSWR<Diag>("/api/power-trades/diagnostics", fetchJson, { revalidateOnFocus: false });
   const [syncing, setSyncing] = useState(false);
   const [syncMsg, setSyncMsg] = useState<string | null>(null);
 
@@ -45,6 +46,7 @@ export function SourceDiagnostics() {
     finally { setSyncing(false); }
   }
 
+  if (error && !data) return <ErrorState error={error} onRetry={() => mutate()} />;
   if (data?.error) return <div className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-4 text-sm text-amber-200">Diagnostics unavailable: {data.error}. Apply migration 0012_power_trades.sql and set SUPABASE_SECRET_KEY.</div>;
 
   return (

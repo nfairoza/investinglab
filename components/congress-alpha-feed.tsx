@@ -4,8 +4,9 @@ import { useState, useRef } from "react";
 import Link from "next/link";
 import useSWR from "swr";
 import { Landmark, TrendingUp, TrendingDown, ExternalLink, Info, Users, X, ArrowUp, ArrowDown } from "lucide-react";
-import { DataBadge, DataTimestamp } from "./data-state";
+import { DataBadge, DataTimestamp, ErrorState } from "./data-state";
 import { MotionLoader } from "./motion-loader";
+import { fetchJson as fetcher } from "@/lib/fetch-json";
 import type { DataSource } from "@/lib/providers/types";
 
 interface ScoredTrade {
@@ -60,8 +61,6 @@ const WINDOWS: { days: number; label: string }[] = [
   { days: 365, label: "1yr" },
 ];
 
-const fetcher = (u: string) => fetch(u).then((r) => r.json());
-
 const TIER_CLS: Record<string, string> = {
   HIGH: "border-emerald-500/50 bg-emerald-500/10 text-emerald-300",
   MEDIUM: "border-amber-500/50 bg-amber-500/10 text-amber-300",
@@ -107,7 +106,7 @@ export function CongressAlphaFeed() {
   // guarantees every window is a strict subset of the same dataset (6mo always
   // contains 90d, etc.) — fixes windows that sometimes showed no data — and
   // makes switching windows instant (no refetch).
-  const { data, isLoading, isValidating, mutate } = useSWR<AlphaResult>(`/api/congress/alpha?limit=400&days=365`, fetcher, {
+  const { data, error, isLoading, isValidating, mutate } = useSWR<AlphaResult>(`/api/congress/alpha?limit=400&days=365`, fetcher, {
     revalidateOnFocus: false,
     keepPreviousData: true,
   });
@@ -269,6 +268,8 @@ export function CongressAlphaFeed() {
           Committee roster unavailable{data.rosterNote ? ` (${data.rosterNote})` : ""} — committee-edge scoring is paused; scores reflect capital + clustering only.
         </div>
       )}
+
+      {error && !data && <ErrorState error={error} onRetry={() => mutate()} />}
 
       {isLoading && <MotionLoader page="congress" height={240} label="Scoring disclosures, joining committees, and reading the tape…" />}
 

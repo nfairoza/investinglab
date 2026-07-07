@@ -5,6 +5,7 @@ import Link from "next/link";
 import useSWR from "swr";
 import { User, FileText, Settings as SettingsIcon, HelpCircle, LogOut, Shield } from "lucide-react";
 import { ADMIN_SECTION } from "@/lib/nav";
+import { fetchJson } from "@/lib/fetch-json";
 
 interface Me {
   authenticated?: boolean;
@@ -13,8 +14,6 @@ interface Me {
   avatarUrl?: string | null;
   fullName?: string | null;
 }
-
-const fetchJson = (u: string) => fetch(u).then((r) => r.json());
 
 // Top-right account menu (Vercel / Robinhood / Google style): avatar button that
 // opens a dropdown with the user's identity + quick links + sign out.

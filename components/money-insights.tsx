@@ -4,6 +4,7 @@ import useSWR from "swr";
 import Link from "next/link";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { TrendingUp, TrendingDown, Sparkles, AlertTriangle, ArrowUpRight, ArrowDownRight, Repeat, Wallet, CircleSlash } from "lucide-react";
+import { fetchJson } from "@/lib/fetch-json";
 
 interface CategoryAnomaly { category: string; thisMonth: number; typicalMonth: number; deltaPct: number; deltaAmount: number; isNew: boolean; direction: "up" | "down" }
 interface BillChange { merchant: string; previousAmount: number; newAmount: number; deltaPct: number; deltaAmount: number; stableMonths: number; changedOn: string; direction: "up" | "down" }
@@ -11,7 +12,6 @@ interface BillTrend { merchant: string; points: { month: string; amount: number 
 interface IncomeChange { source: string; kind: "raised" | "lowered" | "stopped"; previousAmount: number; newAmount: number; deltaPct: number; deltaAmount: number; stableMonths: number; lastSeen: string }
 interface Insights { available: boolean; monthsOfData: number; categoryAnomalies: CategoryAnomaly[]; billChanges: BillChange[]; billTrends: BillTrend[]; incomeChanges: IncomeChange[] }
 
-const fetchJson = (u: string) => fetch(u).then((r) => r.json());
 const money = (n: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n);
 const money2 = (n: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 2 }).format(n);
 
