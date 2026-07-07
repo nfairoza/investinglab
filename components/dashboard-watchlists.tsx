@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import useSWR from "swr";
 import Link from "next/link";
 import { Eye, ChevronRight, ChevronDown } from "lucide-react";
-import { GlassCard } from "./ui/primitives";
+import { Card } from "./ui/primitives";
 
 async function fetchJson<T>(url: string): Promise<T> {
   const r = await fetch(url);
@@ -70,15 +70,15 @@ export function DashboardWatchlists() {
   const hasAny = Array.isArray(lists) && lists.length > 0;
 
   return (
-    <GlassCard hover>
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2 text-sm font-semibold text-ink"><Eye size={15} className="text-accent" /> Watchlist</div>
-        <Link href="/watchlist" className="text-xs text-accent hover:underline">Open</Link>
-      </div>
+    <Card
+      icon={<Eye size={15} className="text-accent" />}
+      title="Watchlist"
+      headerRight={<Link href="/watchlist" className="text-xs text-accent hover:underline">Open</Link>}
+    >
       {!hasAny ? (
-        <p className="mt-2 text-sm text-ink-faint">Nothing on your watchlist yet.</p>
+        <p className="text-sm text-ink-faint">Nothing on your watchlist yet.</p>
       ) : (
-        <div className="mt-2 space-y-1.5">
+        <div className="space-y-1.5">
           {lists!.map((l) => (
             <ListRow
               key={l.id}
@@ -89,6 +89,6 @@ export function DashboardWatchlists() {
           ))}
         </div>
       )}
-    </GlassCard>
+    </Card>
   );
 }

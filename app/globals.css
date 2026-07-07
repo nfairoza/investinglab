@@ -267,6 +267,15 @@ a, button, input, select, textarea {
 @keyframes scaleIn  { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: scale(1); } }
 @keyframes floatPetal { 0%,100% { transform: translateY(0) rotate(0deg); } 50% { transform: translateY(-3px) rotate(4deg); } }
 @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+/* Shimmer skeleton (P4): a moving sheen over surface-raised. Reduced-motion
+   users get a static tint (the global reduced-motion block near-zeroes the
+   animation duration). */
+.skeleton {
+  background: linear-gradient(90deg, var(--surface-raised) 25%, var(--surface) 37%, var(--surface-raised) 63%);
+  background-size: 400% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+  border-radius: 0.375rem;
+}
 @keyframes heroZoom { from { transform: scale(1.08); } to { transform: scale(1); } }
 @keyframes ai-spin { to { transform: rotate(360deg); } }
 
@@ -472,6 +481,45 @@ html.light [class*="text-emerald-300/"] { color: #047857; }
 .chat-md li { margin: 0.1rem 0; }
 .chat-md pre { white-space: pre-wrap; }
 .chat-md strong { color: var(--text); }
+
+/* Chat tables — horizontally scrollable so wide breakdowns never overflow the
+   bubble. The wrapper owns the scroll; the table sizes to its content. */
+.chat-table-wrap {
+  margin: 0.5rem 0;
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border: 1px solid var(--hairline);
+  border-radius: 0.6rem;
+  background: var(--surface);
+}
+.chat-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  line-height: 1.35;
+  white-space: nowrap;
+}
+.chat-table th,
+.chat-table td {
+  padding: 0.4rem 0.6rem;
+  border-bottom: 1px solid var(--hairline);
+  vertical-align: top;
+}
+.chat-table thead th {
+  position: sticky;
+  top: 0;
+  background: var(--surface-raised, var(--surface));
+  color: var(--text);
+  font-weight: 600;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+.chat-table tbody tr:last-child td { border-bottom: 0; }
+.chat-table tbody tr:hover { background: rgba(127, 127, 127, 0.08); }
+.chat-table a { color: var(--accent); }
 
 /* ── Flip card (Opportunities "why" reveal) ──────────────────────────────────
    A 3D flip on the Y axis. The wrapper sets perspective; the inner rotates;

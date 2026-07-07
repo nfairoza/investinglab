@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import clsx from "clsx";
+import { DataBadge, DataTimestamp } from "../data-state";
 
 // =============================================================================
 // Primitive component library — the single component system for the rebuild.
@@ -74,7 +75,9 @@ export function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
 
 // ── Skeleton ─────────────────────────────────────────────────────────────────
 export function Skeleton({ className }: { className?: string }) {
-  return <div className={clsx("animate-pulse rounded-md", className)} style={{ background: "var(--surface-raised)" }} />;
+  // Shimmer sheen over surface-raised (P4); reduced-motion falls back to a
+  // static tint via the global reduced-motion rule.
+  return <div className={clsx("skeleton", className)} />;
 }
 
 // ── EmptyState (botanical) ───────────────────────────────────────────────────
@@ -114,6 +117,49 @@ export function ChartFrame({
         <div className="mt-3">{children}</div>
       )}
       {timestamp && <div className="mt-2">{timestamp}</div>}
+    </GlassCard>
+  );
+}
+
+// ── Card: the unified card grammar (P4) ──────────────────────────────────────
+// One card shell for dashboard/overview/money surfaces: consistent padding, a
+// header row (title + optional freshness/source chips on the right) and an
+// optional footer action. Pass `asOf`/`source` to show DataResult honesty chips
+// inline — every data surface can carry its freshness without bespoke markup.
+export function Card({
+  title, icon, asOf, source, headerRight, footer, hover = true, className, bodyClassName, children,
+}: {
+  title?: React.ReactNode;
+  icon?: React.ReactNode;
+  asOf?: string | null;
+  source?: import("@/lib/providers/types").DataSource;
+  headerRight?: React.ReactNode;
+  footer?: React.ReactNode;
+  hover?: boolean;
+  className?: string;
+  bodyClassName?: string;
+  children: React.ReactNode;
+}) {
+  const hasHeader = title != null || headerRight != null || asOf != null || source != null || icon != null;
+  return (
+    <GlassCard hover={hover} className={className}>
+      {hasHeader && (
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-2">
+            {icon}
+            {title != null && (typeof title === "string"
+              ? <h2 className="truncate text-sm font-semibold text-ink">{title}</h2>
+              : title)}
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            {asOf !== undefined && <DataTimestamp asOf={asOf} />}
+            {source != null && <DataBadge source={source} />}
+            {headerRight}
+          </div>
+        </div>
+      )}
+      <div className={clsx(hasHeader && "mt-3", bodyClassName)}>{children}</div>
+      {footer && <div className="mt-3 border-t border-hairline pt-3">{footer}</div>}
     </GlassCard>
   );
 }
