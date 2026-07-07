@@ -31,10 +31,11 @@ Phases 0, 1, 2, and 5 of the hardening spec are done. Still open:
   eliminate the ~113 `: any` usages. (Rate limiting + headers + error hygiene done.)
 - **P2 chat rate limit** — apply guardAiRate to the chat AI route (skipped to
   avoid a concurrent-edit conflict on app/api/chat/route.ts).
-- **P3 FMP batch quotes** — use FMP batch-quote endpoints where many symbols are
-  requested (watchlist/screener/rankings); per-endpoint TTLs via server_cache;
-  provider-health strip on /connectors. (Retry/backoff/429-cooldown/dedup already
-  exist in lib/providers/fmp.ts.)
+- **P3 FMP data quality** — DONE. Per-endpoint cache TTLs (quotes 60s /
+  fundamentals 24h / profile 7d), batch quotes (fmpProvider.getQuotes +
+  marketData.getQuotes + /api/quotes; wired into rankings, dashboard-data,
+  watchlist), and a provider-health strip on /connectors. (Retry/backoff/
+  429-cooldown/dedup already existed.)
 - **P4 visual redesign** — unified Card primitive with source+freshness chip,
   KPI hero rows, chart-theme routing, skeleton/empty/error polish, micro-
   interactions, mobile + a11y pass.
