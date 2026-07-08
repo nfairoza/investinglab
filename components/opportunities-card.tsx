@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Sparkles, TrendingUp, TrendingDown, RefreshCw, Landmark, Info, RotateCcw } from "lucide-react";
-import { MotionLoader } from "./motion-loader";
+import { AmbientLoader } from "./ambient-loader";
 import { useIsAdmin } from "./use-is-admin";
 import { friendlyMessage } from "./data-state";
 
@@ -144,7 +144,7 @@ export function OpportunitiesCard() {
           : "AI researches the market with your available cash, holdings, and watchlist — then suggests where to deploy it. Not financial advice."}
       </p>
 
-      {busy && !result && <div className="mt-3"><MotionLoader page="predictions" height={200} label="Researching the market and your portfolio…" /></div>}
+      {busy && !result && <div className="mt-3"><AmbientLoader variant="default" height={200} messages={["Researching the market…", "Reading your portfolio…", "Finding opportunities…"]} /></div>}
 
       {error && (
         <div className="mt-3 rounded-lg border border-rose-500/30 bg-rose-500/5 p-3 text-sm text-rose-300">

@@ -22,7 +22,7 @@ import type { ResearchReport } from "@/lib/research/types";
 type DR<T> = DataResult<T>;
 import { useState, useEffect, useRef } from "react";
 import { freshness } from "@/lib/research/staleness";
-import { MotionLoader } from "./motion-loader";
+import { AmbientLoader } from "./ambient-loader";
 
 async function getJson<T>(url: string): Promise<T> {
   const r = await fetch(url);
@@ -215,7 +215,7 @@ export function HoldingDetail({ symbol }: { symbol: string }) {
         </div>
 
         {memoGenerating && !report && (
-          <div className="mt-4"><MotionLoader page="research" height={220} label="Writing the deep-dive memo — reading financials and recent news…" /></div>
+          <div className="mt-4"><AmbientLoader variant="research" ticker={symbol} height={220} messages={["Reading financials…", "Scanning recent news…", "Writing the deep-dive memo…"]} /></div>
         )}
 
         {noKey && !report && !memoGenerating && (

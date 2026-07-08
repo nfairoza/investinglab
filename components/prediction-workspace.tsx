@@ -5,7 +5,7 @@ import { usePersistedState } from "@/lib/use-persisted-state";
 import { DataBadge } from "./data-state";
 import { useIsAdmin } from "./use-is-admin";
 import { TickerInput } from "./ticker-input";
-import { MotionLoader } from "./motion-loader";
+import { AmbientLoader } from "./ambient-loader";
 import type { DataSource } from "@/lib/providers/types";
 
 interface Horizon {
@@ -120,7 +120,7 @@ export function PredictionWorkspace({ initial = "AMD" }: { initial?: string }) {
         )}
       </div>
 
-      {busy && <MotionLoader page="predictions" height={210} />}
+      {busy && <AmbientLoader variant="research" ticker={draft || undefined} height={210} messages={["Pulling the latest data…", "Reading recent news…", "Modeling the prediction…"]} />}
 
       {error && (
         <div className="rounded-lg border border-rose-500/30 bg-rose-500/5 p-4 text-sm text-rose-300">

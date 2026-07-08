@@ -10,7 +10,7 @@ import { RecommendationGauge } from "./charts/RecommendationGauge";
 import { ScenarioRangeChart } from "./charts/ScenarioRangeChart";
 import { RevenueEarningsChart } from "./charts/RevenueEarningsChart";
 import { MarginChart } from "./charts/MarginChart";
-import { MotionLoader } from "./motion-loader";
+import { AmbientLoader } from "./ambient-loader";
 import { useIsAdmin } from "./use-is-admin";
 
 async function getReport(url: string): Promise<DataResult<ResearchReport>> {
@@ -114,7 +114,7 @@ export function ResearchPanel({ symbol, autoRun = true }: { symbol: string; auto
 
       {/* Auto-generating (or manual generate) — show the motion loader. */}
       {generating && !report && (
-        <div className="mt-4"><MotionLoader page="research" height={220} label="Writing the deep-dive memo — reading financials and recent news…" /></div>
+        <div className="mt-4"><AmbientLoader variant="research" ticker={symbol} height={220} messages={["Reading financials…", "Scanning recent news…", "Writing the deep-dive memo…"]} /></div>
       )}
 
       {/* Only when we truly can't generate (no AI key) do we show the prompt. */}

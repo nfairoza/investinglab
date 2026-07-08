@@ -8,7 +8,7 @@ import { Stethoscope, TrendingUp, TrendingDown, ArrowRight } from "lucide-react"
 import { DataBadge, friendlyMessage } from "./data-state";
 import { useIsAdmin } from "./use-is-admin";
 import { AllocationDonut } from "./charts/AllocationDonut";
-import { MotionLoader } from "./motion-loader";
+import { AmbientLoader } from "./ambient-loader";
 import type { Holding } from "@/lib/db";
 import type { DataSource } from "@/lib/providers/types";
 
@@ -145,7 +145,7 @@ export function PortfolioDoctor() {
       </div>
 
       {busy && (
-        <MotionLoader page="doctor" height={220} label="Scoring each holding, pulling live data, and searching recent news…" />
+        <AmbientLoader variant="default" height={220} messages={["Scoring each holding…", "Pulling live data…", "Searching recent news…"]} />
       )}
 
       {error && (

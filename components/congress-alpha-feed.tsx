@@ -5,7 +5,7 @@ import Link from "next/link";
 import useSWR from "swr";
 import { Landmark, TrendingUp, TrendingDown, ExternalLink, Info, Users, X, ArrowUp, ArrowDown } from "lucide-react";
 import { DataBadge, DataTimestamp, ErrorState } from "./data-state";
-import { MotionLoader } from "./motion-loader";
+import { AmbientLoader } from "./ambient-loader";
 import { fetchJson as fetcher } from "@/lib/fetch-json";
 import type { DataSource } from "@/lib/providers/types";
 import { Card } from "./ui/primitives";
@@ -272,7 +272,7 @@ export function CongressAlphaFeed() {
 
       {error && !data && <ErrorState error={error} onRetry={() => mutate()} />}
 
-      {isLoading && <MotionLoader page="congress" height={240} label="Scoring disclosures, joining committees, and reading the tape…" />}
+      {isLoading && <AmbientLoader variant="powertrades" height={240} messages={["Scoring disclosures…", "Joining committees to sectors…", "Reading the tape…"]} />}
 
       {!isLoading && data && (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">

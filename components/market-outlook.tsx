@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Sparkles, RefreshCw, TrendingUp, TrendingDown, Minus } from "lucide-react";
-import { MotionLoader } from "./motion-loader";
+import { AmbientLoader } from "./ambient-loader";
 
 interface Idea {
   ticker: string;
@@ -89,7 +89,7 @@ export function MarketOutlook() {
         </div>
       </div>
 
-      {busy && !result && <MotionLoader page="predictions" height={240} label="Researching the market and your portfolio…" />}
+      {busy && !result && <AmbientLoader variant="default" height={240} messages={["Researching the market…", "Reading your portfolio…", "Weighing the signals…"]} />}
 
       {error && (
         <div className="rounded-lg border border-rose-500/30 bg-rose-500/5 p-3 text-sm text-rose-300">

@@ -280,41 +280,73 @@ a, button, input, select, textarea {
 @keyframes heroZoom { from { transform: scale(1.08); } to { transform: scale(1); } }
 @keyframes ai-spin { to { transform: rotate(360deg); } }
 
-/* ── Seamless motion-graphic loaders (loop perfectly by construction) ──────── */
-/* Scroll a tiled pattern by exactly one tile (40px) → no visible seam. */
-@keyframes mg-scroll-x { from { background-position: 0 0; } to { background-position: 40px 0; } }
-@keyframes mg-scroll-diag { from { background-position: 0 0; } to { background-position: 40px 40px; } }
-/* A dash travelling along a path, looping via stroke-dashoffset wrap. */
-@keyframes mg-dash { to { stroke-dashoffset: -1000; } }
-@keyframes mg-rotate { to { transform: rotate(360deg); } }
-@keyframes mg-rotate-rev { to { transform: rotate(-360deg); } }
-/* Pulse a ring outward, fading — staggered copies make a continuous radar. */
-@keyframes mg-radar { 0% { transform: scale(0.2); opacity: 0.55; } 100% { transform: scale(1); opacity: 0; } }
-/* Equalizer bars rising/falling — symmetric so the loop is seamless. */
-@keyframes mg-bar { 0%,100% { transform: scaleY(0.35); } 50% { transform: scaleY(1); } }
-/* Gentle drift for floating nodes. */
-@keyframes mg-float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
-/* Dot-matrix twinkle: fade + tiny scale, symmetric so it loops seamlessly. */
-@keyframes mg-twinkle { 0%,100% { opacity: 0.15; transform: scale(0.7); } 50% { opacity: 1; transform: scale(1.15); } }
-/* Node ping: expand + fade outward (network mesh). */
-@keyframes mg-ping { 0% { transform: scale(0.4); opacity: 0.5; } 100% { transform: scale(1.6); opacity: 0; } }
-/* Sheen sweep across a gradient. */
-@keyframes mg-sheen { 0% { background-position: -150% 0; } 100% { background-position: 250% 0; } }
-/* ── Flat-2D explainer motion (colorful, looped by construction) ───────────── */
-/* Gentle bob for floating shapes (vary delay for an organic feel). */
-@keyframes mg-bob { 0%,100% { transform: translateY(0) rotate(0deg); } 50% { transform: translateY(-10px) rotate(3deg); } }
-/* Grow bars up from baseline and back — staggered = a rising/falling skyline. */
-@keyframes mg-grow { 0%,100% { transform: scaleY(0.45); } 50% { transform: scaleY(1); } }
-/* Slow full spin for sun/gear motifs. */
-@keyframes mg-spin-slow { to { transform: rotate(360deg); } }
-/* Pop in/out scale for confetti dots. */
-@keyframes mg-pop { 0%,100% { transform: scale(0.5); opacity: 0.5; } 50% { transform: scale(1); opacity: 1; } }
-/* Drift a cloud/shape horizontally and wrap (translate by its own width). */
-@keyframes mg-drift { from { transform: translateX(-30px); } to { transform: translateX(30px); } }
-/* Rain/line streak falling. */
-@keyframes mg-fall { 0% { transform: translateY(-14px); opacity: 0; } 30% { opacity: 1; } 100% { transform: translateY(20px); opacity: 0; } }
-/* Wide ribbon wave — translateX by one wavelength for a seamless flow. */
-@keyframes mg-flow { from { transform: translateX(0); } to { transform: translateX(-200px); } }
+/* ── AmbientLoader — the single full-region loading treatment ───────────────── */
+/* Design DNA only: teal->green line-work, soft glow, "living market graph".
+   NOTE (motion spec exception): the app's general rule is "no looping animations".
+   These ambient loops are the sole permitted exception — they run ONLY while a
+   region is in a loading state and stop on content arrival (the caller unmounts
+   the loader; a 200ms crossfade eases it in). No canvas; CSS/SVG transforms +
+   opacity only. All of it pauses under prefers-reduced-motion (see block below). */
+.ambient-loader {
+  position: relative; width: 100%; display: flex; align-items: center; justify-content: center;
+  overflow: hidden; animation: amb-crossfade 200ms var(--ease-out, ease) both;
+  /* Fade at the edges so it reads as the page breathing, not a boxed widget. */
+  -webkit-mask-image: radial-gradient(120% 100% at 50% 50%, #000 55%, transparent 100%);
+  mask-image: radial-gradient(120% 100% at 50% 50%, #000 55%, transparent 100%);
+}
+.ambient-static { position: absolute; inset: 0; opacity: 0; }
+.ambient-motion { position: absolute; inset: 0; }
+.ambient-svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.ambient-caption { position: relative; z-index: 1; display: inline-flex; align-items: baseline; gap: 2px; text-align: center; padding: 0 1rem; }
+
+/* Watermark ticker behind the graph, in the section accent, ~4% opacity. */
+.ambient-watermark {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-display, inherit); font-weight: 800; font-size: 34%;
+  letter-spacing: -0.03em; opacity: 0.04; line-height: 1; user-select: none;
+}
+.ambient-watermark { font-size: clamp(90px, 22vw, 220px); }
+
+/* Depth via parallax: far layer drifts slower + smaller amplitude than near. */
+.ambient-far  { animation: amb-drift-far 20s ease-in-out infinite alternate; }
+.ambient-near { animation: amb-drift-near 14s ease-in-out infinite alternate; }
+@keyframes amb-drift-far  { from { transform: translate3d(-6px, 3px, 0); } to { transform: translate3d(6px, -3px, 0); } }
+@keyframes amb-drift-near { from { transform: translate3d(10px, -5px, 0); } to { transform: translate3d(-10px, 5px, 0); } }
+
+/* Nodes breathe (opacity + tiny scale); links fade in/out as the graph re-links. */
+.ambient-node { transform-box: fill-box; transform-origin: center; animation: amb-pulse 6s ease-in-out infinite; }
+.ambient-link { animation: amb-link 8s ease-in-out infinite; }
+@keyframes amb-pulse { 0%,100% { opacity: 0.35; } 50% { opacity: 1; } }
+@keyframes amb-link  { 0%,100% { opacity: 0.08; } 50% { opacity: 0.5; } }
+
+/* Research: slow horizontal scan-line sweep (reading). */
+.ambient-scan { animation: amb-scan 7s linear infinite; }
+@keyframes amb-scan { 0% { transform: translateX(0); } 100% { transform: translateX(920px); } }
+
+/* Power Trades: radar-sweep pulse ordering comes from per-node delay (set inline);
+   a longer, sharper pulse gives the sweep feel. */
+.ambient-radar { animation: amb-radar 4s ease-out infinite; }
+@keyframes amb-radar { 0% { opacity: 1; } 25% { opacity: 1; } 60%,100% { opacity: 0.25; } }
+
+/* Money: the near layer flows gently downstream (left→right) and wraps. */
+.ambient-flow { animation: amb-drift-near 14s ease-in-out infinite alternate, amb-flow 16s linear infinite; }
+@keyframes amb-flow { from { transform: translateX(-14px); } to { transform: translateX(14px); } }
+
+/* Animated ellipsis after the status copy. */
+.ambient-ellipsis { display: inline-flex; }
+.ambient-ellipsis span { opacity: 0; color: var(--text-dim); animation: amb-ellipsis 1.4s infinite; }
+.ambient-ellipsis span:nth-child(2) { animation-delay: 0.2s; }
+.ambient-ellipsis span:nth-child(3) { animation-delay: 0.4s; }
+@keyframes amb-ellipsis { 0% { opacity: 0; } 50% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes amb-crossfade { from { opacity: 0; } to { opacity: 1; } }
+
+/* Reduced motion: kill all ambient loops, show the static gradient + text only. */
+@media (prefers-reduced-motion: reduce) {
+  .ambient-loader { animation: none; }
+  .ambient-motion { display: none; }
+  .ambient-static { opacity: 1; }
+}
+
 @keyframes ai-pulse { 0%,100% { transform: scale(0.86); opacity: 0.75; } 50% { transform: scale(1.08); opacity: 1; } }
 @keyframes ai-bounce { 0%,100% { transform: translateY(0); opacity: 0.5; } 50% { transform: translateY(-4px); opacity: 1; } }
 
