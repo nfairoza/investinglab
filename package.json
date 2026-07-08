@@ -9,7 +9,8 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "smoke": "node scripts/smoke.mjs"
+    "smoke": "node scripts/smoke.mjs",
+    "art": "node scripts/generate-art.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.0",
@@ -37,6 +38,7 @@
     "@types/react-dom": "18.3.0",
     "autoprefixer": "10.4.20",
     "postcss": "8.4.47",
+    "sharp": "^0.35.3",
     "tailwindcss": "3.4.12",
     "typescript": "5.6.2",
     "vitest": "^2.1.9"
