@@ -1,0 +1,387 @@
+{
+  "style": "Style: dark charcoal near-black background (#0A0C0F), brand teal-to-green gradient accents (#0EA6C9 through #16D27E), thin luminous line-work with soft glow, abstract geometric/financial motifs, generous negative space, flat and minimal, premium fintech. Absolutely no text, no letters, no numbers, no human faces, no logos, no brand names. Centered composition with dark margins.",
+  "generatedWith": "gemini-2.5-flash-image",
+  "assets": [
+    {
+      "name": "empty-watchlist",
+      "placement": "empty:watchlist",
+      "display": {
+        "w": 480,
+        "h": 360
+      },
+      "scales": [
+        1,
+        2
+      ],
+      "files": [
+        "empty-watchlist@1x.avif",
+        "empty-watchlist@1x.webp",
+        "empty-watchlist@2x.avif",
+        "empty-watchlist@2x.webp"
+      ],
+      "prompt": "Abstract: a sparse constellation of glowing data points connected by faint lines, one point brighter — a watchlist forming."
+    },
+    {
+      "name": "empty-banks",
+      "placement": "empty:accounts",
+      "display": {
+        "w": 480,
+        "h": 360
+      },
+      "scales": [
+        1,
+        2
+      ],
+      "files": [
+        "empty-banks@1x.avif",
+        "empty-banks@1x.webp",
+        "empty-banks@2x.avif",
+        "empty-banks@2x.webp"
+      ],
+      "prompt": "Abstract: two faint interlocking geometric arches like a bridge between nodes, a single glowing link forming — 'connect an account'."
+    },
+    {
+      "name": "empty-transactions",
+      "placement": "empty:transactions",
+      "display": {
+        "w": 480,
+        "h": 360
+      },
+      "scales": [
+        1,
+        2
+      ],
+      "files": [
+        "empty-transactions@1x.avif",
+        "empty-transactions@1x.webp",
+        "empty-transactions@2x.avif",
+        "empty-transactions@2x.webp"
+      ],
+      "prompt": "Abstract: gentle horizontal flow lines drifting left to right with a few glowing dots, like a quiet ledger stream."
+    },
+    {
+      "name": "empty-journal",
+      "placement": "empty:journal",
+      "display": {
+        "w": 480,
+        "h": 360
+      },
+      "scales": [
+        1,
+        2
+      ],
+      "files": [
+        "empty-journal@1x.avif",
+        "empty-journal@1x.webp",
+        "empty-journal@2x.avif",
+        "empty-journal@2x.webp"
+      ],
+      "prompt": "Abstract: a single thin ascending path with faint milestone dots, generous empty space — a blank journal."
+    },
+    {
+      "name": "empty-alerts",
+      "placement": "empty:alerts",
+      "display": {
+        "w": 480,
+        "h": 360
+      },
+      "scales": [
+        1,
+        2
+      ],
+      "files": [
+        "empty-alerts@1x.avif",
+        "empty-alerts@1x.webp",
+        "empty-alerts@2x.avif",
+        "empty-alerts@2x.webp"
+      ],
+      "prompt": "Abstract: a radar-sweep motif — concentric faint arcs with one glowing point on the ring."
+    },
+    {
+      "name": "empty-follows",
+      "placement": "empty:follows",
+      "display": {
+        "w": 480,
+        "h": 360
+      },
+      "scales": [
+        1,
+        2
+      ],
+      "files": [
+        "empty-follows@1x.avif",
+        "empty-follows@1x.webp",
+        "empty-follows@2x.avif",
+        "empty-follows@2x.webp"
+      ],
+      "prompt": "Abstract: a small central node with faint orbit rings and a few unlit satellite points — nothing followed yet."
+    },
+    {
+      "name": "empty-screener",
+      "placement": "empty:screener",
+      "display": {
+        "w": 480,
+        "h": 360
+      },
+      "scales": [
+        1,
+        2
+      ],
+      "files": [
+        "empty-screener@1x.avif",
+        "empty-screener@1x.webp",
+        "empty-screener@2x.avif",
+        "empty-screener@2x.webp"
+      ],
+      "prompt": "Abstract: a faint grid of points with a soft luminous funnel narrowing to a few highlighted nodes — filtering."
+    },
+    {
+      "name": "empty-insights",
+      "placement": "empty:insights",
+      "display": {
+        "w": 480,
+        "h": 360
+      },
+      "scales": [
+        1,
+        2
+      ],
+      "files": [
+        "empty-insights@1x.avif",
+        "empty-insights@1x.webp",
+        "empty-insights@2x.avif",
+        "empty-insights@2x.webp"
+      ],
+      "prompt": "Abstract: a soft rising glow behind a thin upward line with a gentle spark at the crest — insight forming."
+    },
+    {
+      "name": "persona-money",
+      "placement": "persona:money",
+      "display": {
+        "w": 320,
+        "h": 240
+      },
+      "scales": [
+        1,
+        2
+      ],
+      "files": [
+        "persona-money@1x.avif",
+        "persona-money@1x.webp",
+        "persona-money@2x.avif",
+        "persona-money@2x.webp"
+      ],
+      "prompt": "Abstract: layered rounded bars/coins as stacked glowing plates with soft depth — tracking money."
+    },
+    {
+      "name": "persona-research",
+      "placement": "persona:research",
+      "display": {
+        "w": 320,
+        "h": 240
+      },
+      "scales": [
+        1,
+        2
+      ],
+      "files": [
+        "persona-research@1x.avif",
+        "persona-research@1x.webp",
+        "persona-research@2x.avif",
+        "persona-research@2x.webp"
+      ],
+      "prompt": "Abstract: a magnifier-like ring over a faint candlestick/line lattice — researching stocks."
+    },
+    {
+      "name": "persona-power",
+      "placement": "persona:power",
+      "display": {
+        "w": 320,
+        "h": 240
+      },
+      "scales": [
+        1,
+        2
+      ],
+      "files": [
+        "persona-power@1x.avif",
+        "persona-power@1x.webp",
+        "persona-power@2x.avif",
+        "persona-power@2x.webp"
+      ],
+      "prompt": "Abstract: a domed civic silhouette rendered as pure thin line-work with a glowing data pulse — following official trades."
+    },
+    {
+      "name": "login-hero",
+      "placement": "login:hero",
+      "display": {
+        "w": 1600,
+        "h": 1200
+      },
+      "scales": [
+        1,
+        2
+      ],
+      "files": [
+        "login-hero@1x.avif",
+        "login-hero@1x.webp",
+        "login-hero@2x.avif",
+        "login-hero@2x.webp"
+      ],
+      "prompt": "Very subtle ambient backdrop: sweeping ascending gradient paths and a faint constellation across deep charcoal, low contrast so text overlays cleanly, most of the frame near-black."
+    },
+    {
+      "name": "email-header",
+      "placement": "email:header",
+      "display": {
+        "w": 1200,
+        "h": 400
+      },
+      "scales": [
+        1,
+        2
+      ],
+      "files": [
+        "email-header@1x.avif",
+        "email-header@1x.webp",
+        "email-header@2x.avif",
+        "email-header@2x.webp"
+      ],
+      "prompt": "Wide banner: a gentle ascending line with soft glow and a few data points, lots of dark negative space for an overlaid heading."
+    },
+    {
+      "name": "email-compact",
+      "placement": "email:compact",
+      "display": {
+        "w": 600,
+        "h": 200
+      },
+      "scales": [
+        1,
+        2
+      ],
+      "files": [
+        "email-compact@1x.avif",
+        "email-compact@1x.webp",
+        "email-compact@2x.avif",
+        "email-compact@2x.webp"
+      ],
+      "prompt": "Compact wide banner: a thin luminous upward path across dark charcoal, minimal."
+    },
+    {
+      "name": "og-backdrop",
+      "placement": "og:card",
+      "display": {
+        "w": 1200,
+        "h": 630
+      },
+      "scales": [
+        1,
+        2
+      ],
+      "files": [
+        "og-backdrop@1x.avif",
+        "og-backdrop@1x.webp",
+        "og-backdrop@1x.png",
+        "og-backdrop@2x.avif",
+        "og-backdrop@2x.webp"
+      ],
+      "prompt": "Social-card backdrop: abstract ascending paths + faint grid on charcoal, balanced empty center-left for an overlaid wordmark, premium."
+    },
+    {
+      "name": "divider-portfolio",
+      "placement": "divider:portfolio",
+      "display": {
+        "w": 240,
+        "h": 240
+      },
+      "scales": [
+        1,
+        2
+      ],
+      "files": [
+        "divider-portfolio@1x.avif",
+        "divider-portfolio@1x.webp",
+        "divider-portfolio@2x.avif",
+        "divider-portfolio@2x.webp"
+      ],
+      "prompt": "Small square accent: a compact cluster of glowing allocation arcs (donut-like) in thin line-work."
+    },
+    {
+      "name": "divider-research",
+      "placement": "divider:research",
+      "display": {
+        "w": 240,
+        "h": 240
+      },
+      "scales": [
+        1,
+        2
+      ],
+      "files": [
+        "divider-research@1x.avif",
+        "divider-research@1x.webp",
+        "divider-research@2x.avif",
+        "divider-research@2x.webp"
+      ],
+      "prompt": "Small square accent: a compact candlestick/line lattice with one glowing node."
+    },
+    {
+      "name": "divider-money",
+      "placement": "divider:money",
+      "display": {
+        "w": 240,
+        "h": 240
+      },
+      "scales": [
+        1,
+        2
+      ],
+      "files": [
+        "divider-money@1x.avif",
+        "divider-money@1x.webp",
+        "divider-money@2x.avif",
+        "divider-money@2x.webp"
+      ],
+      "prompt": "Small square accent: compact stacked coin/bar plates with soft glow."
+    },
+    {
+      "name": "divider-power",
+      "placement": "divider:power",
+      "display": {
+        "w": 240,
+        "h": 240
+      },
+      "scales": [
+        1,
+        2
+      ],
+      "files": [
+        "divider-power@1x.avif",
+        "divider-power@1x.webp",
+        "divider-power@2x.avif",
+        "divider-power@2x.webp"
+      ],
+      "prompt": "Small square accent: a tiny domed civic silhouette in thin line-work with a data pulse."
+    },
+    {
+      "name": "divider-insights",
+      "placement": "divider:insights",
+      "display": {
+        "w": 240,
+        "h": 240
+      },
+      "scales": [
+        1,
+        2
+      ],
+      "files": [
+        "divider-insights@1x.avif",
+        "divider-insights@1x.webp",
+        "divider-insights@2x.avif",
+        "divider-insights@2x.webp"
+      ],
+      "prompt": "Small square accent: a soft rising spark above a thin upward line."
+    }
+  ]
+}

@@ -20,11 +20,13 @@ const OUT = join(root, "public", "art");
 mkdirSync(OUT, { recursive: true });
 
 const ENV = globalThis.process?.env ?? {};
+const ARGV = globalThis.process?.argv ?? [];
+const die = (code) => { if (typeof globalThis.process?.exit === "function") globalThis.process.exit(code); else throw new Error(`exit ${code}`); };
 let KEY = ENV.GEMINI_API_KEY;
 if (!KEY) {
   try { KEY = readFileSync(join(root, ".env.local"), "utf8").match(/^GEMINI_API_KEY=(.+)$/m)?.[1]?.trim(); } catch {}
 }
-if (!KEY) { console.error("GEMINI_API_KEY not found in env or .env.local"); process.exit(1); }
+if (!KEY) { console.error("GEMINI_API_KEY not found in env or .env.local"); die(1); }
 
 const MODEL = "gemini-2.5-flash-image";
 
@@ -78,9 +80,14 @@ async function generate(prompt) {
   return Buffer.from(img.inlineData.data, "base64");
 }
 
-// Post-process one source buffer into AVIF/WebP/PNG at 1x + 2x, cover-fit to the
+// Post-process one source buffer into AVIF/WebP at 1x + 2x, cover-fit to the
 // placement aspect. Returns the list of files written.
-async function process(buf, p) {
+//
+// PNG is skipped for the app UI: every browser rukMoney targets supports AVIF or
+// WebP, so a raster fallback is dead weight (~94% of the byte total). The ONE
+// exception is the OG/social card: link scrapers (iMessage, LinkedIn, WhatsApp)
+// still render WebP/AVIF unreliably, so og:image ships a 1x PNG too.
+async function processImage(buf, p) {
   const files = [];
   for (const scale of [1, 2]) {
     const w = p.w * scale, h = p.h * scale;
@@ -88,22 +95,25 @@ async function process(buf, p) {
     const stem = `${p.name}@${scale}x`;
     await base.clone().avif({ quality: 80 }).toFile(join(OUT, `${stem}.avif`));
     await base.clone().webp({ quality: 82 }).toFile(join(OUT, `${stem}.webp`));
-    await base.clone().png({ compressionLevel: 9 }).toFile(join(OUT, `${stem}.png`));
-    files.push(`${stem}.avif`, `${stem}.webp`, `${stem}.png`);
+    files.push(`${stem}.avif`, `${stem}.webp`);
+    if (p.placement === "og:card" && scale === 1) {
+      await base.clone().png({ compressionLevel: 9 }).toFile(join(OUT, `${stem}.png`));
+      files.push(`${stem}.png`);
+    }
   }
   return files;
 }
 
 async function main() {
-  const only = process.argv[2];
+  const only = ARGV[2];
   const list = only ? PLACEMENTS.filter((p) => p.name === only) : PLACEMENTS;
-  if (!list.length) { console.error(`No placement named "${only}".`); process.exit(1); }
+  if (!list.length) { console.error(`No placement named "${only}".`); die(1); }
 
   const manifest = [];
   for (const p of list) {
     try {
       const buf = await generate(p.prompt);
-      const files = await process(buf, p);
+      const files = await processImage(buf, p);
       manifest.push({ name: p.name, placement: p.placement, display: { w: p.w, h: p.h }, scales: [1, 2], files, prompt: p.prompt });
       console.log(`✓ ${p.name} (${files.length} files)`);
     } catch (e) {
@@ -121,4 +131,4 @@ async function main() {
   console.log(`Manifest: ${byName.size} assets → public/art/manifest.json`);
 }
 
-main().catch((e) => { console.error(e); process.exit(1); });
+main().catch((e) => { console.error(e); die(1); });
