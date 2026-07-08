@@ -486,11 +486,20 @@ html.light [class*="text-emerald-300/"] { color: #047857; }
 /* Left brand panel — hidden under 900px (form goes full width). */
 .auth-aside {
   display: none;
+  position: relative; overflow: hidden;
   flex-direction: column; justify-content: center; gap: 1.5rem;
   width: 46%; max-width: 560px; padding: 3rem 3.5rem;
   background: linear-gradient(160deg, var(--accent-soft), transparent 55%);
   border-right: 1px solid var(--hairline);
 }
+/* Ambient art backdrop layer + a wash so text stays legible over it. */
+.auth-aside-art { position: absolute; inset: 0; z-index: 0; opacity: 0.5; }
+.auth-aside-art::after {
+  content: ""; position: absolute; inset: 0;
+  background: linear-gradient(160deg, var(--accent-soft), transparent 55%),
+              linear-gradient(180deg, transparent, var(--bg) 92%);
+}
+.auth-aside > :not(.auth-aside-art) { position: relative; z-index: 1; }
 .auth-aside-head { font-family: var(--font-display); font-size: 2.1rem; line-height: 1.15; font-weight: 600; color: var(--text); letter-spacing: -0.02em; }
 .auth-aside-list { display: flex; flex-direction: column; gap: 0.7rem; }
 .auth-aside-list li { position: relative; padding-left: 1.4rem; color: var(--text-dim); font-size: 0.95rem; }

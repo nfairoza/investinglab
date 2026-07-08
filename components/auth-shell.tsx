@@ -1,5 +1,6 @@
 import { Lock } from "lucide-react";
 import { Blossom } from "./ui/primitives";
+import { ArtImage } from "./ui/art-image";
 
 // Branded wrapper for all auth screens — Robinhood-style split: a branded panel
 // on the left (hidden on small screens) and the form card on the right. Full
@@ -9,6 +10,11 @@ export function AuthShell({ children }: { children: React.ReactNode }) {
     <main className="auth-shell">
       {/* Left brand panel — marketing/identity */}
       <aside className="auth-aside">
+        {/* Ambient brand backdrop (ART1) — sits behind the copy, low contrast so
+            text overlays cleanly. Decorative, so alt="" + aria-hidden. */}
+        <div className="auth-aside-art" aria-hidden>
+          <ArtImage name="login-hero" alt="" priority sizes="560px" className="h-full w-full object-cover" />
+        </div>
         <div className="auth-brand">
           <Blossom className="h-11 w-11" />
           <span className="leading-tight">

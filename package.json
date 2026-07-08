@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "smoke": "node scripts/smoke.mjs",
-    "art": "node scripts/generate-art.mjs"
+    "art": "node scripts/generate-art.mjs",
+    "og": "node scripts/compose-og.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.0",

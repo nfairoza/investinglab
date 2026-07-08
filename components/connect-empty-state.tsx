@@ -1,7 +1,8 @@
 "use client";
 
-import { Landmark, ShieldCheck, Zap } from "lucide-react";
+import { ShieldCheck, Zap } from "lucide-react";
 import { LinkButton } from "./plaid-connect";
+import { ArtImage } from "./ui/art-image";
 
 // Shared, welcoming empty state that nudges a new user to CONNECT a financial
 // institution via Plaid (instead of manual entry). Same look for the Invest
@@ -29,9 +30,12 @@ export function ConnectEmptyState({
 
   return (
     <div className="mx-auto max-w-xl rounded-2xl glass p-8 text-center">
-      <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full" style={{ background: "var(--accent-soft)" }}>
-        <Landmark className="text-brand-400" size={26} />
-      </div>
+      <ArtImage
+        name="empty-banks"
+        alt=""
+        className="mx-auto h-40 w-auto opacity-95"
+        sizes="480px"
+      />
       <h2 className="mt-4 text-xl font-semibold text-ink">{copy.title}</h2>
       <p className="mx-auto mt-2 max-w-md text-sm text-ink-dim">{copy.sub}</p>
 

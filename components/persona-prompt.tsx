@@ -3,6 +3,7 @@
 import useSWR, { mutate as globalMutate } from "swr";
 import { Coins, Search, Landmark } from "lucide-react";
 import { fetchJson } from "@/lib/fetch-json";
+import { ArtImage } from "./ui/art-image";
 
 export type Persona = "money" | "research" | "power";
 
@@ -41,13 +42,21 @@ export function PersonaPrompt() {
           <button
             key={o.key}
             onClick={() => save(o.key)}
-            className="card-hover rounded-2xl border border-hairline bg-surface p-5 text-left transition-transform active:scale-[0.99]"
+            className="card-hover overflow-hidden rounded-2xl border border-hairline bg-surface text-left transition-transform active:scale-[0.99]"
           >
+            <ArtImage
+              name={`persona-${o.key}`}
+              alt=""
+              className="h-28 w-full object-cover"
+              sizes="(min-width: 640px) 320px, 100vw"
+            />
+            <div className="p-5">
             <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-surface-raised">
               <o.icon size={20} className="text-brand-400" />
             </span>
             <div className="mt-3 text-sm font-semibold text-ink">{o.title}</div>
             <div className="mt-0.5 text-xs text-ink-dim">{o.blurb}</div>
+            </div>
           </button>
         ))}
       </div>
