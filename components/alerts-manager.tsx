@@ -256,7 +256,7 @@ export function AlertsManager() {
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl glass p-4">
         <div className="flex items-center gap-2 text-sm text-ink-dim">
           <Bell size={16} className="text-accent" />
-          Alerts are checked every ~60s <span className="font-medium text-ink">while this app is open</span> in your browser. They won&apos;t fire when it&apos;s closed.
+          Price &amp; day-move alerts are checked on our server during market hours, so they fire even when the app is closed — you&apos;ll see them here next time you open it. Earnings &amp; score alerts check <span className="font-medium text-ink">while the app is open</span>. Enable desktop notifications for live pop-ups.
         </div>
         {notifPerm === "granted" ? (
           <span className="rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2.5 py-1 text-xs text-emerald-700 dark:text-emerald-300">● Desktop notifications on</span>

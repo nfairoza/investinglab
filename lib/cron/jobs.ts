@@ -1,5 +1,6 @@
 import type { CronJob } from "./registry";
 import { buildMap, buildMapChunk } from "@/lib/market/map-build";
+import { runAlerts } from "@/lib/alerts/run";
 
 // The job registry. Each job owns its cadence; the dispatcher (/api/cron/tick)
 // runs whatever is due on each tick, so ANY external trigger interval works.
@@ -39,5 +40,14 @@ export const JOBS: CronJob[] = [
     id: "map-eod",
     everyMinutes: 12 * 60,
     run: async () => { const r = await buildMapChunk({ sliceSize: 200, withPeriods: true }); return { ok: true, note: `eod +${r.pricedThisRun}, ${r.pricedCount}/${r.totalCount}${r.wrapped ? " (full pass)" : ""}` }; },
+  },
+  {
+    // Server-side alert evaluation so price/dayMove alerts fire even when the app
+    // is closed. One batch quote covers every user's symbols; triggers are
+    // written back to the alert row (the feed the client already reads).
+    id: "alerts-evaluate",
+    everyMinutes: 5,
+    marketHoursOnly: true,
+    run: async () => { const r = await runAlerts(); return { ok: true, note: `${r.triggered} fired / ${r.evaluated} evaluated (${r.symbols} syms, ${r.pruned} pruned)` }; },
   },
 ];
