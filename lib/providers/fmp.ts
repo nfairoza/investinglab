@@ -115,20 +115,35 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 // ── Provider health (P3.3) ──────────────────────────────────────────────────
 // Lightweight in-memory counters for the /connectors health strip: last success,
-// last error, and today's ACTUAL network call count (cache hits don't count).
-// Per serverless instance (best-effort) — resets on cold start.
-interface FmpHealth { lastSuccess: string | null; lastError: string | null; lastErrorAt: string | null; callsToday: number; day: string }
-const health: FmpHealth = { lastSuccess: null, lastError: null, lastErrorAt: null, callsToday: 0, day: "" };
+// last error, and today's ACTUAL network call count (cache hits don't count),
+// broken down BY FEATURE so we can see e.g. the Stock Map's daily consumption vs
+// the plan limit. Per serverless instance (best-effort) — resets on cold start.
+interface FmpHealth {
+  lastSuccess: string | null; lastError: string | null; lastErrorAt: string | null;
+  callsToday: number; byFeature: Record<string, number>; day: string;
+}
+const health: FmpHealth = { lastSuccess: null, lastError: null, lastErrorAt: null, callsToday: 0, byFeature: {}, day: "" };
 
 function today(): string { return new Date().toISOString().slice(0, 10); }
+
+// Feature attribution. Callers set the current feature around a burst of calls
+// (e.g. the map build) via withFmpFeature(); untagged calls bucket as "app".
+let currentFeature = "app";
+export function withFmpFeature<T>(feature: string, fn: () => Promise<T>): Promise<T> {
+  const prev = currentFeature;
+  currentFeature = feature;
+  return fn().finally(() => { currentFeature = prev; });
+}
+
 function recordCall(): void {
   const d = today();
-  if (health.day !== d) { health.day = d; health.callsToday = 0; }
+  if (health.day !== d) { health.day = d; health.callsToday = 0; health.byFeature = {}; }
   health.callsToday += 1;
+  health.byFeature[currentFeature] = (health.byFeature[currentFeature] ?? 0) + 1;
 }
 export function fmpHealth(): FmpHealth {
-  if (health.day !== today()) return { ...health, callsToday: 0 };
-  return { ...health };
+  if (health.day !== today()) return { ...health, callsToday: 0, byFeature: {} };
+  return { ...health, byFeature: { ...health.byFeature } };
 }
 
 // In-flight request map: collapses duplicate CONCURRENT calls for the same URL

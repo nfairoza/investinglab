@@ -10,5 +10,7 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   const admin = await getAdminClient();
   if (!admin) return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  // fmpHealth() now includes byFeature (e.g. { map: N, app: M }) so the strip
+  // shows the Stock Map's actual daily FMP consumption vs the plan limit.
   return NextResponse.json({ fmp: fmpHealth() });
 }

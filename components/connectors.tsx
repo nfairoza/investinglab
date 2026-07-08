@@ -131,7 +131,7 @@ function ConnectorCard({ connector, stat, onChanged }: { connector: Connector; s
   );
 }
 
-interface FmpHealthData { lastSuccess: string | null; lastError: string | null; lastErrorAt: string | null; callsToday: number }
+interface FmpHealthData { lastSuccess: string | null; lastError: string | null; lastErrorAt: string | null; callsToday: number; byFeature?: Record<string, number> }
 
 // Provider-health strip (P3.3): last success, last error, today's FMP call count
 // (network calls only — cache hits excluded). Admin-only endpoint; renders
@@ -160,6 +160,14 @@ function ProviderHealthStrip() {
         <span>Calls today: <span className="text-ink">{h.callsToday}</span></span>
         <span>Last error: {h.lastError ? <span className="text-rose-400">{h.lastError} @ {rel(h.lastErrorAt)}</span> : <span className="text-emerald-400">none</span>}</span>
       </div>
+      {h.byFeature && Object.keys(h.byFeature).length > 0 && (
+        <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-ink-faint">
+          <span className="text-ink-dim">By feature:</span>
+          {Object.entries(h.byFeature).sort((a, b) => b[1] - a[1]).map(([f, n]) => (
+            <span key={f}>{f} <span className="text-ink">{n}</span></span>
+          ))}
+        </div>
+      )}
       <p className="mt-1 text-[10px] text-ink-faint">Best-effort, per serverless instance — resets on cold start. Cache hits aren&apos;t counted.</p>
     </div>
   );

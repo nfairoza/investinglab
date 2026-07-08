@@ -9,7 +9,8 @@ import type { MapNode } from "@/app/api/map/route";
 import type { Holding } from "@/lib/db";
 import type { DataSource } from "@/lib/providers/types";
 
-async function getMap(url: string): Promise<{ nodes: MapNode[]; sectors: string[]; period?: string; periods?: string[]; source: DataSource; asOf: string }> {
+interface SectorCount { priced: number; total: number }
+async function getMap(url: string): Promise<{ nodes: MapNode[]; sectors: string[]; period?: string; periods?: string[]; sectorCounts?: Record<string, SectorCount>; pricedCount?: number; totalCount?: number; source: DataSource; asOf: string }> {
   const r = await fetch(url);
   return r.json();
 }
@@ -38,11 +39,12 @@ function colorFor(pct: number, scale: number): string {
 // Text uses a drop shadow + bold weight so it stays readable on any tile color.
 function Cell(props: {
   x?: number; y?: number; width?: number; height?: number; name?: string;
-  changePct?: number; router?: { push: (url: string) => void }; scale?: number;
+  changePct?: number; priced?: boolean; router?: { push: (url: string) => void }; scale?: number;
 }) {
-  const { x = 0, y = 0, width = 0, height = 0, name, changePct = 0, router, scale } = props;
+  const { x = 0, y = 0, width = 0, height = 0, name, changePct = 0, priced = true, router, scale } = props;
   if (width < 2 || height < 2) return null;
-  const fill = colorFor(changePct ?? 0, scale ?? 3);
+  // Unpriced tiles (quote failed) render neutral-gray — never a fake green/red zero.
+  const fill = priced ? colorFor(changePct ?? 0, scale ?? 3) : "#2a2f38";
   const big = width > 36 && height > 22;
   const showPct = width > 46 && height > 40;
   // Scale the ticker font to the tile but keep a readable floor/ceiling.
@@ -70,7 +72,7 @@ function Cell(props: {
           fill="#ffffff" fontSize={Math.max(10, symFont * 0.62)} fontWeight={700}
           style={{ paintOrder: "stroke", stroke: "rgba(0,0,0,0.55)", strokeWidth: 2.5, strokeLinejoin: "round" }}
         >
-          {changePct >= 0 ? "+" : ""}{changePct?.toFixed(1)}%
+          {priced ? `${changePct >= 0 ? "+" : ""}${changePct?.toFixed(1)}%` : "—"}
         </text>
       )}
     </g>
@@ -92,7 +94,8 @@ export function StockMap() {
   if (extra) params.set("extra", extra);
   const mapUrl = `/api/map?${params.toString()}`;
   const { data, isLoading, mutate, isValidating } = useSWR(mapUrl, getMap, {
-    refreshInterval: 0, // manual refresh only (many API calls)
+    // The map is now a cheap cache read (built on the cron), so we can poll it.
+    refreshInterval: 5 * 60_000,
     revalidateOnFocus: false,
     keepPreviousData: true,
   });
@@ -110,16 +113,25 @@ export function StockMap() {
       ? allNodes.filter((n) => ownedSet.has(n.symbol.toUpperCase()))
       : allNodes.filter((n) => sector === "All" || n.sector === sector);
 
-  // Build treemap data: group by sector for "All"; flat list otherwise.
+  const sectorCounts = data?.sectorCounts ?? {};
+  // Sector header label with honest "n of m priced" when some tiles are unpriced.
+  const sectorLabel = (sec: string) => {
+    const c = sectorCounts[sec];
+    if (c && c.priced < c.total) return `${sec} · ${c.priced} of ${c.total} priced`;
+    return sec;
+  };
+
+  // Build treemap data: group by sector for "All"; flat list otherwise. Unpriced
+  // tiles carry priced:false so the Cell renders them neutral-gray (never a fake
+  // zero, never dropped). Unpriced tiles get a nominal size so they still show.
+  const toChild = (n: MapNode) => ({ name: n.symbol, size: n.marketCap > 0 ? n.marketCap : 1e9, changePct: n.changePct, priced: n.priced });
   const treeData =
     sector === "All"
       ? sectors.map((sec) => ({
-          name: sec,
-          children: allNodes
-            .filter((n) => n.sector === sec)
-            .map((n) => ({ name: n.symbol, size: n.marketCap, changePct: n.changePct })),
+          name: sectorLabel(sec),
+          children: allNodes.filter((n) => n.sector === sec).map(toChild),
         })).filter((s) => s.children.length)
-      : [{ name: sector, children: nodes.map((n) => ({ name: n.symbol, size: n.marketCap, changePct: n.changePct })) }];
+      : [{ name: sectorLabel(sector), children: nodes.map(toChild) }];
 
   return (
     <div className="space-y-4">
