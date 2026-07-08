@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 
 // Per-user profile preferences, stored in user_prefs.prefs (RLS-scoped).
 // Only these fields are accepted (allowlist), so a client can't write arbitrary keys.
-const FIELDS = ["displayName", "phone", "baseCurrency", "beginnerMode", "nwRange"] as const;
+const FIELDS = ["displayName", "phone", "baseCurrency", "beginnerMode", "nwRange", "setupDismissed", "askedRukmani"] as const;
 
 export async function GET() {
   const ctx = await getUserClient();
@@ -20,6 +20,8 @@ export async function GET() {
     baseCurrency: prefs.baseCurrency ?? "USD",
     beginnerMode: prefs.beginnerMode ?? true,
     nwRange: prefs.nwRange ?? 12, // net-worth chart period (months; 0 = All)
+    setupDismissed: prefs.setupDismissed ?? false, // user dismissed the setup checklist
+    askedRukmani: prefs.askedRukmani ?? false,     // has asked the AI assistant at least once
   });
 }
 
@@ -32,6 +34,8 @@ export async function PUT(req: NextRequest) {
     baseCurrency: z.string().optional(),
     beginnerMode: z.boolean().optional(),
     nwRange: z.number().optional(),
+    setupDismissed: z.boolean().optional(),
+    askedRukmani: z.boolean().optional(),
   }));
   if (!parsed.ok) return parsed.response;
   const body = parsed.data;

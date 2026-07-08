@@ -1,6 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { AccountBase, LiabilitiesGetResponse } from "plaid";
 import { getPlaid, plaidConfigured, selectPlaidItems, resolvePlaidToken } from "@/lib/plaid";
 import { marketData } from "@/lib/providers";
+import { readSnapshots, writeSnapshot } from "@/lib/plaid-snapshot";
 
 // =============================================================================
 // Net-worth compute service. ALL math is done here in code — the AI never
@@ -82,57 +84,86 @@ export async function computeNetWorth(ctx: { supabase: SupabaseClient; userId: s
   const haveEtradeHoldings = (etradeCount ?? 0) > 0;
 
   if (plaidConfigured()) {
-    const { rows: plaidItems } = await selectPlaidItems(ctx.supabase, "institution_name");
+    const { rows: plaidItems } = await selectPlaidItems(ctx.supabase, "item_id, institution_name");
     const plaid = getPlaid();
+    const list = plaidItems ?? [];
+
+    // PA-A1: snapshot-first. Resolve each item's balances + liabilities from the
+    // plaid_snapshot cache; only items lacking a snapshot are live-fetched (then
+    // written back). This keeps computeNetWorth off the live Plaid path on warm
+    // loads. The aggregation math below is unchanged.
+    type LiabPayload = Pick<LiabilitiesGetResponse, "accounts" | "liabilities">;
+    const [balSnaps, liabSnaps] = await Promise.all([
+      readSnapshots<AccountBase[]>(ctx.supabase, "balances"),
+      readSnapshots<LiabPayload>(ctx.supabase, "liabilities"),
+    ]);
+    const balById = new Map(balSnaps.map((s) => [s.itemId, s.payload]));
+    const liabById = new Map(liabSnaps.map((s) => [s.itemId, s.payload]));
+
+    // Live-fill any item missing a snapshot (best-effort, in parallel).
+    await Promise.all(list.map(async (it) => {
+      const token = resolvePlaidToken(it as any);
+      if (!token) return;
+      if (!balById.has(it.item_id)) {
+        try {
+          const resp = await plaid.accountsBalanceGet({ access_token: token });
+          const accts = resp.data.accounts ?? [];
+          balById.set(it.item_id, accts);
+          void writeSnapshot(ctx.supabase, ctx.userId, it.item_id, "balances", accts);
+        } catch { /* skip */ }
+      }
+      if (!liabById.has(it.item_id)) {
+        try {
+          const resp = await plaid.liabilitiesGet({ access_token: token });
+          const payload: LiabPayload = { accounts: resp.data.accounts, liabilities: resp.data.liabilities };
+          liabById.set(it.item_id, payload);
+          void writeSnapshot(ctx.supabase, ctx.userId, it.item_id, "liabilities", payload);
+        } catch { /* item may not support liabilities */ }
+      }
+    }));
 
     // ── Pass 1: Liabilities (authoritative balance/APR for cards/loans/mortgages) ──
-    for (const it of plaidItems ?? []) {
-      try {
-        const token = resolvePlaidToken(it as any);
-        if (!token) continue;
-        const resp = await plaid.liabilitiesGet({ access_token: token });
-        const accts = new Map((resp.data.accounts ?? []).map((a) => [a.account_id, a]));
-        const L = resp.data.liabilities ?? {};
-        const pushLiab = (accountId: string | null | undefined, type: LiabilityType, fallbackName: string) => {
-          const a = accountId ? accts.get(accountId) : null;
-          const bal = a?.balances?.current;
-          if (bal == null) return;
-          liabilityAccountIds.add(accountId ?? "");
-          items.push({ source: "plaid", label: `${it.institution_name ?? "Institution"} · ${a?.name ?? fallbackName}`, type, kind: "liability", amount: Math.abs(Number(bal)), liquid: false });
-        };
-        for (const c of L.credit ?? []) pushLiab(c.account_id, "credit_card", "Credit card");
-        for (const m of L.mortgage ?? []) pushLiab(m.account_id, "mortgage", "Mortgage");
-        for (const s of L.student ?? []) pushLiab(s.account_id, "loan", "Student loan");
-      } catch { /* item may not support liabilities */ }
+    for (const it of list) {
+      const payload = liabById.get(it.item_id);
+      if (!payload) continue;
+      const accts = new Map((payload.accounts ?? []).map((a) => [a.account_id, a]));
+      const L = payload.liabilities ?? {};
+      const pushLiab = (accountId: string | null | undefined, type: LiabilityType, fallbackName: string) => {
+        const a = accountId ? accts.get(accountId) : null;
+        const bal = a?.balances?.current;
+        if (bal == null) return;
+        liabilityAccountIds.add(accountId ?? "");
+        items.push({ source: "plaid", label: `${it.institution_name ?? "Institution"} · ${a?.name ?? fallbackName}`, type, kind: "liability", amount: Math.abs(Number(bal)), liquid: false });
+      };
+      for (const c of L.credit ?? []) pushLiab(c.account_id, "credit_card", "Credit card");
+      for (const m of L.mortgage ?? []) pushLiab(m.account_id, "mortgage", "Mortgage");
+      for (const s of L.student ?? []) pushLiab(s.account_id, "loan", "Student loan");
     }
 
     // ── Pass 2: Balances for assets + any liability not already captured ──
-    for (const it of plaidItems ?? []) {
-      try {
-        const token = resolvePlaidToken(it as any);
-        if (!token) continue;
-        const resp = await plaid.accountsBalanceGet({ access_token: token });
-        for (const a of resp.data.accounts ?? []) {
-          const { type, kind } = classifyPlaidAccount(a);
-          const cur = a.balances?.current;
-          const label = `${it.institution_name ?? "Institution"} · ${a.name}`;
-          if (cur == null) { excluded.push(label); continue; }
-          if (kind === "liability") {
-            if (liabilityAccountIds.has(a.account_id)) continue; // already counted via Liabilities
-            items.push({ source: "plaid", label, type, kind, amount: Math.abs(Number(cur)), liquid: false });
-            continue;
-          }
-          // Skip taxable brokerage balances only when E*TRADE-synced holdings
-          // exist AND this Plaid item is the E*TRADE brokerage itself — avoids
-          // double-counting the same broker linked both ways. A separate Plaid
-          // brokerage (Robinhood, Fidelity, etc.) is still counted in full.
-          if (type === "investment" && haveEtradeHoldings && /e[\s*]*trade|morgan stanley/i.test(it.institution_name ?? "")) {
-            excluded.push(`${label} (counted via E*TRADE holdings)`);
-            continue;
-          }
-          items.push({ source: "plaid", label, type, kind, amount: Number(cur), liquid: liquidityOf(type) });
+    for (const it of list) {
+      const accounts = balById.get(it.item_id);
+      if (!accounts) continue;
+      for (const a of accounts) {
+        const { type, kind } = classifyPlaidAccount(a);
+        const cur = a.balances?.current;
+        const label = `${it.institution_name ?? "Institution"} · ${a.name}`;
+        if (cur == null) { excluded.push(label); continue; }
+        if (kind === "liability") {
+          if (liabilityAccountIds.has(a.account_id)) continue; // already counted via Liabilities
+          items.push({ source: "plaid", label, type, kind, amount: Math.abs(Number(cur)), liquid: false });
+          continue;
         }
-      } catch { /* skip institution on error */ }
+        // Skip taxable brokerage balances only when E*TRADE-synced holdings
+        // exist AND this Plaid item is the E*TRADE brokerage itself — avoids
+        // double-counting the same broker linked both ways. A separate Plaid
+        // brokerage (Robinhood, Fidelity, etc.) is still counted in full.
+        if (type === "investment" && haveEtradeHoldings && /e[\s*]*trade|morgan stanley/i.test(it.institution_name ?? "")) {
+          excluded.push(`${label} (counted via E*TRADE holdings)`);
+          continue;
+        }
+        items.push({ source: "plaid", label, type, kind, amount: Number(cur), liquid: liquidityOf(type) });
+      }
     }
   }
 

@@ -7,6 +7,7 @@ import { ArrowUp, ArrowDown, Plus, TrendingUp, Sparkles, Scale, ChevronRight, Se
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import { MoneyInsights } from "./money-insights";
 import { WatchlistRecs } from "./watchlist-recs";
+import { SetupChecklist } from "./setup-checklist";
 import { fetchJson } from "@/lib/fetch-json";
 import { useCountUp } from "@/lib/use-count-up";
 
@@ -208,6 +209,9 @@ export function Overview() {
         <h1 className="font-display text-2xl font-semibold text-ink md:text-3xl">{greeting}{firstName ? `, ${firstName}` : ""}</h1>
         <p className="mt-0.5 text-sm text-ink-dim">Your whole financial life at a glance.</p>
       </div>
+
+      {/* First-run setup checklist — self-hides once complete or dismissed */}
+      <SetupChecklist hasBank={(bal?.items?.length ?? 0) > 0} hasTicker={inv.count > 0} />
 
       {/* KPI strip — the big-picture numbers up top */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
