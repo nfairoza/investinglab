@@ -23,11 +23,14 @@ const endpoints = [
   "/api/quotes?symbols=AAPL,MSFT,NVDA",
 ];
 
-async function hit(path) {
+async function hit(path, { redirect = "follow", noCookie = false } = {}) {
   const t0 = Date.now();
   let status = 0, json = null, err = null;
   try {
-    const res = await fetch(`${BASE_URL}${path}`, { headers: COOKIE ? { cookie: COOKIE } : {} });
+    const res = await fetch(`${BASE_URL}${path}`, {
+      headers: !noCookie && COOKIE ? { cookie: COOKIE } : {},
+      redirect,
+    });
     status = res.status;
     try { json = await res.json(); } catch { /* non-json */ }
   } catch (e) {
@@ -65,6 +68,20 @@ async function main() {
       }
     }
     if (!ok) failed = true;
+  }
+
+  // Self-authenticating API routes must return their OWN 401 JSON, never a 307
+  // redirect to /login (the auth middleware must let /api/* pass through). Use
+  // redirect:"manual" so a stray redirect surfaces as a 3xx instead of being
+  // silently followed to the login page (which would 200).
+  const cron = await hit("/api/cron/tick", { redirect: "manual", noCookie: true });
+  const cronOk = cron.status === 401;
+  console.log(`${cronOk ? "✓" : "✗"} /api/cron/tick (unauth) — HTTP ${cron.status} (want 401, not 307)`);
+  if (!cronOk) {
+    failed = true;
+    if (cron.status >= 300 && cron.status < 400) {
+      console.log("    ✗ got a redirect — middleware is intercepting the cron route before its bearer check");
+    }
   }
 
   console.log(failed ? "\nSMOKE FAILED" : "\nSMOKE OK");

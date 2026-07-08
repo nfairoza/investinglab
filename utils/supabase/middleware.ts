@@ -34,7 +34,14 @@ export async function updateSession(request: NextRequest) {
   const isDemo = request.cookies.get("rk_demo")?.value === "1";
 
   const p = request.nextUrl.pathname;
+
+  // API routes do their OWN auth and must never be redirected to the HTML /login
+  // page — an API/webhook caller can't use it. This covers self-authenticating
+  // endpoints like /api/cron/tick (CRON_SECRET bearer) and any future webhook
+  // receivers (e.g. Stripe). They pass through and return their own 401 JSON.
+  const isApi = p.startsWith("/api/");
   const isPublic =
+    isApi ||
     p.startsWith("/login") ||
     p.startsWith("/signup") ||
     p.startsWith("/forgot-password") ||
