@@ -17,6 +17,7 @@ import {
   unavailable,
 } from "./types";
 import { getConnectorValue } from "@/lib/connectors/runtime";
+import { readServerCache, writeServerCache } from "@/lib/server-cache";
 
 // =============================================================================
 // Financial Modeling Prep adapter — uses the STABLE API.
@@ -43,23 +44,45 @@ function getKey(): string {
 
 // ── Response cache ──────────────────────────────────────────────────────────
 // FMP free tier = 250 calls/day. The app fires several calls per page, so we
-// cache successful responses per-URL for a short TTL. This dramatically reduces
-// calls (revisiting a stock, refreshing, multiple components on one page all
-// hit the cache). Keyed by the URL WITHOUT the apikey so the key never lives in
-// the cache keys. TTL is short enough that prices stay fresh-ish.
+// cache successful responses per-URL. Two layers:
+//   L1 — this in-memory map (fast, per serverless instance, lost on cold start)
+//   L2 — durable server_cache table, for the slow-changing NON-quote endpoints
+//        (financials/ratios/DCF/profile/price-history) so a cold start doesn't
+//        re-hit FMP. Quotes stay MEMORY-ONLY so prices never come from a stale
+//        shared row.
+// Keyed by the URL WITHOUT the apikey so the key never lives in the cache keys.
 const CACHE_TTL_MS = 90_000; // default: quotes feel live, but repeat views are free
-const cache = new Map<string, { at: number; data: unknown; ttl: number }>();
+interface CacheEntry { at: number; data: unknown; ttl: number }
+const cache = new Map<string, CacheEntry>();
+
+// Simple max-entries bound (~500) with oldest-first (insertion-order) eviction,
+// so a long-lived instance can't grow either map without limit.
+const MAX_ENTRIES = 500;
+function boundedSet<V>(map: Map<string, V>, key: string, value: V): void {
+  if (map.size >= MAX_ENTRIES && !map.has(key)) {
+    const oldest = map.keys().next().value;
+    if (oldest !== undefined) map.delete(oldest);
+  }
+  map.set(key, value);
+}
 
 // Per-endpoint TTLs (P3): quotes churn intraday; fundamentals/profile rarely do,
 // so cache them far longer to slash FMP calls. Matched by URL substring.
 const ENDPOINT_TTL_MS: Array<{ match: RegExp; ttl: number }> = [
-  { match: /\/quote\b/, ttl: 60_000 },                         // 60s
-  { match: /\/(income-statement|cash-flow-statement|balance-sheet|ratios|key-metrics|financial-growth|discounted-cash-flow)\b/, ttl: 24 * 60 * 60 * 1000 }, // 24h
+  { match: /\/(batch-)?quote\b/, ttl: 60_000 },                // 60s
+  { match: /\/(income-statement|cash-flow-statement|balance-sheet|ratios|key-metrics|financial-growth|discounted-cash-flow|historical-price-eod)\b/, ttl: 24 * 60 * 60 * 1000 }, // 24h
   { match: /\/(profile|company-outlook)\b/, ttl: 7 * 24 * 60 * 60 * 1000 }, // 7d
 ];
 
 function ttlFor(url: string): number {
   return ENDPOINT_TTL_MS.find((e) => e.match.test(url))?.ttl ?? CACHE_TTL_MS;
+}
+
+// Quotes are the only price-sensitive, fast-moving data: they stay memory-only
+// (no durable L2) and refresh by BLOCKING so a served price is never stale. Every
+// other endpoint gets L2 + stale-while-revalidate.
+function isQuoteUrl(url: string): boolean {
+  return /\/(batch-)?quote\b/.test(url);
 }
 
 function cacheKey(url: string): string {
@@ -68,10 +91,12 @@ function cacheKey(url: string): string {
 
 // Drop all cached FMP responses so the next call hits the API fresh. Used by the
 // "Clear cache & refresh" action in Settings (e.g. when day-change drifts vs a
-// broker before the 90s TTL expires).
+// broker before the TTL expires). Also clears in-flight so a stuck request can't
+// pin a stale entry.
 export function clearFmpCache(): number {
   const n = cache.size;
   cache.clear();
+  inflight.clear();
   return n;
 }
 
@@ -110,28 +135,75 @@ export function fmpHealth(): FmpHealth {
 // into a single HTTP request. The fresh cache only fills after a response
 // returns, so without this two callers firing at the same instant (e.g. the
 // Research page and the score route both wanting the same symbol's quote) each
-// make their own network call. Keyed like the cache (apikey stripped).
+// make their own network call. Keyed like the cache (apikey stripped). Also
+// doubles as the "one background refresh in flight" guard for SWR.
 const inflight = new Map<string, Promise<unknown>>();
 
-// Fetch JSON with caching + in-flight dedup + retry-on-rate-limit. Throws with
-// .status so callers can distinguish 402 (paid-only endpoint), 429 (limit), and
-// other failures.
-function getJson(url: string, attempt = 0): Promise<unknown> {
-  const key = cacheKey(url);
-  const hit = cache.get(key);
-  if (hit && Date.now() - hit.at < hit.ttl) return Promise.resolve(hit.data);
+// Durable L2 for the slow-changing non-quote endpoints. Value mirrors the L1
+// CacheEntry so freshness is computed the same way (from `at`), independent of
+// server_cache's own 8am-ET staleness (we read the value, not its stale flag).
+function l2Key(key: string): string { return `fmp:${key}`; }
+async function readL2(key: string): Promise<CacheEntry | null> {
+  try {
+    const { value } = await readServerCache<CacheEntry>(l2Key(key), Number.MAX_SAFE_INTEGER);
+    return value && typeof value.at === "number" && typeof value.ttl === "number" ? value : null;
+  } catch { return null; }
+}
+function writeL2(key: string, entry: CacheEntry): void {
+  // Fire-and-forget: a failed durable write must never break the live response.
+  writeServerCache(l2Key(key), entry).catch(() => {});
+}
 
-  // Only the first concurrent caller starts a request; the rest await it.
-  // (attempt > 0 is an internal retry — it should not re-dedup.)
-  if (attempt === 0) {
-    const pending = inflight.get(key);
-    if (pending) return pending;
+// Stale-while-revalidate: serve the stale value now, refresh in the background.
+// Deduped through `inflight` so no matter how many callers hit the stale entry,
+// EXACTLY ONE background refresh runs at a time.
+function scheduleRefresh(url: string): void {
+  const key = cacheKey(url);
+  if (inflight.has(key)) return;
+  const p = fetchJsonUncached(url, 0)
+    .catch(() => {}) // background failure keeps the stale value; surfaced on next blocking call
+    .finally(() => { if (inflight.get(key) === p) inflight.delete(key); });
+  inflight.set(key, p);
+}
+
+// Fetch JSON with L1+L2 caching, in-flight dedup, stale-while-revalidate (for
+// non-quote endpoints), and retry-on-rate-limit. Throws with .status so callers
+// can distinguish 402 (paid-only), 429 (limit), and other failures.
+//
+// Quotes are memory-only and refresh by BLOCKING (prices must be live). Every
+// other endpoint is L2-backed and serves stale immediately while revalidating.
+async function getJson(url: string, attempt = 0): Promise<unknown> {
+  const key = cacheKey(url);
+  const now = Date.now();
+  const quote = isQuoteUrl(url);
+
+  // attempt > 0 is an internal retry — skip cache/dedup, go straight to network.
+  if (attempt > 0) return fetchJsonUncached(url, attempt);
+
+  const hit = cache.get(key);
+  if (hit && now - hit.at < hit.ttl) return hit.data; // fresh L1
+  if (hit && !quote) { scheduleRefresh(url); return hit.data; } // stale L1 → SWR
+
+  // Only the first concurrent caller starts a blocking request; the rest await it.
+  const pending = inflight.get(key);
+  if (pending) return pending;
+
+  // Non-quote L1 miss → consult durable L2 before hitting the network.
+  if (!quote) {
+    const l2 = await readL2(key);
+    if (l2) {
+      boundedSet(cache, key, l2); // hydrate L1
+      if (now - l2.at < l2.ttl) return l2.data; // fresh from L2
+      scheduleRefresh(url); // stale L2 → serve stale + revalidate
+      return l2.data;
+    }
   }
 
+  // Nothing usable cached (or a quote) → blocking fetch.
   const p = fetchJsonUncached(url, attempt).finally(() => {
     if (inflight.get(key) === p) inflight.delete(key);
   });
-  if (attempt === 0) inflight.set(key, p);
+  inflight.set(key, p);
   return p;
 }
 
@@ -163,10 +235,24 @@ async function fetchJsonUncached(url: string, attempt: number): Promise<unknown>
 
   let data: unknown;
   try { data = JSON.parse(text); } catch { data = null; }
-  cache.set(key, { at: Date.now(), data, ttl: ttlFor(url) });
+  const entry: CacheEntry = { at: Date.now(), data, ttl: ttlFor(url) };
+  boundedSet(cache, key, entry);
+  if (!isQuoteUrl(url)) writeL2(key, entry); // durable L2 for slow-changing data only
   health.lastSuccess = new Date().toISOString();
   return data;
 }
+
+// ── Test hooks (P5) ───────────────────────────────────────────────────────────
+// Only used by tests/fmp-cache.test.ts to exercise the SWR path deterministically.
+export const __fmpTest = {
+  getJson,
+  primeCache(url: string, data: unknown, ageMs: number, ttlMs: number): void {
+    boundedSet(cache, cacheKey(url), { at: Date.now() - ageMs, data, ttl: ttlMs });
+  },
+  peek(url: string): CacheEntry | undefined { return cache.get(cacheKey(url)); },
+  async flush(): Promise<void> { await Promise.all([...inflight.values()]); },
+  reset(): void { cache.clear(); inflight.clear(); },
+};
 
 // MACD histogram (EMA12 − EMA26, minus EMA9 of that line) from oldest→newest
 // closes. Returns the latest histogram value, or null if not enough data.
@@ -190,6 +276,71 @@ function computeMacdHist(closes: number[]): number | null {
   return macdLine[last] - signal[last];
 }
 
+// Map a raw FMP quote object to our Quote shape (shared by getQuote + getQuotes).
+function mapQuote(q: any, symbol: string): Quote {
+  return {
+    symbol: q.symbol ?? symbol,
+    name: q.name ?? symbol,
+    price: q.price,
+    change: q.change ?? 0,
+    changePct: q.changePercentage ?? 0,
+    marketCap: q.marketCap ?? null,
+    volume: q.volume ?? null,
+    week52High: q.yearHigh ?? null,
+    week52Low: q.yearLow ?? null,
+    currency: "USD",
+  };
+}
+
+// ── Batch-quote failure memo ──────────────────────────────────────────────────
+// FMP's batch-quote endpoint is plan-restricted on some tiers (4xx). Once we see
+// that, remember it durably for 24h so we skip batch and go straight to the
+// per-symbol path on every request instead of eating a 4xx each time. Backed by
+// server_cache (survives cold starts) with an in-memory shortcut.
+const BATCH_DISABLED_KEY = "fmp:batch-quote-disabled";
+const BATCH_DISABLED_TTL_MS = 24 * 60 * 60 * 1000;
+let batchDisabledUntilMem = 0;
+
+async function batchQuoteDisabled(): Promise<boolean> {
+  if (Date.now() < batchDisabledUntilMem) return true;
+  try {
+    const { value } = await readServerCache<{ until: number }>(BATCH_DISABLED_KEY, Number.MAX_SAFE_INTEGER);
+    if (value && typeof value.until === "number" && Date.now() < value.until) {
+      batchDisabledUntilMem = value.until;
+      return true;
+    }
+  } catch { /* ignore — treat as not-disabled */ }
+  return false;
+}
+
+async function disableBatchQuote(status: number): Promise<void> {
+  const until = Date.now() + BATCH_DISABLED_TTL_MS;
+  batchDisabledUntilMem = until;
+  health.lastError = `batch-quote HTTP ${status} — using per-symbol for 24h`;
+  health.lastErrorAt = new Date().toISOString();
+  try { await writeServerCache(BATCH_DISABLED_KEY, { until }); } catch { /* memory memo still holds */ }
+}
+
+// Concurrency-pooled per-symbol quote fallback. Runs getQuote across a small pool
+// so we don't fire N requests at once (which would trip the per-minute 429s the
+// batch endpoint was meant to avoid), but still resolve a whole watchlist fast.
+async function perSymbolQuotes(
+  provider: Pick<MarketDataProvider, "getQuote">,
+  symbols: string[],
+): Promise<Record<string, DataResult<Quote>>> {
+  const out: Record<string, DataResult<Quote>> = {};
+  const POOL = 6;
+  let idx = 0;
+  async function worker(): Promise<void> {
+    while (idx < symbols.length) {
+      const s = symbols[idx++];
+      out[s] = await provider.getQuote(s);
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(POOL, symbols.length) }, worker));
+  return out;
+}
+
 export const fmpProvider: MarketDataProvider = {
   name: NAME,
 
@@ -200,20 +351,8 @@ export const fmpProvider: MarketDataProvider = {
       const arr = (await getJson(`${BASE}/quote?symbol=${symbol}&apikey=${KEY}`)) as any[];
       const q = Array.isArray(arr) ? arr[0] : null;
       if (!q) return unavailable(NAME, "No quote returned for " + symbol);
-      const quote: Quote = {
-        symbol: q.symbol,
-        name: q.name ?? symbol,
-        price: q.price,
-        change: q.change ?? 0,
-        changePct: q.changePercentage ?? 0,
-        marketCap: q.marketCap ?? null,
-        volume: q.volume ?? null,
-        week52High: q.yearHigh ?? null,
-        week52Low: q.yearLow ?? null,
-        currency: "USD",
-      };
       const asOf = q.timestamp ? new Date(q.timestamp * 1000).toISOString() : undefined;
-      return live(NAME, quote, asOf);
+      return live(NAME, mapQuote(q, symbol), asOf);
     } catch (e) {
       return unavailable(NAME, e instanceof Error ? e.message : "quote fetch failed");
     }
@@ -223,12 +362,23 @@ export const fmpProvider: MarketDataProvider = {
   // endpoint, instead of N single-quote calls (which trip the per-minute 429s on
   // watchlist/rankings/screener). Returns a per-symbol DataResult map; symbols
   // FMP omits come back as "unavailable" so callers see honest gaps.
+  //
+  // Resilience: FMP's batch-quote endpoint is plan-restricted on some tiers and
+  // returns a 4xx. When that happens we DON'T degrade quotes to "unavailable" —
+  // we fall back to the per-symbol /quote endpoint (concurrency-pooled), and
+  // remember the batch failure in the durable cache for 24h so every subsequent
+  // request skips batch and goes straight to per-symbol (no wasted 4xx round-trip
+  // on each call).
   async getQuotes(symbols): Promise<Record<string, DataResult<Quote>>> {
     const KEY = getKey();
     const out: Record<string, DataResult<Quote>> = {};
     const uniq = Array.from(new Set(symbols.map((s) => s.toUpperCase()).filter(Boolean)));
     if (!KEY) { for (const s of uniq) out[s] = unavailable(NAME, "MARKET_DATA_API_KEY missing"); return out; }
     if (uniq.length === 0) return out;
+
+    // If batch is known-broken (memoized on a prior 4xx), skip it entirely.
+    if (await batchQuoteDisabled()) return perSymbolQuotes(this, uniq);
+
     // FMP caps batch size; chunk to stay safe.
     const CHUNK = 50;
     for (let i = 0; i < uniq.length; i += CHUNK) {
@@ -239,15 +389,20 @@ export const fmpProvider: MarketDataProvider = {
         for (const s of chunk) {
           const q = bySym.get(s);
           if (!q) { out[s] = unavailable(NAME, "No quote returned for " + s); continue; }
-          const quote: Quote = {
-            symbol: q.symbol, name: q.name ?? s, price: q.price,
-            change: q.change ?? 0, changePct: q.changePercentage ?? 0,
-            marketCap: q.marketCap ?? null, volume: q.volume ?? null,
-            week52High: q.yearHigh ?? null, week52Low: q.yearLow ?? null, currency: "USD",
-          };
-          out[s] = live(NAME, quote, q.timestamp ? new Date(q.timestamp * 1000).toISOString() : undefined);
+          out[s] = live(NAME, mapQuote(q, s), q.timestamp ? new Date(q.timestamp * 1000).toISOString() : undefined);
         }
       } catch (e) {
+        const status = (e as { status?: number })?.status;
+        // 4xx (except 429 quota, which is a real limit both paths share): batch
+        // is plan-restricted / unsupported. Memoize + fall back to per-symbol for
+        // ALL remaining symbols — quotes must degrade to per-symbol, never to
+        // "unavailable", when the single-quote endpoint still works.
+        if (typeof status === "number" && status >= 400 && status < 500 && status !== 429) {
+          await disableBatchQuote(status);
+          const remaining = uniq.slice(i); // this chunk + everything after
+          Object.assign(out, await perSymbolQuotes(this, remaining));
+          return out;
+        }
         const msg = e instanceof Error ? e.message : "batch quote fetch failed";
         for (const s of chunk) out[s] = unavailable(NAME, msg);
       }
