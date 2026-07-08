@@ -17,6 +17,7 @@ import { SidebarReopen } from "./sidebar-reopen";
 import { ThemeGuard } from "./theme-guard";
 import { DemoBanner } from "./demo-banner";
 import { MarketStatusChip } from "./market-status-chip";
+import { OfflineBanner } from "./offline-banner";
 
 // Auth screens render with NO app chrome (no sidebar, chat, or command palette) —
 // just the page. Everything else gets the full shell.
@@ -32,6 +33,7 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
     <>
       <ThemeGuard />
       <SessionScope />
+      <OfflineBanner />
       <DemoBanner />
       {/* Column on mobile (top bar stacks above content), row on desktop (sidebar
           beside content). */}

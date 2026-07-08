@@ -516,6 +516,14 @@ html.light [class*="text-emerald-300/"] { color: #047857; }
 }
 @media (prefers-reduced-motion: reduce) { .market-chip-dot-live { animation: none; } }
 
+/* Offline banner — thin amber strip across the top when connectivity drops. */
+.offline-banner {
+  position: sticky; top: 0; z-index: 55;
+  display: flex; align-items: center; justify-content: center; gap: 0.45rem;
+  padding: 0.45rem 1rem; font-size: 0.78rem; font-weight: 500;
+  background: #B45309; color: #fff;
+}
+
 /* Chat markdown */
 .chat-md a { word-break: break-word; color: var(--accent); }
 .chat-md ul, .chat-md ol { margin: 0.25rem 0; }

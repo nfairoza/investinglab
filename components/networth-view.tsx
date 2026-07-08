@@ -35,7 +35,19 @@ const RANGES: { label: string; months: number }[] = [
 export function NetWorthView() {
   const { data, error, isLoading, mutate } = useSWR<NetWorth>("/api/networth", fetchJson, { revalidateOnFocus: false });
   const { data: manual, mutate: mutateManual } = useSWR<{ items: ManualItem[] }>("/api/manual-items", fetchJson, { revalidateOnFocus: false });
+  // Chart period persists in profile-prefs (nwRange) so the user's choice sticks
+  // across sessions/devices. Seed from prefs once it loads.
+  const { data: prefs } = useSWR<{ nwRange?: number }>("/api/profile-prefs", fetchJson, { revalidateOnFocus: false });
   const [range, setRange] = useState(12);
+  const rangeSeeded = useRef(false);
+  useEffect(() => {
+    if (!rangeSeeded.current && prefs?.nwRange != null) { rangeSeeded.current = true; setRange(prefs.nwRange); }
+  }, [prefs]);
+  function pickRange(months: number) {
+    setRange(months);
+    // Fire-and-forget persistence; a failure just means it won't stick.
+    fetch("/api/profile-prefs", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ nwRange: months }) }).catch(() => {});
+  }
   const [showAdd, setShowAdd] = useState(false);
   // Deep-link from the Add sheet: /networth?add=vehicle opens the form with a
   // preset type so each manual asset/liability has its own entry point.
@@ -113,14 +125,15 @@ export function NetWorthView() {
                   <XAxis dataKey="month" hide />
                   <YAxis hide domain={["auto", "auto"]} />
                   <Tooltip formatter={(v: number) => money(v)}
+                    cursor={{ stroke: "var(--hairline-strong)", strokeWidth: 1, strokeDasharray: "3 3" }}
                     contentStyle={{ background: "var(--tooltip-bg)", border: "1px solid var(--hairline-strong)", borderRadius: 10, fontSize: 12, color: "var(--text)" }} />
-                  <Area type="monotone" dataKey="netWorth" stroke="#16D27E" strokeWidth={2} fill="url(#nwGrad)" />
+                  <Area type="monotone" dataKey="netWorth" stroke="#16D27E" strokeWidth={2} fill="url(#nwGrad)" dot={false} activeDot={{ r: 4, stroke: "var(--bg)", strokeWidth: 2 }} />
                 </AreaChart>
               </ResponsiveContainer>
             </div>
             <div className="mt-2 flex items-center gap-1.5">
               {RANGES.map((r) => (
-                <button key={r.label} onClick={() => setRange(r.months)}
+                <button key={r.label} onClick={() => pickRange(r.months)}
                   className={`rounded-md border px-2.5 py-1 text-[11px] ${range === r.months ? "tab-active" : "border-hairline text-ink-dim hover:bg-surface"}`}>
                   {r.label}
                 </button>
