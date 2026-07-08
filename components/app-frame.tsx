@@ -15,6 +15,7 @@ import { AddSheet } from "./add-sheet";
 import { SwipeSections } from "./swipe-sections";
 import { SidebarReopen } from "./sidebar-reopen";
 import { ThemeGuard } from "./theme-guard";
+import { DemoBanner } from "./demo-banner";
 
 // Auth screens render with NO app chrome (no sidebar, chat, or command palette) —
 // just the page. Everything else gets the full shell.
@@ -30,6 +31,7 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
     <>
       <ThemeGuard />
       <SessionScope />
+      <DemoBanner />
       {/* Column on mobile (top bar stacks above content), row on desktop (sidebar
           beside content). */}
       <div className="relative flex min-h-screen flex-col md:flex-row">

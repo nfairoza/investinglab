@@ -1,10 +1,17 @@
 import { createClient } from "@/utils/supabase/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { isDemoRequest, makeDemoContext } from "@/lib/demo/session";
 
 // Resolve the authenticated user + a request-scoped Supabase client for API
 // routes. Returns null when there's no session, so callers can 401. NEVER trust
 // a user_id from the client — always derive it here from the verified session.
+//
+// Demo mode: a request carrying the demo cookie is served by a fixture-backed
+// fake client (no real user, no DB). This is the single choke-point every
+// user-scoped route flows through, so the real logic runs against sample data
+// and writes no-op — the real database is never touched.
 export async function getUserClient(): Promise<{ supabase: SupabaseClient; userId: string; isAdmin: boolean } | null> {
+  if (isDemoRequest()) return makeDemoContext();
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return null;

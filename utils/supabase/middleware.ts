@@ -28,6 +28,11 @@ export async function updateSession(request: NextRequest) {
   // access control — it trusts the cookie without verifying.
   const { data: { user } } = await supabase.auth.getUser();
 
+  // Demo session: a fixture-backed, DB-free session flagged by the demo cookie.
+  // It counts as "authenticated" for route gating so a visitor can explore the
+  // whole app; server routes still serve only sample data via the fake client.
+  const isDemo = request.cookies.get("rk_demo")?.value === "1";
+
   const p = request.nextUrl.pathname;
   const isPublic =
     p.startsWith("/login") ||
@@ -35,6 +40,7 @@ export async function updateSession(request: NextRequest) {
     p.startsWith("/forgot-password") ||
     p.startsWith("/reset-password") ||
     p.startsWith("/auth") ||
+    p.startsWith("/demo") ||
     // SEO / social crawler assets must be reachable without a session.
     p === "/manifest.webmanifest" ||
     p === "/opengraph-image" ||
@@ -44,7 +50,7 @@ export async function updateSession(request: NextRequest) {
     p === "/robots.txt" ||
     p === "/sitemap.xml";
 
-  if (!user && !isPublic) {
+  if (!user && !isDemo && !isPublic) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);

@@ -476,6 +476,29 @@ html.light [class*="text-emerald-300/"] { color: #047857; }
 .auth-err { margin-top: 0.75rem; border-radius: var(--radius-sm); border: 1px solid var(--negative); background: var(--negative-soft); color: var(--negative); padding: 0.6rem 0.8rem; font-size: 0.82rem; }
 .auth-fineprint { margin-top: 1.25rem; font-size: 0.7rem; line-height: 1.5; color: var(--text-faint); text-align: center; }
 
+/* "Explore with sample data" — a low-commitment secondary CTA under the login form. */
+.auth-demo-btn {
+  display: block; margin-top: 1rem; text-align: center; padding: 0.7rem 1rem;
+  border-radius: var(--radius-sm); border: 1px dashed var(--hairline);
+  background: transparent; color: var(--text-dim); font-size: 0.85rem; font-weight: 500;
+  transition: border-color var(--dur, 180ms) var(--ease-out, ease), color var(--dur, 180ms) var(--ease-out, ease), background var(--dur, 180ms) var(--ease-out, ease);
+}
+.auth-demo-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-soft, transparent); }
+
+/* Demo-mode banner across the top of the app shell. */
+.demo-banner {
+  position: sticky; top: 0; z-index: 50;
+  display: flex; align-items: center; justify-content: center; gap: 1rem; flex-wrap: wrap;
+  padding: 0.5rem 1rem; font-size: 0.8rem;
+  background: var(--accent); color: #fff;
+}
+.demo-banner-msg { display: inline-flex; align-items: center; gap: 0.4rem; font-weight: 500; }
+.demo-banner-actions { display: inline-flex; align-items: center; gap: 0.6rem; }
+.demo-banner-cta { padding: 0.25rem 0.7rem; border-radius: 999px; background: rgba(255,255,255,0.22); color: #fff; font-weight: 600; }
+.demo-banner-cta:hover { background: rgba(255,255,255,0.34); }
+.demo-banner-exit { color: rgba(255,255,255,0.85); text-decoration: underline; }
+.demo-banner-exit:hover { color: #fff; }
+
 /* Chat markdown */
 .chat-md a { word-break: break-word; color: var(--accent); }
 .chat-md ul, .chat-md ol { margin: 0.25rem 0; }

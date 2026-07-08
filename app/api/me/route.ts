@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
 import { isAdminUser } from "@/lib/supabase-data";
+import { isDemoRequest, demoIdentity } from "@/lib/demo/session";
 
 export const dynamic = "force-dynamic";
 
@@ -8,6 +9,7 @@ export const dynamic = "force-dynamic";
 // Connectors nav, etc.). The real enforcement is server-side in each admin route;
 // this is just for showing/hiding UI.
 export async function GET() {
+  if (isDemoRequest()) return NextResponse.json(demoIdentity());
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ authenticated: false, isAdmin: false });

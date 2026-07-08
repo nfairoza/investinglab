@@ -31,6 +31,8 @@ export default function LoginPage({
 
       <p className="auth-foot">New here? <a href="/signup">Create an account</a></p>
 
+      <a href="/demo" className="auth-demo-btn">Explore with sample data — no sign-up</a>
+
       <div className="mt-4 flex justify-center">
         <InstallButton />
       </div>

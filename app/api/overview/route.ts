@@ -8,6 +8,8 @@ import { marketData, type DataResult, type Quote } from "@/lib/providers";
 import { plaidConfigured, selectPlaidItems, resolvePlaidToken, getPlaid } from "@/lib/plaid";
 import { readSnapshots, writeSnapshot } from "@/lib/plaid-snapshot";
 import { categorize } from "@/lib/money/categorize";
+import { isDemoRequest } from "@/lib/demo/session";
+import { DEMO_USER } from "@/lib/demo/fixtures";
 import type { AccountBase } from "plaid";
 
 export const dynamic = "force-dynamic";
@@ -20,9 +22,11 @@ export async function GET() {
   const ctx = await getUserClient();
   if (!ctx) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
-  // Identity (from the same verified session).
-  const supabase = createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  // Identity (from the same verified session; demo has no real auth user).
+  const demo = isDemoRequest();
+  const user = demo
+    ? { user_metadata: { full_name: DEMO_USER.fullName } as Record<string, unknown>, email: DEMO_USER.email, app_metadata: {} as Record<string, unknown> }
+    : (await createClient().auth.getUser()).data.user;
 
   const [nw, advisor, holdingsRaw, accounts, txns] = await Promise.all([
     computeNetWorth(ctx).catch(() => null),
