@@ -30,6 +30,22 @@ brokerage" instead of surfacing the error.)
    are green (CI does this on push once `.github/workflows/ci.yml` is committed
    with a workflow-scoped token — see BACKLOG).
 
+## Brand assets (regenerate on rebrand / copy change)
+
+The social/OG card `app/opengraph-image.png` is a **baked static PNG**, not a
+dynamic `next/og` route (static is faster for scrapers and has zero runtime
+failure modes — the dynamic route also fails to prerender under `next build`).
+The tradeoff: it does NOT auto-update. If the **wordmark, tagline, or the
+`og-backdrop` art changes**, regenerate the card or you'll ship a stale social
+preview with an out-of-date brand:
+
+- `npm run og` — recomposites the wordmark + tagline onto the backdrop.
+- `npm run art` — regenerates the underlying brand art (needs `GEMINI_API_KEY`);
+  run this first if the backdrop itself changed, then `npm run og`.
+
+Commit the regenerated `app/opengraph-image.png` (and any changed `public/art/*`)
+in the same PR as the copy/brand change.
+
 ## Resilience note
 
 The Plaid routes now degrade gracefully if the token-encryption columns aren't
