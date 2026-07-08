@@ -1,6 +1,7 @@
 import type { CronJob } from "./registry";
 import { buildMap, buildMapChunk } from "@/lib/market/map-build";
 import { runAlerts } from "@/lib/alerts/run";
+import { runInsightsBuild } from "@/lib/insights/run";
 
 // The job registry. Each job owns its cadence; the dispatcher (/api/cron/tick)
 // runs whatever is due on each tick, so ANY external trigger interval works.
@@ -49,5 +50,14 @@ export const JOBS: CronJob[] = [
     everyMinutes: 5,
     marketHoursOnly: true,
     run: async () => { const r = await runAlerts(); return { ok: true, note: `${r.triggered} fired / ${r.evaluated} evaluated (${r.symbols} syms, ${r.pruned} pruned)` }; },
+  },
+  {
+    // Insights Engine ("The Confidant") nightly build. Rebuilds the per-user
+    // Ledger from Plaid data + regenerates structured insights. Chunked over the
+    // user list (cursor in server_cache) so it stays under the Hobby 10s cap; the
+    // ~daily cadence covers the whole base well within a day. No market gating.
+    id: "insights-build",
+    everyMinutes: 24 * 60,
+    run: async () => { const r = await runInsightsBuild({ sliceSize: 40 }); return { ok: true, note: `${r.ledgersBuilt} ledgers, ${r.insightsCreated} insights / ${r.users} users${r.wrapped ? " (full pass)" : ""}` }; },
   },
 ];

@@ -10,6 +10,7 @@ import { WatchlistRecs } from "./watchlist-recs";
 import { SetupChecklist } from "./setup-checklist";
 import { PersonaPrompt } from "./persona-prompt";
 import { HomePowerCard } from "./home-power-card";
+import { HomeInsightCards } from "./home-insight-cards";
 import { fetchJson } from "@/lib/fetch-json";
 import { useCountUp } from "@/lib/use-count-up";
 
@@ -243,6 +244,9 @@ export function Overview() {
         <Kpi label="Cash" amount={bal?.totalCash ?? 0} />
         <Kpi label="Saved this month" amount={spend.net} tone={spend.net >= 0 ? "up" : "down"} />
       </div>
+
+      {/* Rukmani's top insights — the cross-domain triage surface (self-hides if none) */}
+      <HomeInsightCards />
 
       {/* What changed — glanceable signals; tap one to ask Rukmani why */}
       {weekly.length > 0 && (

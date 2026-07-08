@@ -19,6 +19,8 @@ brokerage" instead of surfacing the error.)
    - `0023_rate_limits.sql` — per-user rate-limit windows
    - `0024_ai_usage.sql` — AI cost-tracking log (admin dashboard card)
    - `0025_plaid_snapshot.sql` — cached Plaid balances (PA-A1, so pages don't block on live Plaid)
+   - `0026_insights_ledger.sql` — Insights Engine Ledger tables (ledger_month, ledger_txn_flags)
+   - `0027_insights.sql` — Insights Engine structured-insight store
 2. **Set new env vars** in Vercel (and locally in `.env.local`):
    - `SECRETS_ENCRYPTION_KEY` — 32-byte base64 (`openssl rand -base64 32`).
      Required for P1 encryption; without it, keys/tokens fall back to plaintext.
