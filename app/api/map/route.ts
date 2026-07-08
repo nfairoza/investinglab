@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { marketData } from "@/lib/providers";
 import type { DataResult, Quote } from "@/lib/providers/types";
-import { readMapBuild, buildMap, MAP_PERIODS, type MapPeriod, type MapBuild } from "@/lib/market/map-build";
+import { readMapBuild, buildMapChunk, MAP_PERIODS, type MapPeriod, type MapBuild } from "@/lib/market/map-build";
 
 export const dynamic = "force-dynamic";
 
@@ -23,11 +23,13 @@ export async function GET(req: NextRequest) {
   const periodRaw = (req.nextUrl.searchParams.get("period") ?? "1D").toUpperCase();
   const period: MapPeriod = (MAP_PERIODS as readonly string[]).includes(periodRaw) ? (periodRaw as MapPeriod) : "1D";
 
-  // Read the cached build. Cold path (never built): build once so the map isn't
-  // empty on first-ever load. The client shows a loading state until this returns.
+  // Read the cached build. Cold path (never built): prime ONE bounded slice so
+  // first-ever load isn't empty and can't exceed the Hobby 10s cap — the rest of
+  // the universe fills in on subsequent cron ticks (unpriced tiles render gray
+  // meanwhile). The client shows its loading state until this returns.
   let build: MapBuild | null = await readMapBuild();
   if (!build) {
-    try { build = await buildMap("full"); } catch { build = null; }
+    try { await buildMapChunk({ sliceSize: 120 }); build = await readMapBuild(); } catch { build = null; }
   }
 
   const universe = build?.tiles ?? [];

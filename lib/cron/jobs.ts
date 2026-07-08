@@ -1,5 +1,5 @@
 import type { CronJob } from "./registry";
-import { buildMap } from "@/lib/market/map-build";
+import { buildMap, buildMapChunk } from "@/lib/market/map-build";
 
 // The job registry. Each job owns its cadence; the dispatcher (/api/cron/tick)
 // runs whatever is due on each tick, so ANY external trigger interval works.
@@ -15,19 +15,29 @@ import { buildMap } from "@/lib/market/map-build";
 //     to serve (labeled by asOf in the UI).
 export const JOBS: CronJob[] = [
   {
+    // Prices a bounded slice per tick (cursor advances), so it stays under
+    // Vercel Hobby's 10s function cap even on a per-symbol FMP plan. On a
+    // batch-capable plan the slice is one batch call and the whole map fills in
+    // a single tick. During market hours the map fully refreshes every few ticks.
     id: "map-refresh",
     everyMinutes: 15,
     marketHoursOnly: true,
-    run: async () => { const b = await buildMap("fast"); return { ok: true, note: `${b.pricedCount}/${b.totalCount} priced` }; },
+    run: async () => { const r = await buildMapChunk({ sliceSize: 120 }); return { ok: true, note: `+${r.pricedThisRun} priced, ${r.pricedCount}/${r.totalCount} total${r.wrapped ? " (full pass)" : ""}` }; },
   },
   {
+    // Slower cadence pass that also refreshes the period returns (5D/1M/6M/1Y)
+    // for its slice — they barely move intraday, so hourly is plenty.
     id: "map-periods",
     everyMinutes: 60,
-    run: async () => { const b = await buildMap("full"); return { ok: true, note: `full build, ${b.pricedCount}/${b.totalCount} priced` }; },
+    run: async () => { const r = await buildMapChunk({ sliceSize: 120, withPeriods: true }); return { ok: true, note: `periods +${r.pricedThisRun}, ${r.pricedCount}/${r.totalCount}${r.wrapped ? " (full pass)" : ""}` }; },
   },
   {
+    // End-of-day / off-hours pass so weekends serve a fresh-ish close. Chunked
+    // + withPeriods so it also stays under the Hobby cap; over its 12h cadence
+    // the cursor covers the whole universe. (buildMap kept as the one-shot path
+    // for batch-capable plans / manual rebuilds.)
     id: "map-eod",
     everyMinutes: 12 * 60,
-    run: async () => { const b = await buildMap("full"); return { ok: true, note: `eod build, ${b.pricedCount}/${b.totalCount} priced` }; },
+    run: async () => { const r = await buildMapChunk({ sliceSize: 200, withPeriods: true }); return { ok: true, note: `eod +${r.pricedThisRun}, ${r.pricedCount}/${r.totalCount}${r.wrapped ? " (full pass)" : ""}` }; },
   },
 ];

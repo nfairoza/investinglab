@@ -11,6 +11,27 @@ as built; update this doc when a limit or TTL changes.
 | **Plaid** | Per-item + billing-plan limits | Snapshot-first reads (`plaid_snapshot`, 6h TTL) so pages don't hit Plaid live; background refresh only when stale. See `lib/plaid-snapshot.ts`, `/api/plaid/*`, `computeNetWorth`. |
 | **Anthropic / Google (AI)** | Token + RPM caps per key | Task router, shared prediction cache (6h, market-only), per-user AI cache (24h), per-user rate limiting on chat. Cost logged to `ai_usage`. |
 
+## Cron & the Stock Map build (scheduler-agnostic)
+
+One dispatcher — `GET /api/cron/tick` (CRON_SECRET bearer / `?key=` / Vercel's
+`x-vercel-cron`). Any external trigger works; each job runs on its own cadence.
+
+- **Trigger it** every ~5 min. On **Vercel Hobby** (daily-only crons) use an
+  external scheduler (cron-job.org / GitHub Actions) hitting
+  `/api/cron/tick?key=<CRON_SECRET>`. `vercel.json` also registers a daily tick
+  as a Hobby-safe belt-and-suspenders backup.
+- **Map build is chunked** (`buildMapChunk`) to stay under Hobby's **10s function
+  cap** even on a per-symbol FMP plan: each tick prices a bounded slice (~120
+  symbols) and advances a cursor in `server_cache`; the full S&P 500 fills in
+  over a few ticks and refreshes continuously. On a **batch-capable** FMP plan a
+  slice is one batch call, so the whole map builds in a single tick.
+- Jobs: `map-refresh` (15m, market hours, 1D/quotes), `map-periods` (60m, adds
+  5D/1M/6M/1Y for its slice), `map-eod` (12h, off-hours/weekend close). Cursors +
+  last-run + locks live in `server_cache` so overlapping ticks can't double-run.
+- **Watch:** the map's daily FMP consumption shows per-feature in the
+  `/connectors` health strip (`byFeature.map`). Unpriced tiles render gray until
+  their slice is reached — never fake zeros.
+
 ## Cache TTLs (in code)
 
 - **FMP quotes** — 60s (memory-only; prices stay live).
