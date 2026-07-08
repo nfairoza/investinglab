@@ -508,6 +508,14 @@ html.light [class*="text-emerald-300/"] { color: #047857; }
 .auth-err { margin-top: 0.75rem; border-radius: var(--radius-sm); border: 1px solid var(--negative); background: var(--negative-soft); color: var(--negative); padding: 0.6rem 0.8rem; font-size: 0.82rem; }
 .auth-fineprint { margin-top: 1.25rem; font-size: 0.7rem; line-height: 1.5; color: var(--text-faint); text-align: center; }
 
+/* Product-glimpse screenshot on the auth left panel (hidden on short/mobile). */
+.auth-aside-shot {
+  margin-top: 1.5rem; width: 100%; border-radius: var(--radius-md, 12px);
+  border: 1px solid var(--hairline); box-shadow: 0 24px 48px -24px rgba(0,0,0,0.55);
+  display: block;
+}
+@media (max-height: 720px) { .auth-aside-shot { display: none; } }
+
 /* "Explore with sample data" — a low-commitment secondary CTA under the login form. */
 .auth-demo-btn {
   display: block; margin-top: 1rem; text-align: center; padding: 0.7rem 1rem;

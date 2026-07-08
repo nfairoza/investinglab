@@ -30,6 +30,15 @@ export function AuthShell({ children }: { children: React.ReactNode }) {
           <li>Power Trades — Congress, insider (SEC) & influence disclosures</li>
           <li>Spending insights and Rukmani, your AI money assistant</li>
         </ul>
+        {/* Product glimpse (B3): a real screenshot of the app so new visitors see
+            the value before signing up. */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/demofrontpage.png"
+          alt="rukMoney dashboard preview"
+          className="auth-aside-shot"
+          loading="lazy"
+        />
         <p className="auth-aside-foot">
           Private to your account · Not financial advice ·{" "}
           <a href="/privacy" className="underline hover:text-ink-dim">Privacy</a> ·{" "}
