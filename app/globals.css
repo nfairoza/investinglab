@@ -14,9 +14,10 @@
 :root {
   /* Fonts (loaded browser-side via <link> in layout.tsx — corp SSL blocks build-time fetch).
      Display + UI = clean modern grotesk to match the rukMoney wordmark. Mono = tabular numbers. */
-  --font-display: "Sora", "Inter Tight", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  --font-sans: "Inter Tight", "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  --font-mono: "JetBrains Mono", "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  /* next/font variables (PA-A4) lead; the named families remain as fallback. */
+  --font-display: var(--font-sora), "Sora", "Inter Tight", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-sans: var(--font-inter-tight), "Inter Tight", "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: var(--font-jetbrains), "JetBrains Mono", "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 
   /* Brand scale (rukMoney teal→green) — shared; semantic --accent picks the tier per theme. */
   --brand-50:  #e7fbf3;

@@ -1,11 +1,17 @@
 import type { Metadata, Viewport } from "next";
+import { Sora, Inter_Tight, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { AppFrame } from "@/components/app-frame";
 import { SwrProvider } from "@/components/swr-provider";
 
-// Fonts load browser-side via <link> (corp SSL blocks build-time next/font fetch).
-// Display = Sora (modern grotesk, matches the rukMoney wordmark); UI = Inter Tight;
-// numbers = JetBrains Mono.
+// Self-hosted via next/font (PA-A4): no render-blocking Google Fonts <link>, no
+// font flash. display=swap; only the weights actually used. The CSS variables
+// below feed the existing --font-display/--font-sans/--font-mono tokens.
+// Display = Sora (matches the rukMoney wordmark); UI = Inter Tight; numbers =
+// JetBrains Mono.
+const sora = Sora({ subsets: ["latin"], weight: ["500", "600", "700", "800"], display: "swap", variable: "--font-sora" });
+const interTight = Inter_Tight({ subsets: ["latin"], weight: ["400", "500", "600", "700"], display: "swap", variable: "--font-inter-tight" });
+const jetbrainsMono = JetBrains_Mono({ subsets: ["latin"], weight: ["400", "500", "600"], display: "swap", variable: "--font-jetbrains" });
 
 const DESCRIPTION =
   "rukMoney — your banking, spending, and brokerage portfolio, unified and predicted by AI. Research and education, not financial advice.";
@@ -50,15 +56,9 @@ const themeInit = `(function(){try{var t=localStorage.getItem('theme');if(t!=='l
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning className={`${sora.variable} ${interTight.variable} ${jetbrainsMono.variable}`}>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeInit }} />
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter+Tight:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
-          rel="stylesheet"
-        />
       </head>
       <body className="font-sans">
         {/* Layered background: aurora mesh + vine texture + film grain (fixed) */}
