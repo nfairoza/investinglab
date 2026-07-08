@@ -1,3 +1,4 @@
+import { Lock } from "lucide-react";
 import { Blossom } from "./ui/primitives";
 
 // Branded wrapper for all auth screens — Robinhood-style split: a branded panel
@@ -18,8 +19,9 @@ export function AuthShell({ children }: { children: React.ReactNode }) {
           </span>
         </div>
         <h2 className="auth-aside-head">Your banks, brokerages, and whole financial life — unified and understood by AI.</h2>
-        <div className="auth-trust">
-          🔒 Read-only connections via bank-grade encryption (Plaid). We can&#8217;t move your money.
+        <div className="auth-trust inline-flex items-start gap-2">
+          <Lock className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+          <span>Read-only connections via bank-grade encryption (Plaid). We can&#8217;t move your money.</span>
         </div>
         <ul className="auth-aside-list">
           <li>Connect banks &amp; brokerages — live balances, holdings & net worth</li>
@@ -28,7 +30,11 @@ export function AuthShell({ children }: { children: React.ReactNode }) {
           <li>Power Trades — Congress, insider (SEC) & influence disclosures</li>
           <li>Spending insights and Rukmani, your AI money assistant</li>
         </ul>
-        <p className="auth-aside-foot">Private to your account · Not financial advice</p>
+        <p className="auth-aside-foot">
+          Private to your account · Not financial advice ·{" "}
+          <a href="/privacy" className="underline hover:text-ink-dim">Privacy</a> ·{" "}
+          <a href="/terms" className="underline hover:text-ink-dim">Terms</a>
+        </p>
       </aside>
 
       {/* Right form card */}
