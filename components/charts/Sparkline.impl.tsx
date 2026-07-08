@@ -51,7 +51,9 @@ export function Sparkline({
           />
         )}
         <Area
+          type="monotone"
           dataKey="v" stroke={stroke} strokeWidth={interactive ? 2 : 1.75} fill={`url(#${id})`}
+          dot={false}
           isAnimationActive={!interactive}
           activeDot={interactive ? { r: 3.5, fill: stroke, stroke: "var(--bg)", strokeWidth: 2 } : false}
         />

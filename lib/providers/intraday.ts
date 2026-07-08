@@ -53,6 +53,72 @@ async function disableIntraday(status: number): Promise<void> {
   void status;
 }
 
+// ── Hourly bars for the 1M range (denser than daily closes) ────────────────────
+// FMP's historical-chart/1hour endpoint gives multi-day hourly bars. Same probe-
+// and-remember fallback as batch-quote: a 4xx disables the hourly endpoint for
+// 24h and the caller falls back to daily closes. Separate memo from the 15-min
+// (1D) endpoint since plans may allow one but not the other.
+const HOURLY_DISABLED_KEY = "fmp:hourly-disabled";
+let hourlyDisabledUntilMem = 0;
+
+export async function hourlyDisabled(): Promise<boolean> {
+  if (Date.now() < hourlyDisabledUntilMem) return true;
+  try {
+    const { value } = await readServerCache<{ until: number }>(HOURLY_DISABLED_KEY, Number.MAX_SAFE_INTEGER);
+    if (value && typeof value.until === "number" && Date.now() < value.until) {
+      hourlyDisabledUntilMem = value.until;
+      return true;
+    }
+  } catch { /* treat as not disabled */ }
+  return false;
+}
+
+async function disableHourly(): Promise<void> {
+  const until = Date.now() + DISABLED_TTL_MS;
+  hourlyDisabledUntilMem = until;
+  try { await writeServerCache(HOURLY_DISABLED_KEY, { until }); } catch { /* mem memo holds */ }
+}
+
+export interface HourlyBar { date: string; close: number } // date = "YYYY-MM-DD HH:MM"
+export interface HourlyResult { bars: HourlyBar[]; disabled: boolean }
+
+// Recent hourly closes for a symbol, oldest→newest, capped to ~lastDays sessions
+// worth of points. Cached per-symbol for 1h. Returns disabled:true when the plan
+// blocks the endpoint (caller should fall back to daily closes).
+export async function getHourlySeries(symbol: string, lastDays = 30): Promise<HourlyResult> {
+  const sym = symbol.toUpperCase();
+  if (await hourlyDisabled()) return { bars: [], disabled: true };
+
+  const cacheKey = `fmp:hourly:${sym}`;
+  const cached = await readServerCache<{ bars: HourlyBar[]; at: number }>(cacheKey, Number.MAX_SAFE_INTEGER).catch(() => ({ value: null } as any));
+  if (cached.value && typeof cached.value.at === "number" && Date.now() - cached.value.at < 60 * 60 * 1000) {
+    return { bars: cached.value.bars, disabled: false };
+  }
+
+  const KEY = key();
+  if (!KEY) return { bars: [], disabled: false };
+  try {
+    const r = await fetch(`${BASE}/historical-chart/1hour?symbol=${encodeURIComponent(sym)}&apikey=${KEY}`, { cache: "no-store" });
+    if (r.status >= 400 && r.status < 500 && r.status !== 429) { await disableHourly(); return { bars: [], disabled: true }; }
+    if (!r.ok) return { bars: cached.value?.bars ?? [], disabled: false };
+    const arr = (await r.json()) as Array<{ date: string; close: number }>;
+    if (!Array.isArray(arr) || !arr.length) return { bars: cached.value?.bars ?? [], disabled: false };
+    // newest-first → keep the most recent lastDays, then oldest→newest.
+    const cutoff = new Date(String(arr[0].date).slice(0, 10));
+    cutoff.setDate(cutoff.getDate() - lastDays);
+    const cutoffStr = cutoff.toISOString().slice(0, 10);
+    const bars: HourlyBar[] = arr
+      .filter((p) => String(p.date).slice(0, 10) >= cutoffStr)
+      .map((p) => ({ date: String(p.date).slice(0, 16), close: Number(p.close) }))
+      .filter((b) => b.date && Number.isFinite(b.close))
+      .reverse();
+    await writeServerCache(cacheKey, { bars, at: Date.now() }).catch(() => {});
+    return { bars, disabled: false };
+  } catch {
+    return { bars: cached.value?.bars ?? [], disabled: false };
+  }
+}
+
 interface CachedSeries { bars: IntradayBar[]; at: number }
 
 // Fetch one symbol's intraday bars for today's session. Returns { bars, disabled }.

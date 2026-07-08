@@ -136,6 +136,16 @@ export function DashboardClient() {
     { refreshInterval: 5 * 60_000, keepPreviousData: false },
   );
 
+  // 1M uses a denser hourly series (~150 pts) when the FMP plan supports the
+  // hourly endpoint; otherwise it falls back to the daily-close reconstruction
+  // below. Probe-and-remember lives server-side (disabled flag).
+  interface HourlyResp { disabled: boolean; series: { v: number; date: string }[] }
+  const { data: hourly } = useSWR<HourlyResp>(
+    range === "1M" && symbols.length ? "/api/portfolio-hourly" : null,
+    fetchJson,
+    { refreshInterval: 30 * 60_000, keepPreviousData: false },
+  );
+
   const topSym = [...holdings].sort((a, b) => b.avgCost * b.shares - a.avgCost * a.shares)[0]?.symbol;
   const { data: scoreRes } = useSWR<DataResult<StockScore>>(topSym ? `/api/score?symbol=${topSym}` : null, fetchJson);
 
@@ -212,6 +222,11 @@ export function DashboardClient() {
     // shows the day-change number + a note instead (see intradayUnavailable).
     if (range === "1D") {
       return intraday && !intraday.disabled ? intraday.series : [];
+    }
+    // 1M: prefer the denser hourly series when available (label = date only, so
+    // the tooltip stays readable). Falls back to the daily reconstruction below.
+    if (range === "1M" && hourly && !hourly.disabled && hourly.series.length > 1) {
+      return hourly.series.map((p) => ({ v: p.v, date: p.date.slice(0, 10) }));
     }
     const lens = symbols.map((s) => (histories[s] ?? []).length);
     const maxLen = Math.min(days, Math.max(0, ...lens));

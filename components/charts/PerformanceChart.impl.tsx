@@ -136,8 +136,8 @@ export function PerformanceChart({ series }: { series: Pt[] }) {
                 formatter={(val: number, name: string) => [`${val >= 0 ? "+" : ""}${val.toFixed(2)}%`, name === "port" ? "You" : "SPY"]}
               />
               {/* portfolio = filled area; SPY = thin comparison line */}
-              <Area dataKey="port" name="port" stroke={stroke} strokeWidth={2} fill="url(#perf-fill)" isAnimationActive={false} />
-              <Line dataKey="spy" name="spy" stroke={ct.neutral} strokeWidth={1.5} strokeDasharray="4 3" dot={false} isAnimationActive={false} connectNulls />
+              <Area type="monotone" dataKey="port" name="port" stroke={stroke} strokeWidth={2} fill="url(#perf-fill)" dot={false} isAnimationActive={false} />
+              <Line type="monotone" dataKey="spy" name="spy" stroke={ct.neutral} strokeWidth={1.5} strokeDasharray="4 3" dot={false} isAnimationActive={false} connectNulls />
             </AreaChart>
           </ResponsiveContainer>
           <p className="mt-2 text-[11px] text-ink-faint">
