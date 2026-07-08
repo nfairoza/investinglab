@@ -125,6 +125,16 @@ export function DashboardClient() {
   const quotes = dash?.quotes;
   const histories = dash?.histories ?? {};
 
+  // 1D uses a REAL intraday series (today's 15-min bars × shares, summed), fetched
+  // only when the 1D range is active. `disabled` = the intraday endpoint is plan-
+  // restricted, so we show the day-change number + a note instead of a fake line.
+  interface IntradayResp { disabled: boolean; series: { v: number; date: string }[]; benchmark: { v: number; date: string }[] }
+  const { data: intraday } = useSWR<IntradayResp>(
+    range === "1D" && symbols.length ? "/api/portfolio-intraday" : null,
+    fetchJson,
+    { refreshInterval: 5 * 60_000, keepPreviousData: false },
+  );
+
   const topSym = [...holdings].sort((a, b) => b.avgCost * b.shares - a.avgCost * a.shares)[0]?.symbol;
   const { data: scoreRes } = useSWR<DataResult<StockScore>>(topSym ? `/api/score?symbol=${topSym}` : null, fetchJson);
 
@@ -163,17 +173,11 @@ export function DashboardClient() {
   // Portfolio-value sparkline = sum(close × shares) across the window.
   const days = RANGES.find((r) => r.k === range)?.d ?? 22;
   const portfolioSeries: { v: number; date?: string }[] = (() => {
-    // 1D: derive today's path as previous-close total → current total using each
-    // holding's live changePct (daily-close history excludes the overnight gap).
+    // 1D: use the real intraday series (today's 15-min bars × shares). We never
+    // draw a two-point prev-close→now line — if intraday is unavailable, the UI
+    // shows the day-change number + a note instead (see intradayUnavailable).
     if (range === "1D") {
-      if (total <= 0) return [];
-      const prevTotal = valued.reduce((s, v) => {
-        if (v.value == null) return s;
-        const prev = v.dayPct != null ? v.value / (1 + v.dayPct / 100) : v.value;
-        return s + prev;
-      }, 0);
-      if (prevTotal <= 0) return [];
-      return [{ v: prevTotal, date: "Prev close" }, { v: total, date: "Now" }];
+      return intraday && !intraday.disabled ? intraday.series : [];
     }
     const lens = symbols.map((s) => (histories[s] ?? []).length);
     const maxLen = Math.min(days, Math.max(0, ...lens));
@@ -308,7 +312,21 @@ export function DashboardClient() {
                   </div>
                 </div>
               </div>
-              <div className="mt-3"><Sparkline data={portfolioSeries} height={120} interactive /></div>
+              <div className="mt-3">
+                {range === "1D" && portfolioSeries.length < 2 ? (
+                  <div className="flex h-[120px] flex-col items-center justify-center gap-1 text-center">
+                    <div className="font-mono text-2xl font-semibold" style={{ color: dayChange >= 0 ? "var(--positive)" : "var(--negative)" }}>
+                      {dayChange >= 0 ? "+" : "−"}${Math.abs(dayChange).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                      {dayPctTotal != null && <span className="ml-1 text-base">({dayPctTotal >= 0 ? "+" : ""}{dayPctTotal.toFixed(2)}%)</span>}
+                    </div>
+                    <div className="text-[11px] text-ink-faint">
+                      {intraday?.disabled ? "Intraday chart unavailable on current data plan." : "Building today's intraday chart…"}
+                    </div>
+                  </div>
+                ) : (
+                  <Sparkline data={portfolioSeries} height={120} interactive />
+                )}
+              </div>
             </GlassCard>
 
             {/* Performance vs S&P 500 */}
