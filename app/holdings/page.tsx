@@ -1,5 +1,4 @@
 import { HoldingsManager } from "@/components/holdings-manager";
-import { PlaidHoldings } from "@/components/plaid-holdings";
 
 export const metadata = { title: "Holdings" };
 
@@ -19,7 +18,6 @@ export default function Page() {
         concentrated.
       </div>
       <HoldingsManager />
-      <PlaidHoldings />
     </div>
   );
 }

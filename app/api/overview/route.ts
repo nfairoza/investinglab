@@ -19,6 +19,7 @@ export const dynamic = "force-dynamic";
 // separate client calls it used to fire (networth, accounts, transactions,
 // holdings, advisor, me). The individual endpoints stay alive for other pages.
 export async function GET() {
+  const t0 = Date.now();
   const ctx = await getUserClient();
   if (!ctx) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
@@ -28,17 +29,32 @@ export async function GET() {
     ? { user_metadata: { full_name: DEMO_USER.fullName } as Record<string, unknown>, email: DEMO_USER.email, app_metadata: {} as Record<string, unknown> }
     : (await createClient().auth.getUser()).data.user;
 
-  const [nw, advisor, holdingsRaw, accounts, txns] = await Promise.all([
-    computeNetWorth(ctx).catch(() => null),
-    computeAdvisor(ctx).catch(() => null),
-    getUnifiedHoldings(ctx.supabase).catch(() => []),
-    plaidAccounts(ctx).catch(() => ({ items: [], totalCash: 0, stale: false, asOf: null })),
-    recentTransactions(ctx).catch(() => []),
+  // Per-branch timing (returned to admins so "why is it slow" is data, not guesswork).
+  const timings: Record<string, number> = {};
+  const timed = async <T>(label: string, p: Promise<T>): Promise<T> => {
+    const t0 = Date.now();
+    try { return await p; } finally { timings[label] = Date.now() - t0; }
+  };
+
+  // Phase 1 — net worth + the branches that don't depend on it, in parallel.
+  // Net worth is computed ONCE here and handed to the advisor in phase 2, so the
+  // advisor branch doesn't re-run the whole net-worth engine (PA-A1: avoids
+  // duplicate work + duplicate Plaid resolution on the Overview).
+  const [nw, holdingsRaw, accounts, txns] = await Promise.all([
+    timed("netWorth", computeNetWorth(ctx).catch(() => null)),
+    timed("holdings", getUnifiedHoldings(ctx.supabase, { userId: ctx.userId }).catch(() => [])),
+    timed("accounts", plaidAccounts(ctx).catch(() => ({ items: [], totalCash: 0, stale: false, asOf: null }))),
+    timed("transactions", recentTransactions(ctx).catch(() => [])),
   ]);
 
-  // Live-price the unified holdings (batch quote — one FMP call) for the KPI row.
+  // Phase 2 — advisor (reuses the computed net worth) + live quotes, in parallel.
   const symbols = Array.from(new Set(holdingsRaw.filter((h) => h.hasRealTicker).map((h) => h.symbol)));
-  const quotes: Record<string, DataResult<Quote>> = symbols.length ? await marketData.getQuotes(symbols).catch(() => ({})) : {};
+  const [advisor, quotes] = await Promise.all([
+    timed("advisor", computeAdvisor(ctx, { netWorth: nw ?? undefined }).catch(() => null)),
+    symbols.length
+      ? timed("quotes", marketData.getQuotes(symbols).catch(() => ({} as Record<string, DataResult<Quote>>)))
+      : Promise.resolve({} as Record<string, DataResult<Quote>>),
+  ]);
   const holdings = holdingsRaw.map((h) => {
     const q = quotes[h.symbol.toUpperCase()]?.data ?? null;
     const price = q?.price ?? h.value ?? null;
@@ -50,17 +66,22 @@ export async function GET() {
     };
   });
 
+  const isAdmin = isAdminUser(user);
+  timings.total = Date.now() - t0;
+
   return NextResponse.json({
     me: {
       fullName: (user?.user_metadata?.full_name as string) ?? (user?.user_metadata?.name as string) ?? null,
       email: user?.email ?? null,
-      isAdmin: isAdminUser(user),
+      isAdmin,
     },
     netWorth: nw,
     advisor: advisor ? { result: advisor } : null,
     accounts,
     holdings,
     transactions: txns,
+    // Admin-only timing breakdown (ms per branch) so slowness is readable data.
+    ...(isAdmin ? { timings } : {}),
   });
 }
 

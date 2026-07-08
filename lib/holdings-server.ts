@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getPlaid, plaidConfigured, selectPlaidItems, resolvePlaidToken } from "@/lib/plaid";
-import { CountryCode } from "plaid";
+import { readSnapshots, writeSnapshot } from "@/lib/plaid-snapshot";
+import { CountryCode, type Holding as PlaidHoldingRaw, type Security } from "plaid";
 
 // =============================================================================
 // Unified holdings — the single source of truth for "what does this user own".
@@ -25,41 +26,69 @@ export interface UnifiedHolding {
   hasRealTicker: boolean;  // false for CUSIP-only funds we can't price/research
 }
 
-// Plaid investment holdings for the user, normalized. Vested-only for awards.
-export async function plaidHoldings(supabase: SupabaseClient): Promise<UnifiedHolding[]> {
+// ── Investments snapshot resolver (PA-A1) ─────────────────────────────────────
+// The single place that turns linked items into their investments payload
+// (holdings + securities), snapshot-first: read plaid_snapshot("investments"),
+// live-fetch ONLY items missing a snapshot, then write the fresh ones back.
+// Both plaidHoldings and plaidInvestmentCash derive from this, so /api/overview
+// never hits Plaid live when a snapshot exists. Pass userId to enable snapshot
+// writes on a live-fill (omit for pure read paths).
+interface InvestmentsPayload { holdings: PlaidHoldingRaw[]; securities: Security[] }
+interface ResolvedItem { itemId: string; institution: string | null; payload: InvestmentsPayload }
+
+async function resolveInvestments(supabase: SupabaseClient, userId?: string): Promise<ResolvedItem[]> {
   if (!plaidConfigured()) return [];
   const { rows: items } = await selectPlaidItems(supabase, "item_id, institution_name");
   if (!items?.length) return [];
+
+  const snaps = await readSnapshots<InvestmentsPayload>(supabase, "investments");
+  const byId = new Map(snaps.map((s) => [s.itemId, s.payload]));
   const plaid = getPlaid();
-  const out: UnifiedHolding[] = [];
-  for (const it of items as any[]) {
+
+  const needLive = (items as any[]).filter((it) => !byId.has(it.item_id));
+  await Promise.all(needLive.map(async (it) => {
+    const token = resolvePlaidToken(it);
+    if (!token) return;
     try {
-      const token = resolvePlaidToken(it);
-      if (!token) continue;
       const resp = await plaid.investmentsHoldingsGet({ access_token: token });
-      const secs = new Map((resp.data.securities ?? []).map((s) => [s.security_id, s]));
-      for (const h of resp.data.holdings ?? []) {
-        const sec = secs.get(h.security_id);
-        const ticker = sec?.ticker_symbol?.trim() || null;
-        const hasRealTicker = !!ticker && /^[A-Z][A-Z.\-]{0,5}$/.test(ticker.toUpperCase());
-        // Vested-only: if Plaid reports a vested split, count just the vested part.
-        const vestedQty = (h as any).vested_quantity;
-        const vestedVal = (h as any).vested_value;
-        const fullVal = h.institution_value ?? null;
-        const hasVesting = vestedVal != null && fullVal != null && vestedVal < fullVal - 0.01;
-        const shares = hasVesting && vestedQty != null ? Number(vestedQty) : Number(h.quantity) || 0;
-        const value = hasVesting && vestedVal != null ? vestedVal : fullVal;
-        if (shares <= 0) continue;
-        out.push({
-          symbol: hasRealTicker ? ticker!.toUpperCase() : String(sec?.name ?? "—"),
-          shares,
-          avgCost: h.cost_basis != null && h.quantity ? Number(h.cost_basis) / Number(h.quantity) : 0,
-          source: it.institution_name ?? "Brokerage",
-          value: value ?? null,
-          hasRealTicker,
-        });
-      }
+      const payload: InvestmentsPayload = { holdings: resp.data.holdings ?? [], securities: resp.data.securities ?? [] };
+      byId.set(it.item_id, payload);
+      if (userId) void writeSnapshot(supabase, userId, it.item_id, "investments", payload);
     } catch { /* item may not support investments */ }
+  }));
+
+  return (items as any[])
+    .filter((it) => byId.has(it.item_id))
+    .map((it) => ({ itemId: it.item_id, institution: it.institution_name ?? null, payload: byId.get(it.item_id)! }));
+}
+
+// Plaid investment holdings for the user, normalized. Vested-only for awards.
+// Snapshot-first via resolveInvestments.
+export async function plaidHoldings(supabase: SupabaseClient, userId?: string): Promise<UnifiedHolding[]> {
+  const resolved = await resolveInvestments(supabase, userId);
+  const out: UnifiedHolding[] = [];
+  for (const it of resolved) {
+    const secs = new Map((it.payload.securities ?? []).map((s) => [s.security_id, s]));
+    for (const h of it.payload.holdings ?? []) {
+      const sec = secs.get(h.security_id);
+      const ticker = sec?.ticker_symbol?.trim() || null;
+      const hasRealTicker = !!ticker && /^[A-Z][A-Z.\-]{0,5}$/.test(ticker.toUpperCase());
+      const vestedQty = (h as any).vested_quantity;
+      const vestedVal = (h as any).vested_value;
+      const fullVal = h.institution_value ?? null;
+      const hasVesting = vestedVal != null && fullVal != null && vestedVal < fullVal - 0.01;
+      const shares = hasVesting && vestedQty != null ? Number(vestedQty) : Number(h.quantity) || 0;
+      const value = hasVesting && vestedVal != null ? vestedVal : fullVal;
+      if (shares <= 0) continue;
+      out.push({
+        symbol: hasRealTicker ? ticker!.toUpperCase() : String(sec?.name ?? "—"),
+        shares,
+        avgCost: h.cost_basis != null && h.quantity ? Number(h.cost_basis) / Number(h.quantity) : 0,
+        source: it.institution ?? "Brokerage",
+        value: value ?? null,
+        hasRealTicker,
+      });
+    }
   }
   return out;
 }
@@ -70,11 +99,11 @@ export async function plaidHoldings(supabase: SupabaseClient): Promise<UnifiedHo
 // CUSIP-only fund rows that can't be priced/researched (for AI analysis).
 export async function getUnifiedHoldings(
   supabase: SupabaseClient,
-  opts: { realTickersOnly?: boolean } = {},
+  opts: { realTickersOnly?: boolean; userId?: string } = {},
 ): Promise<UnifiedHolding[]> {
   const [{ data: dbRows }, plaid] = await Promise.all([
     supabase.from("holdings").select("symbol,shares,avg_cost,source"),
-    plaidHoldings(supabase),
+    plaidHoldings(supabase, opts.userId),
   ]);
   const db: UnifiedHolding[] = (dbRows ?? []).map((h: {
     symbol: string; shares: number | string; avg_cost: number | string; source?: string | null;
@@ -96,49 +125,26 @@ export async function getUnifiedHoldings(
 }
 
 // Plaid CASH across linked INVESTMENT/brokerage accounts ("investment cash" —
-// kept distinct from bank cash so the two are never conflated).
-export async function plaidInvestmentCash(supabase: SupabaseClient): Promise<number> {
-  if (!plaidConfigured()) return 0;
-  const { rows: items } = await selectPlaidItems(supabase, "");
-  if (!items?.length) return 0;
-  const plaid = getPlaid();
+// kept distinct from bank cash so the two are never conflated). Snapshot-first via
+// resolveInvestments: brokerages report uninvested cash as a HOLDING (a cash-
+// equivalent security "US Dollar"/"Cash" at $1.00), which is the reliable source
+// and is present in the investments snapshot. Pass userId to allow snapshot
+// writes on a live-fill.
+export async function plaidInvestmentCash(supabase: SupabaseClient, userId?: string): Promise<number> {
+  const resolved = await resolveInvestments(supabase, userId);
   let cash = 0;
-  for (const it of items as any[]) {
-    const token = resolvePlaidToken(it);
-    if (!token) continue;
-    // (1) Primary source: brokerages report uninvested cash as a HOLDING — a
-    //     cash-equivalent security ("US Dollar" / "Cash") at $1.00. Summing those
-    //     holdings is the reliable way to get the sweep balance (E*TRADE leaves
-    //     accounts.balances.available null for brokerage accounts).
-    let foundHoldingCash = false;
-    try {
-      const inv = await plaid.investmentsHoldingsGet({ access_token: token });
-      const secs = new Map((inv.data.securities ?? []).map((s) => [s.security_id, s]));
-      for (const h of inv.data.holdings ?? []) {
-        const sec = secs.get(h.security_id);
-        const name = String(sec?.name ?? "").toLowerCase();
-        const isCash = sec?.is_cash_equivalent || (sec?.type ?? "").toLowerCase() === "cash"
-          || /\b(us dollar|u s dollar|usd|cash)\b/.test(name);
-        if (isCash) {
-          const val = h.institution_value ?? (h.quantity != null && (h.institution_price ?? sec?.close_price) != null
-            ? Number(h.quantity) * Number(h.institution_price ?? sec?.close_price) : 0);
-          cash += Number(val) || 0;
-          foundHoldingCash = true;
-        }
+  for (const it of resolved) {
+    const secs = new Map((it.payload.securities ?? []).map((s) => [s.security_id, s]));
+    for (const h of it.payload.holdings ?? []) {
+      const sec = secs.get(h.security_id);
+      const name = String(sec?.name ?? "").toLowerCase();
+      const isCash = sec?.is_cash_equivalent || (sec?.type ?? "").toLowerCase() === "cash"
+        || /\b(us dollar|u s dollar|usd|cash)\b/.test(name);
+      if (isCash) {
+        const val = h.institution_value ?? (h.quantity != null && (h.institution_price ?? sec?.close_price) != null
+          ? Number(h.quantity) * Number(h.institution_price ?? sec?.close_price) : 0);
+        cash += Number(val) || 0;
       }
-    } catch { /* item may not support investments */ }
-
-    // (2) Fallback: if no cash-equivalent holding was found, use the account's
-    //     available balance (the cash portion) where the institution reports it.
-    if (!foundHoldingCash) {
-      try {
-        const resp = await plaid.accountsBalanceGet({ access_token: token });
-        for (const a of resp.data.accounts ?? []) {
-          if ((a.type === "investment" || a.type === "brokerage") && a.balances?.available != null) {
-            cash += Number(a.balances.available) || 0;
-          }
-        }
-      } catch { /* skip */ }
     }
   }
   return Math.round(cash * 100) / 100;

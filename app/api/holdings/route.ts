@@ -57,7 +57,7 @@ export async function GET(req: NextRequest) {
   // consumers (Rankings, Reports, Portfolio Doctor gating) so they see the full
   // portfolio. The Holdings page omits this — it merges Plaid itself for editing.
   if (req.nextUrl.searchParams.get("withBrokers") === "1") {
-    const plaid = await plaidHoldings(ctx.supabase);
+    const plaid = await plaidHoldings(ctx.supabase, ctx.userId);
     const haveEtrade = db.some((h: Holding) => h.source === "etrade");
     const isEtradeInst = (n: string) => /e[\s*]*trade|morgan stanley/i.test(n);
     const plaidRows: Holding[] = plaid

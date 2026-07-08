@@ -1,8 +1,11 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { getPlaid, plaidConfigured, selectPlaidItems, resolvePlaidToken } from "@/lib/plaid";
+import { plaidConfigured, selectPlaidItems } from "@/lib/plaid";
+import { readSnapshots, writeSnapshot } from "@/lib/plaid-snapshot";
+import { getPlaid, resolvePlaidToken } from "@/lib/plaid";
 import { categorize } from "@/lib/money/categorize";
 import { plaidInvestmentCash } from "@/lib/holdings-server";
 import { computeNetWorth, type NetWorthResult } from "@/lib/networth";
+import type { LiabilitiesGetResponse } from "plaid";
 
 // =============================================================================
 // Advisor compute engine — SERVER-SIDE ONLY.
@@ -173,18 +176,38 @@ function computeSpending(txns: TxnRow[]): { spending: SpendingInsights; avgMonth
 // ── Debt detail with APR (Plaid Liabilities) ─────────────────────────────────
 interface DebtLine { name: string; balance: number; apr: number | null; minPayment: number | null; kind: string }
 
-async function gatherDebts(ctx: { supabase: SupabaseClient }): Promise<DebtLine[]> {
+type LiabPayload = Pick<LiabilitiesGetResponse, "accounts" | "liabilities">;
+
+async function gatherDebts(ctx: { supabase: SupabaseClient; userId: string }): Promise<DebtLine[]> {
   if (!plaidConfigured()) return [];
-  const { rows: items } = await selectPlaidItems(ctx.supabase, "institution_name");
+  const { rows: items } = await selectPlaidItems(ctx.supabase, "item_id, institution_name");
+  if (!items?.length) return [];
+
+  // PA-A1: snapshot-first. Read cached liabilities; live-fetch ONLY items missing
+  // a snapshot, then write them back. Mirrors computeNetWorth / the liabilities
+  // route, so the advisor branch of /api/overview no longer hits Plaid live.
+  const snaps = await readSnapshots<LiabPayload>(ctx.supabase, "liabilities");
+  const byId = new Map(snaps.map((s) => [s.itemId, s.payload]));
   const plaid = getPlaid();
-  const debts: DebtLine[] = [];
-  for (const it of items ?? []) {
+  const needLive = (items as any[]).filter((it) => !byId.has(it.item_id));
+  await Promise.all(needLive.map(async (it) => {
+    const token = resolvePlaidToken(it);
+    if (!token) return;
     try {
-      const token = resolvePlaidToken(it as any);
-      if (!token) continue;
       const resp = await plaid.liabilitiesGet({ access_token: token });
-      const accts = new Map((resp.data.accounts ?? []).map((a) => [a.account_id, a]));
-      const L = resp.data.liabilities ?? {};
+      const payload: LiabPayload = { accounts: resp.data.accounts, liabilities: resp.data.liabilities };
+      byId.set(it.item_id, payload);
+      void writeSnapshot(ctx.supabase, ctx.userId, it.item_id, "liabilities", payload);
+    } catch { /* item may not support liabilities */ }
+  }));
+
+  const debts: DebtLine[] = [];
+  for (const it of items as any[]) {
+    const payload = byId.get(it.item_id);
+    if (!payload) continue;
+    {
+      const accts = new Map((payload.accounts ?? []).map((a) => [a.account_id, a]));
+      const L = payload.liabilities ?? {};
       for (const c of L.credit ?? []) {
         const a = c.account_id ? accts.get(c.account_id) : undefined;
         const bal = a?.balances?.current;
@@ -207,28 +230,38 @@ async function gatherDebts(ctx: { supabase: SupabaseClient }): Promise<DebtLine[
         const apr = m.interest_rate?.percentage != null ? Number(m.interest_rate.percentage) : null;
         debts.push({ name: `${it.institution_name ?? "Mortgage"} · ${a?.name ?? "Mortgage"}`, balance: Math.abs(Number(bal)), apr, minPayment: m.next_monthly_payment ?? null, kind: "mortgage" });
       }
-    } catch { /* item may not support liabilities */ }
+    }
   }
   return debts;
 }
 
 const HIGH_APR = 7; // APR at or above this is "high-interest" priority debt.
 
-export async function computeAdvisor(ctx: { supabase: SupabaseClient; userId: string }): Promise<AdvisorResult> {
+export async function computeAdvisor(
+  ctx: { supabase: SupabaseClient; userId: string },
+  opts: { netWorth?: NetWorthResult } = {},
+): Promise<AdvisorResult> {
   const generatedAt = new Date().toISOString();
   const dataSources: string[] = [];
 
-  // Net worth (assets, liabilities, liquid, cash) — reuse the audited engine.
+  // Net worth (assets, liabilities, liquid, cash). Reuse the caller's already-
+  // computed NetWorth when provided (the /api/overview aggregate computes it once
+  // and passes it here) — otherwise compute it standalone. Avoids running the
+  // whole net-worth engine twice on the Overview.
   let nw: NetWorthResult;
-  try { nw = await computeNetWorth(ctx); } catch {
-    nw = { totalAssets: 0, totalLiabilities: 0, netWorth: 0, liquid: 0, illiquid: 0, byType: {}, items: [], excluded: [], sourceHash: "" };
+  if (opts.netWorth) {
+    nw = opts.netWorth;
+  } else {
+    try { nw = await computeNetWorth(ctx); } catch {
+      nw = { totalAssets: 0, totalLiabilities: 0, netWorth: 0, liquid: 0, illiquid: 0, byType: {}, items: [], excluded: [], sourceHash: "" };
+    }
   }
   // Cash on hand = bank/depository cash PLUS uninvested cash sitting in
   // brokerage accounts (e.g. proceeds from selling E*TRADE shares). The net-worth
   // engine only tags depository accounts as "cash", so we add the brokerage cash
   // sweep separately — otherwise a user who sold shares sees $0 cash here.
   const bankCash = nw.items.filter((i) => i.kind === "asset" && i.type === "cash").reduce((s, i) => s + i.amount, 0);
-  const investmentCash = await plaidInvestmentCash(ctx.supabase).catch(() => 0);
+  const investmentCash = await plaidInvestmentCash(ctx.supabase, ctx.userId).catch(() => 0);
   const liquidCash = bankCash + investmentCash;
   if (nw.items.length) dataSources.push("net worth");
 

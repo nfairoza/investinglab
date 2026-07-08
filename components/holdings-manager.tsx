@@ -9,8 +9,20 @@ import { ConnectEmptyState } from "./connect-empty-state";
 import { TickerInput } from "./ticker-input";
 import { useIsAdmin } from "./use-is-admin";
 import { Sparkline } from "./charts/Sparkline";
+import { Pill } from "./ui/primitives";
 import type { DataResult, Quote } from "@/lib/providers/types";
 import type { Holding } from "@/lib/db";
+
+// Per-row source badge: "Manual" for user-entered rows, "E*TRADE" or the
+// institution name for synced/Plaid rows. One Pill component so every badge is
+// visually identical.
+function SourcePill({ source, readOnly }: { source?: string | null; readOnly: boolean }) {
+  const src = source ?? "manual";
+  if (!readOnly && src === "manual") return <Pill tone="neutral" className="ml-1.5">Manual</Pill>;
+  if (src === "etrade") return <Pill tone="accent" className="ml-1.5">E*TRADE</Pill>;
+  // Plaid/synced institution name (already shortened upstream).
+  return <Pill tone="accent" className="ml-1.5">{src}</Pill>;
+}
 
 async function fetchJson<T>(url: string): Promise<T> {
   const r = await fetch(url);
@@ -476,6 +488,12 @@ export function HoldingsManager() {
                 <RefreshCw size={12} className={refreshing || syncingEtrade ? "animate-spin" : ""} />
                 {refreshing || syncingEtrade ? "Refreshing…" : "Refresh"}
               </button>
+              {/* Secondary connect action — small, since the big connect empty-state
+                  only shows when there are zero holdings. Linking accounts is
+                  managed on /accounts. */}
+              <Link href="/accounts" className="flex items-center gap-1 rounded-md border border-hairline px-2 py-1 text-[11px] text-ink-dim hover:bg-surface hover:text-ink">
+                <Plus size={12} /> Connect account
+              </Link>
               {anySource && <DataBadge source={anySource} />}
               {/* Source filter — derived from connected institutions, so it
                   scales to any number of banks/brokerages. On phones (and when
@@ -686,8 +704,9 @@ function HoldingRow({ v, total, sparks, onRemove, child }: {
         {child
           ? <span className="text-ink-dim">{(h as any).readOnly && h.source ? h.source : h.source === "etrade" ? "E*TRADE" : "Manual"}</span>
           : <Link href={`/holdings/${h.symbol}`} className="text-brand-400 hover:underline">{h.symbol}</Link>}
-        {!child && h.source === "etrade" && <span className="ml-1 text-[10px] text-ink-faint">E*T</span>}
-        {!child && (h as any).readOnly && h.source && <span className="ml-1 rounded bg-surface-raised px-1 text-[9px] text-ink-faint">{h.source}</span>}
+        {/* Per-row source indicator: "Manual" for user rows, the institution name
+            for synced/Plaid rows. Single Pill component so every badge matches. */}
+        {!child && <SourcePill source={h.source} readOnly={Boolean((h as any).readOnly)} />}
         {h.assetType === "crypto" && <span className="ml-1 rounded bg-lime-500/15 px-1 text-[9px] text-lime-300">CRYPTO</span>}
       </td>
       <td className="px-3 py-2">
@@ -715,7 +734,7 @@ function HoldingRow({ v, total, sparks, onRemove, child }: {
             and Plaid-linked rows are managed by the source, not removable here. */}
         {(h.source ?? "manual") === "manual" && !(h as any).readOnly
           ? <button onClick={() => onRemove(h.id)} className="text-xs text-ink-faint hover:text-rose-300">Remove</button>
-          : <Lock size={12} className="ml-auto text-ink-faint/50" aria-label="Synced from your broker — managed by the source" />}
+          : <span title="This position mirrors your linked brokerage and updates automatically — manage it from Accounts." aria-label="Synced from your broker — managed from Accounts"><Lock size={12} className="ml-auto text-ink-faint/50" /></span>}
       </td>
     </tr>
   );
