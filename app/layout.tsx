@@ -3,6 +3,7 @@ import { Sora, Inter_Tight, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { AppFrame } from "@/components/app-frame";
 import { SwrProvider } from "@/components/swr-provider";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 
 // Self-hosted via next/font (PA-A4): no render-blocking Google Fonts <link>, no
 // font flash. display=swap; only the weights actually used. The CSS variables
@@ -69,6 +70,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <SwrProvider>
           <AppFrame>{children}</AppFrame>
         </SwrProvider>
+        <SpeedInsights />
       </body>
     </html>
   );

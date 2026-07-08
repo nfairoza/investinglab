@@ -11,5 +11,7 @@ export async function GET(req: NextRequest) {
   const symbols = raw.split(",").map((s) => s.trim().toUpperCase()).filter(Boolean);
   if (symbols.length === 0) return NextResponse.json({ quotes: {} });
   const quotes = await marketData.getQuotes(symbols);
-  return NextResponse.json({ quotes });
+  return NextResponse.json({ quotes }, {
+    headers: { "Cache-Control": "public, s-maxage=30, stale-while-revalidate=300" },
+  });
 }

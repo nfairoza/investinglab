@@ -34,8 +34,13 @@ async function getIntraday(symbol: string): Promise<DataResult<PriceHistory>> {
 export async function GET(req: NextRequest) {
   const symbol = req.nextUrl.searchParams.get("symbol")?.toUpperCase();
   if (!symbol) return NextResponse.json({ error: "symbol required" }, { status: 400 });
+  // Intraday changes fast (short CDN TTL); daily history is stable (longer). PA-A5.
   if (req.nextUrl.searchParams.get("range") === "1D") {
-    return NextResponse.json(await getIntraday(symbol));
+    return NextResponse.json(await getIntraday(symbol), {
+      headers: { "Cache-Control": "public, s-maxage=60, stale-while-revalidate=300" },
+    });
   }
-  return NextResponse.json(await marketData.getPriceHistory(symbol));
+  return NextResponse.json(await marketData.getPriceHistory(symbol), {
+    headers: { "Cache-Control": "public, s-maxage=300, stale-while-revalidate=3600" },
+  });
 }
