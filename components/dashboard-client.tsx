@@ -2,7 +2,8 @@
 
 import useSWR from "swr";
 import Link from "next/link";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
+import { computePortfolioDayChange } from "@/lib/portfolio/day-change";
 import { ArrowUpRight, Eye, TrendingUp, AlertTriangle, Bell, BellRing } from "lucide-react";
 import type { Holding, WatchItem, JournalEntry, Alert } from "@/lib/db";
 import type { DataResult, Quote, PriceHistory } from "@/lib/providers/types";
@@ -160,8 +161,31 @@ export function DashboardClient() {
   const totalCost = gainable.reduce((s, v) => s + v.h.avgCost * v.h.shares, 0);
   const totalGain = totalCost > 0 ? gainableValue - totalCost : null;
   const totalGainPct = totalGain != null && totalCost > 0 ? (totalGain / totalCost) * 100 : null;
-  const dayChange = valued.reduce((s, v) => s + (v.dayPct != null && v.value != null ? (v.dayPct / 100) * v.value : 0), 0);
-  const dayPctTotal = total > 0 ? (dayChange / (total - dayChange)) * 100 : null;
+  // Day change via the hardened, tested aggregator: it excludes holdings whose
+  // quote is implausible or internally inconsistent (a stale previous-close can
+  // otherwise make a calm day read as a crash) and reports them as suspects.
+  const dayCalc = useMemo(() => computePortfolioDayChange(
+    valued.map((v) => ({ symbol: v.h.symbol, shares: v.h.shares, price: v.price, change: v.q?.change ?? null, changePct: v.dayPct, value: v.value })),
+  ), [valued]);
+  const dayChange = dayCalc.dayChange;
+  const dayPctTotal = dayCalc.dayChangePct;
+
+  // If any holding's quote was excluded as a suspect, surface it to the admin
+  // error log (never to the user) — this is the aggregation tripwire.
+  const reportedSuspects = useRef<string>("");
+  useEffect(() => {
+    if (!dayCalc.suspects.length) return;
+    const key = dayCalc.suspects.map((s) => s.symbol).sort().join(",");
+    if (reportedSuspects.current === key) return; // don't spam per render
+    reportedSuspects.current = key;
+    fetch("/api/errors/report", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        message: `Portfolio day-change: excluded ${dayCalc.suspects.length} suspect quote(s): ${dayCalc.suspects.map((s) => `${s.symbol} (${s.reason})`).join("; ")}`,
+        category: "market_data", section: "dashboard-day-change", severity: "warning",
+      }),
+    }).catch(() => {});
+  }, [dayCalc.suspects]);
   const winRate = (() => {
     const closed = journal.filter((j) => j.status === "closed" && (j.result1m || j.result1w));
     if (!closed.length) { const g = valued.filter((v) => v.gain != null); return g.length ? (g.filter((v) => v.gain! >= 0).length / g.length) * 100 : null; }

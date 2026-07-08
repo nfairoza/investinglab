@@ -6,12 +6,13 @@ import {
   AreaChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine,
 } from "recharts";
 import { useChartTheme } from "./chart-theme";
+import { normalizeToOpen } from "@/lib/portfolio/normalize";
 import type { DataResult, PriceHistory } from "@/lib/providers/types";
 
 interface Pt { v: number; date?: string }
 
 const RANGES = [
-  { k: "1D", d: 2 },
+  { k: "1D", d: 0 }, // 0 = intraday (today's open→latest), not daily closes
   { k: "1M", d: 22 },
   { k: "3M", d: 66 },
   { k: "6M", d: 132 },
@@ -23,6 +24,11 @@ async function getHistory(url: string): Promise<DataResult<PriceHistory>> {
   return fetch(url).then((r) => r.json());
 }
 
+interface IntradayResp { disabled: boolean; series: { v: number; date: string }[]; benchmark: { v: number; date: string }[] }
+async function getIntraday(url: string): Promise<IntradayResp> {
+  return fetch(url).then((r) => r.json());
+}
+
 // Portfolio return % vs SPY return % over a window, both normalized to 0% at the
 // start so they're directly comparable ("am I beating the market?"). The
 // portfolio series is reconstructed upstream (sum of close×shares); we fetch SPY
@@ -31,27 +37,43 @@ export function PerformanceChart({ series }: { series: Pt[] }) {
   const ct = useChartTheme();
   const [range, setRange] = useState<string>("3M");
   const days = RANGES.find((r) => r.k === range)?.d ?? 66;
+  const is1D = range === "1D";
 
   const { data: spyRes } = useSWR<DataResult<PriceHistory>>(
-    "/api/price-history?symbol=SPY",
+    !is1D ? "/api/price-history?symbol=SPY" : null,
     getHistory,
     { revalidateOnFocus: false, keepPreviousData: true },
   );
-  const spyPts = spyRes?.data?.points ?? [];
+  // 1D: real same-session portfolio + SPY intraday series (reuses the endpoint
+  // built for the portfolio-value chart), both normalized to 0% at today's open.
+  const { data: intraday } = useSWR<IntradayResp>(
+    is1D ? "/api/portfolio-intraday" : null,
+    getIntraday,
+    { refreshInterval: 5 * 60_000, keepPreviousData: false },
+  );
 
-  // Window the portfolio series; align SPY to the same number of points.
-  const pWin = series.slice(-days);
-  const sWin = spyPts.slice(-pWin.length);
-  const chartable = pWin.length > 1;
+  let rows: { date: string; port: number; spy: number | null }[];
+  let intradayDisabled = false;
+  if (is1D) {
+    intradayDisabled = Boolean(intraday?.disabled);
+    const port = normalizeToOpen(intraday?.series ?? []);
+    const bench = normalizeToOpen(intraday?.benchmark ?? []);
+    const spyByTime = new Map(bench.map((b) => [b.date, b.pct]));
+    rows = port.map((p) => ({ date: p.date, port: p.pct, spy: spyByTime.get(p.date) ?? null }));
+  } else {
+    const spyPts = spyRes?.data?.points ?? [];
+    const pWin = series.slice(-days);
+    const sWin = spyPts.slice(-pWin.length);
+    const base0 = pWin[0]?.v || 0;
+    const spy0 = sWin[0]?.close || 0;
+    rows = pWin.map((p, i) => ({
+      date: p.date ?? "",
+      port: base0 > 0 ? ((p.v - base0) / base0) * 100 : 0,
+      spy: spy0 > 0 && sWin[i] ? ((sWin[i].close - spy0) / spy0) * 100 : null,
+    }));
+  }
 
-  const base0 = pWin[0]?.v || 0;
-  const spy0 = sWin[0]?.close || 0;
-  const rows = pWin.map((p, i) => ({
-    date: p.date ?? "",
-    port: base0 > 0 ? ((p.v - base0) / base0) * 100 : 0,
-    spy: spy0 > 0 && sWin[i] ? ((sWin[i].close - spy0) / spy0) * 100 : null,
-  }));
-
+  const chartable = rows.length > 1;
   const lastPort = rows.length ? rows[rows.length - 1].port : 0;
   const lastSpy = rows.length ? (rows[rows.length - 1].spy ?? 0) : 0;
   const beating = lastPort >= lastSpy;
@@ -85,8 +107,12 @@ export function PerformanceChart({ series }: { series: Pt[] }) {
       </div>
 
       {!chartable ? (
-        <div className="mt-4 flex h-56 items-center justify-center text-sm text-ink-faint">
-          Add holdings with price history to see performance.
+        <div className="mt-4 flex h-56 items-center justify-center px-6 text-center text-sm text-ink-faint">
+          {is1D
+            ? (intradayDisabled
+              ? "Intraday comparison unavailable on current data plan."
+              : "Building today's intraday comparison…")
+            : "Add holdings with price history to see performance."}
         </div>
       ) : (
         <div className="mt-3">
@@ -100,7 +126,7 @@ export function PerformanceChart({ series }: { series: Pt[] }) {
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke={ct.grid} vertical={false} />
               <XAxis dataKey="date" tick={{ fill: ct.axis, fontSize: 10, fontFamily: "var(--font-mono)" }} tickLine={false}
-                minTickGap={40} tickFormatter={(v) => (range === "1Y" || range === "ALL" ? String(v).slice(0, 7) : String(v).slice(5))} />
+                minTickGap={40} tickFormatter={(v) => (is1D ? String(v) : (range === "1Y" || range === "ALL" ? String(v).slice(0, 7) : String(v).slice(5)))} />
               <YAxis tick={{ fill: ct.axis, fontSize: 10, fontFamily: "var(--font-mono)" }} tickLine={false}
                 width={44} tickFormatter={(v) => `${v >= 0 ? "+" : ""}${v.toFixed(0)}%`} domain={["auto", "auto"]} />
               <ReferenceLine y={0} stroke={ct.axis} strokeDasharray="2 4" />
