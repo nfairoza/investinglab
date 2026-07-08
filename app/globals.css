@@ -40,6 +40,12 @@
   --radius-sm: 10px;
   --radius-lg: 22px;
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  /* Motion tokens (MO1). Durations by intent; animate transform/opacity only.
+     --ease-spring has a small overshoot — use sparingly (success ticks, sheets). */
+  --dur-fast: 150ms;   /* hover / press */
+  --dur-base: 250ms;   /* reveals / crossfades */
+  --dur-slow: 450ms;   /* charts / number rolls */
+  --ease-spring: cubic-bezier(.34, 1.56, .64, 1);
 }
 
 /* ── DARK THEME (default) ──────────────────────────────────────────────────── */
@@ -391,7 +397,46 @@ a, button, input, select, textarea {
 .stagger > *:nth-child(5) { animation-delay: 0.28s; }
 .stagger > *:nth-child(6) { animation-delay: 0.34s; }
 
-/* Respect reduced motion */
+/* ── Motion inventory (MO3) — transform/opacity only ─────────────────────────── */
+
+/* MO3.4 Hover/press physics — one class for interactive cards/rows. */
+.press {
+  transition: transform var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out);
+}
+.press:hover { transform: translateY(-1px); }
+.press:active { transform: scale(0.98); }
+
+/* MO3.5 Sub-tab crossfade — content fades (no slide; slides fight mobile swipe). */
+.tab-fade { animation: tabFade var(--dur-fast) var(--ease-out) both; }
+@keyframes tabFade { from { opacity: 0; } to { opacity: 1; } }
+
+/* MO3.6 Skeleton → content: fade in replacing shimmer, no pop. */
+.content-in { animation: contentIn var(--dur-base) var(--ease-out) both; }
+@keyframes contentIn { from { opacity: 0; } to { opacity: 1; } }
+
+/* MO3.7 Positive/negative tick flash — a tint layer's opacity blips, then settles
+   (no background jump). Add .tick-up / .tick-down for one cycle via a keyed remount
+   or toggling the class. */
+.tick-up, .tick-down { position: relative; }
+.tick-up::after, .tick-down::after {
+  content: ""; position: absolute; inset: -2px -4px; border-radius: 6px; pointer-events: none;
+  opacity: 0; animation: tickFlash 300ms var(--ease-out);
+}
+.tick-up::after { background: var(--positive); }
+.tick-down::after { background: var(--negative); }
+@keyframes tickFlash { 0% { opacity: 0; } 30% { opacity: 0.18; } 100% { opacity: 0; } }
+
+/* MO3.2 Chart draw-in — reveal an area/line left→right once. Apply .chart-draw to
+   the chart wrapper on first render; a clip-path wipe avoids per-path JS. */
+.chart-draw { animation: chartDraw var(--dur-slow) var(--ease-out) both; }
+@keyframes chartDraw { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
+
+/* MO3.10 Success check-draw — SVG stroke draw for bank-link / setup-complete. */
+.check-draw path { stroke-dasharray: 26; stroke-dashoffset: 26; animation: checkDraw 400ms var(--ease-out) forwards; }
+@keyframes checkDraw { to { stroke-dashoffset: 0; } }
+
+/* Respect reduced motion — numbers snap, charts render complete, entrances become
+   plain (no transform), tick-flash + check-draw disabled. */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.001ms !important;
@@ -400,6 +445,10 @@ a, button, input, select, textarea {
     scroll-behavior: auto !important;
   }
   .reveal { opacity: 1; transform: none; }
+  .press:hover, .press:active { transform: none; }
+  .chart-draw { clip-path: none; }
+  .tick-up::after, .tick-down::after { display: none; }
+  .check-draw path { stroke-dashoffset: 0; }
 }
 
 /* ── Light-mode legibility for tinted status text ────────────────────────────
