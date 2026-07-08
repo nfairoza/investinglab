@@ -3,7 +3,7 @@
 import useSWR from "swr";
 import Link from "next/link";
 import { useState, useMemo, useEffect, useRef } from "react";
-import { computePortfolioDayChange } from "@/lib/portfolio/day-change";
+import { resolveDayChangeSync } from "@/lib/portfolio/day-change";
 import { ArrowUpRight, Eye, TrendingUp, AlertTriangle, Bell, BellRing } from "lucide-react";
 import type { Holding, WatchItem, JournalEntry, Alert } from "@/lib/db";
 import type { DataResult, Quote, PriceHistory } from "@/lib/providers/types";
@@ -161,31 +161,41 @@ export function DashboardClient() {
   const totalCost = gainable.reduce((s, v) => s + v.h.avgCost * v.h.shares, 0);
   const totalGain = totalCost > 0 ? gainableValue - totalCost : null;
   const totalGainPct = totalGain != null && totalCost > 0 ? (totalGain / totalCost) * 100 : null;
-  // Day change via the hardened, tested aggregator: it excludes holdings whose
-  // quote is implausible or internally inconsistent (a stale previous-close can
-  // otherwise make a calm day read as a crash) and reports them as suspects.
-  const dayCalc = useMemo(() => computePortfolioDayChange(
+  // Day change via the hardened, tested aggregator. It excludes holdings whose
+  // quote is internally inconsistent immediately, and VERIFIES big (>45%) moves
+  // against the daily-history closes we already loaded (a different source than
+  // the quote, so a stale quote-cache can't corroborate itself) before deciding.
+  // A real earnings crash confirmed by history is kept; an unconfirmed one is
+  // excluded and marked. Numbers are never silently adjusted.
+  const closesBySymbol = useMemo(() => {
+    const m: Record<string, number[]> = {};
+    for (const s of symbols) m[s] = (histories[s] ?? []).map((p) => p.close).filter((n) => Number.isFinite(n));
+    return m;
+  }, [symbols, histories]);
+  const dayCalc = useMemo(() => resolveDayChangeSync(
     valued.map((v) => ({ symbol: v.h.symbol, shares: v.h.shares, price: v.price, change: v.q?.change ?? null, changePct: v.dayPct, value: v.value })),
-  ), [valued]);
+    closesBySymbol,
+  ), [valued, closesBySymbol]);
   const dayChange = dayCalc.dayChange;
   const dayPctTotal = dayCalc.dayChangePct;
+  const excludedCount = dayCalc.excluded.length;
 
-  // If any holding's quote was excluded as a suspect, surface it to the admin
-  // error log (never to the user) — this is the aggregation tripwire.
+  // Surface any excluded holdings to the admin error log (never to the user) —
+  // the aggregation tripwire.
   const reportedSuspects = useRef<string>("");
   useEffect(() => {
-    if (!dayCalc.suspects.length) return;
-    const key = dayCalc.suspects.map((s) => s.symbol).sort().join(",");
+    if (!dayCalc.excluded.length) return;
+    const key = dayCalc.excluded.map((s) => `${s.symbol}:${s.kind}`).sort().join(",");
     if (reportedSuspects.current === key) return; // don't spam per render
     reportedSuspects.current = key;
     fetch("/api/errors/report", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        message: `Portfolio day-change: excluded ${dayCalc.suspects.length} suspect quote(s): ${dayCalc.suspects.map((s) => `${s.symbol} (${s.reason})`).join("; ")}`,
+        message: `Portfolio day-change: excluded ${dayCalc.excluded.length} holding(s): ${dayCalc.excluded.map((s) => `${s.symbol} [${s.kind}] (${s.reason})`).join("; ")}`,
         category: "market_data", section: "dashboard-day-change", severity: "warning",
       }),
     }).catch(() => {});
-  }, [dayCalc.suspects]);
+  }, [dayCalc.excluded]);
   const winRate = (() => {
     const closed = journal.filter((j) => j.status === "closed" && (j.result1m || j.result1w));
     if (!closed.length) { const g = valued.filter((v) => v.gain != null); return g.length ? (g.filter((v) => v.gain! >= 0).length / g.length) * 100 : null; }
@@ -319,11 +329,18 @@ export function DashboardClient() {
                   <div className="text-xs uppercase tracking-wide text-ink-faint">Portfolio value</div>
                   <CountUp value={total} prefix="$" className="mt-1 block text-4xl font-semibold text-ink" />
                   <div className="mt-1 flex items-center gap-2 font-mono text-sm">
-                    <span style={{ color: dayChange >= 0 ? "var(--positive)" : "var(--negative)" }}>
+                    <span className="tabular-nums" style={{ color: dayChange >= 0 ? "var(--positive)" : "var(--negative)" }}>
                       {dayChange >= 0 ? "▲" : "▼"} ${Math.abs(dayChange).toLocaleString(undefined, { maximumFractionDigits: 0 })}
                       {dayPctTotal != null && ` · ${Math.abs(dayPctTotal).toFixed(2)}%`}
                     </span>
                     <span className="text-ink-faint">today</span>
+                    {excludedCount > 0 && (
+                      <span
+                        className="inline-flex h-2 w-2 rounded-full bg-amber-400"
+                        title={`${excludedCount} holding${excludedCount > 1 ? "s" : ""} excluded from today's change (data issue)`}
+                        aria-label={`${excludedCount} holding excluded from today's change (data issue)`}
+                      />
+                    )}
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
