@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { AiThinking } from "./ai-thinking";
 import { useIsAdmin } from "./use-is-admin";
+import { ArtImage } from "./ui/art-image";
 
 // ── Types mirror lib/advisor/engine.ts ───────────────────────────────────────
 type StepStatus = "done" | "in_progress" | "attention" | "missing_data";
@@ -98,7 +99,7 @@ export function AdvisorView() {
   if (!data || (!data.result?.hasAnyData && !data.narration)) {
     return (
       <div className="rounded-2xl glass p-6 text-center">
-        <Sparkles className="mx-auto text-brand-400" size={28} />
+        <ArtImage name="empty-insights" alt="" className="mx-auto mb-1 h-32 w-auto opacity-95" sizes="480px" />
         <h2 className="mt-2 text-lg font-semibold text-ink">Connect an account to get your plan</h2>
         <p className="mx-auto mt-1 max-w-md text-sm text-ink-dim">
           Rukmani checks your emergency fund, high-interest debt, surplus, and spending against the

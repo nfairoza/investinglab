@@ -7,6 +7,7 @@ import Link from "next/link";
 import { Search, SlidersHorizontal, X, Repeat, Sparkles, AlertTriangle } from "lucide-react";
 import { fetchJson } from "@/lib/fetch-json";
 import { ErrorState } from "./data-state";
+import { ArtImage } from "./ui/art-image";
 
 interface Txn {
   id: string; date: string; name: string; merchant: string | null;
@@ -154,7 +155,7 @@ export function TransactionsView() {
   if (data?.configured === false) return <Empty>Bank connections aren&apos;t available yet.</Empty>;
   if (error && !data) return <ErrorState error={error} onRetry={() => mutate()} />;
   if (!isLoading && txns.length === 0) {
-    return <Empty>No transactions yet. <Link href="/settings" className="text-brand-400 underline">Connect a bank</Link> to see your spending here.</Empty>;
+    return <Empty art="empty-transactions">No transactions yet. <Link href="/settings" className="text-brand-400 underline">Connect a bank</Link> to see your spending here.</Empty>;
   }
 
   const selectCls = "rounded-lg border border-hairline px-3 py-2 text-sm text-ink focus:outline-none";
@@ -294,6 +295,11 @@ function Badge({ children, cls, icon: Icon }: { children: React.ReactNode; cls: 
   );
 }
 
-function Empty({ children }: { children: React.ReactNode }) {
-  return <div className="rounded-2xl border border-hairline bg-surface p-6 text-center text-sm text-ink-dim">{children}</div>;
+function Empty({ children, art }: { children: React.ReactNode; art?: string }) {
+  return (
+    <div className="rounded-2xl border border-hairline bg-surface p-6 text-center text-sm text-ink-dim">
+      {art && <ArtImage name={art} alt="" className="mx-auto mb-3 h-32 w-auto opacity-95" sizes="480px" />}
+      {children}
+    </div>
+  );
 }

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import useSWR from "swr";
 import { Bell, BellRing, X, Sparkles, Plus, RefreshCw, Clock } from "lucide-react";
 import { TickerInput } from "./ticker-input";
+import { ArtImage } from "./ui/art-image";
 import { evaluateAlert, describeAlert, formatTriggerValue, needsScore, isExpired, describeExpiry, type AlertContext } from "@/lib/alerts/evaluate";
 import type { Alert } from "@/lib/db";
 import type { DataResult, Quote } from "@/lib/providers/types";
@@ -341,6 +342,7 @@ export function AlertsManager() {
         <h2 className="mb-2 text-sm font-medium text-ink-dim">Active alerts ({liveAlerts.length})</h2>
         {liveAlerts.length === 0 ? (
           <div className="rounded-lg border border-hairline bg-surface p-6 text-center text-sm text-ink-faint">
+            <ArtImage name="empty-alerts" alt="" className="mx-auto mb-3 h-32 w-auto opacity-95" sizes="480px" />
             No alerts yet. Add one above — e.g. notify me when AMD drops below $480.
           </div>
         ) : (

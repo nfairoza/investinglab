@@ -3,6 +3,7 @@
 import { useState } from "react";
 import useSWR from "swr";
 import type { JournalEntry } from "@/lib/db";
+import { ArtImage } from "./ui/art-image";
 
 async function fetchJson<T>(url: string): Promise<T> {
   const r = await fetch(url);
@@ -86,6 +87,7 @@ export function Journal() {
 
       {items.length === 0 && (
         <div className="rounded-lg border border-hairline bg-surface p-6 text-center text-sm text-ink-faint">
+          <ArtImage name="empty-journal" alt="" className="mx-auto mb-3 h-32 w-auto opacity-95" sizes="480px" />
           No trades logged yet. Logging your reasoning, target, and exit plan is how you improve over time.
         </div>
       )}

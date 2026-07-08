@@ -6,6 +6,7 @@ import { GripVertical, ChevronRight, ExternalLink, X, ArrowUp, ArrowDown, Loader
 import { DataBadge, DataTimestamp } from "./data-state";
 import { TickerInput } from "./ticker-input";
 import { Sparkline } from "./charts/Sparkline";
+import { ArtImage } from "./ui/art-image";
 import type { DataResult, Quote } from "@/lib/providers/types";
 import type { WatchItem } from "@/lib/db";
 
@@ -226,6 +227,7 @@ export function WatchlistManager({ listId }: { listId?: string } = {}) {
 
       {items.length === 0 && (
         <div className="rounded-lg border border-hairline bg-surface p-6 text-center text-sm text-ink-faint">
+          <ArtImage name="empty-watchlist" alt="" className="mx-auto mb-3 h-32 w-auto opacity-95" sizes="480px" />
           Nothing on your watchlist yet. Add a ticker you&apos;re considering above.
         </div>
       )}

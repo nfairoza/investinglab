@@ -5,6 +5,7 @@ import Link from "next/link";
 import useSWR from "swr";
 import { RefreshCw, ChevronDown, Sparkles, TrendingUp, Scale, Coins, Sprout, LayoutGrid, Boxes, Activity, Gem, Flame, Filter as FilterIcon, Star, Plus, type LucideIcon } from "lucide-react";
 import { DataBadge } from "./data-state";
+import { ArtImage } from "./ui/art-image";
 import { useIsAdmin } from "./use-is-admin";
 import { ScreenerFiltersPanel, EMPTY_FILTERS, type ScreenFormFilters } from "./screener-filters";
 import type { DataResult, ScreenerRow, ScreenerFilters } from "@/lib/providers/types";
@@ -188,6 +189,7 @@ export function Screener() {
 
           {data && data.source !== "unavailable" && rows.length === 0 && !isLoading && (
             <div className="rounded-lg border border-hairline bg-surface p-6 text-center text-sm text-ink-faint">
+              <ArtImage name="empty-screener" alt="" className="mx-auto mb-3 h-32 w-auto opacity-95" sizes="480px" />
               No stocks match these filters. Loosen a constraint or try a trending list.
             </div>
           )}

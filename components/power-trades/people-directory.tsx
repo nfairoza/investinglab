@@ -6,6 +6,7 @@ import { Search, Users, ExternalLink } from "lucide-react";
 import { PersonDetail } from "./person-detail";
 import { fetchJson } from "@/lib/fetch-json";
 import { ErrorState } from "../data-state";
+import { ArtImage } from "../ui/art-image";
 
 interface Person {
   id: string; canonical_name: string; category: string; party: string | null; state: string | null;
@@ -43,7 +44,9 @@ export function PeopleDirectory() {
 
       {!error && !isLoading && rows.length === 0 && (
         <div className="rounded-2xl border border-hairline bg-surface p-6 text-center text-sm text-ink-dim">
-          <Users size={22} className="mx-auto text-ink-faint" />
+          {q.trim()
+            ? <Users size={22} className="mx-auto text-ink-faint" />
+            : <ArtImage name="empty-follows" alt="" className="mx-auto mb-2 h-32 w-auto opacity-95" sizes="480px" />}
           <p className="mt-2">
             {q.trim()
               ? <>No match for “{q}”. This directory covers Congress, executive-branch officials, corporate insiders (SEC Form 4), and major donors/lobbyists as influence context. A person may be missing if their source category isn&apos;t enabled, they have no public filing requirement, or the filing hasn&apos;t been parsed yet.</>
