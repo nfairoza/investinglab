@@ -499,6 +499,23 @@ html.light [class*="text-emerald-300/"] { color: #047857; }
 .demo-banner-exit { color: rgba(255,255,255,0.85); text-decoration: underline; }
 .demo-banner-exit:hover { color: #fff; }
 
+/* Market-status chip (top bar): dot + phase label. */
+.market-chip {
+  display: inline-flex; align-items: center; gap: 0.4rem; white-space: nowrap;
+  padding: 0.3rem 0.6rem; border-radius: 999px;
+  border: 1px solid var(--hairline); background: var(--surface);
+  font-size: 0.72rem; font-weight: 500; color: var(--text-dim);
+}
+.market-chip-dot { width: 7px; height: 7px; border-radius: 999px; flex-shrink: 0; }
+/* Pulse only during the live regular session (respects reduced-motion). */
+.market-chip-dot-live { box-shadow: 0 0 0 0 currentColor; animation: market-pulse 2s ease-out infinite; }
+@keyframes market-pulse {
+  0% { box-shadow: 0 0 0 0 color-mix(in oklab, currentColor 60%, transparent); }
+  70% { box-shadow: 0 0 0 5px color-mix(in oklab, currentColor 0%, transparent); }
+  100% { box-shadow: 0 0 0 0 color-mix(in oklab, currentColor 0%, transparent); }
+}
+@media (prefers-reduced-motion: reduce) { .market-chip-dot-live { animation: none; } }
+
 /* Chat markdown */
 .chat-md a { word-break: break-word; color: var(--accent); }
 .chat-md ul, .chat-md ol { margin: 0.25rem 0; }

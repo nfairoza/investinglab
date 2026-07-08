@@ -16,6 +16,7 @@ import { SwipeSections } from "./swipe-sections";
 import { SidebarReopen } from "./sidebar-reopen";
 import { ThemeGuard } from "./theme-guard";
 import { DemoBanner } from "./demo-banner";
+import { MarketStatusChip } from "./market-status-chip";
 
 // Auth screens render with NO app chrome (no sidebar, chat, or command palette) —
 // just the page. Everything else gets the full shell.
@@ -41,6 +42,7 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
           <header className="sticky top-0 z-30 hidden items-center gap-3 border-b border-hairline px-6 py-2.5 md:flex" style={{ background: "color-mix(in oklab, var(--bg) 82%, transparent)", backdropFilter: "blur(8px)" }}>
             <SidebarReopen />
             <div className="flex-1"><TopSearch /></div>
+            <MarketStatusChip />
             <ThemeToggle compact />
             <AccountMenu />
           </header>

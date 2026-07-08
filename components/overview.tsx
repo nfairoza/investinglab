@@ -8,6 +8,7 @@ import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, 
 import { MoneyInsights } from "./money-insights";
 import { WatchlistRecs } from "./watchlist-recs";
 import { fetchJson } from "@/lib/fetch-json";
+import { useCountUp } from "@/lib/use-count-up";
 
 const money = (n: number) => new Intl.NumberFormat(undefined, { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n);
 const COLORS = ["#16D27E", "#0EA6C9", "#11B4AE", "#34E0A1", "#60A5FA", "#F59E0B", "#FB7185", "#A78BFA", "#22D3EE"];
@@ -39,17 +40,19 @@ function Card({ href, title, children, className = "" }: { href: string; title: 
   );
 }
 
-// Compact KPI tile for the Overview big-picture strip.
-function Kpi({ label, value, delta, tone }: {
-  label: string; value: string;
+// Compact KPI tile for the Overview big-picture strip. `amount` is the raw number
+// so the value can count up on first paint / change (money-formatted here).
+function Kpi({ label, amount, delta, tone }: {
+  label: string; amount: number;
   delta?: { amount: number; pct: number | null; suffix?: string } | null;
   tone?: "up" | "down";
 }) {
   const toneCls = tone === "up" ? "text-emerald-400" : tone === "down" ? "text-rose-400" : "text-ink";
+  const animated = useCountUp(amount);
   return (
     <div className="rounded-2xl glass p-4">
       <div className="text-[10px] uppercase tracking-wide text-ink-faint">{label}</div>
-      <div className={`mt-0.5 text-lg font-bold ${toneCls} md:text-xl`}>{value}</div>
+      <div className={`mt-0.5 text-lg font-bold tabular-nums ${toneCls} md:text-xl`}>{money(animated)}</div>
       {delta && (
         <div className={`mt-0.5 inline-flex items-center gap-0.5 text-[11px] ${delta.amount >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
           {delta.amount >= 0 ? <ArrowUp size={11} /> : <ArrowDown size={11} />}
@@ -208,12 +211,12 @@ export function Overview() {
 
       {/* KPI strip — the big-picture numbers up top */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Kpi label="Net worth" value={money(nw?.netWorth ?? 0)}
+        <Kpi label="Net worth" amount={nw?.netWorth ?? 0}
           delta={nw?.changeAmount != null ? { amount: nw.changeAmount, pct: nw.changePct } : null} />
-        <Kpi label="Investments" value={money(inv.value)}
+        <Kpi label="Investments" amount={inv.value}
           delta={inv.count > 0 ? { amount: inv.day, pct: null, suffix: "today" } : null} />
-        <Kpi label="Cash" value={money(bal?.totalCash ?? 0)} />
-        <Kpi label="Saved this month" value={money(spend.net)} tone={spend.net >= 0 ? "up" : "down"} />
+        <Kpi label="Cash" amount={bal?.totalCash ?? 0} />
+        <Kpi label="Saved this month" amount={spend.net} tone={spend.net >= 0 ? "up" : "down"} />
       </div>
 
       {/* What changed — glanceable signals; tap one to ask Rukmani why */}

@@ -91,6 +91,10 @@ export function TopSearch() {
           autoComplete="off"
           className="flex-1 bg-transparent text-ink placeholder:text-ink-faint focus:outline-none"
         />
+        {/* ⌘K discoverability hint — the command palette opens with ⌘K / Ctrl-K. */}
+        <kbd className="hidden shrink-0 items-center gap-0.5 rounded border border-hairline px-1.5 py-0.5 text-[10px] text-ink-faint lg:inline-flex" title="Press ⌘K (Ctrl-K) to open the command palette">
+          <span className="text-xs leading-none">⌘</span>K
+        </kbd>
       </div>
       {showDropdown && (
         <ul className="absolute z-50 mt-1 max-h-[60vh] w-full overflow-auto rounded-xl border border-hairline-strong py-1 shadow-2xl"
