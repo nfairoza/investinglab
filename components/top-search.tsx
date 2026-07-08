@@ -5,22 +5,18 @@ import { useRouter } from "next/navigation";
 import useSWR from "swr";
 import { Search, CornerDownLeft } from "lucide-react";
 import type { SymbolMatch } from "@/app/api/search/route";
-import { OVERVIEW, SECTIONS, ADMIN_SECTION, isPathActive } from "@/lib/nav";
+import { OVERVIEW, SECTIONS, ADMIN_SECTION, SECONDARY_PAGES, SETUP_PAGES } from "@/lib/nav";
 
 interface PageEntry { label: string; href: string; group: string }
 
 function buildPages(isAdmin: boolean): PageEntry[] {
-  const pages: PageEntry[] = [{ label: OVERVIEW.label, href: OVERVIEW.href, group: "Overview" }];
+  const pages: PageEntry[] = [{ label: OVERVIEW.label, href: OVERVIEW.href, group: "Home" }];
   for (const s of SECTIONS) for (const it of s.items) pages.push({ label: it.label, href: it.href, group: s.label });
-  pages.push(
-    { label: "Settings", href: "/settings", group: "Setup" },
-    { label: "Profile", href: "/profile", group: "Setup" },
-    { label: "Reports", href: "/reports", group: "Setup" },
-    { label: "Help", href: "/help", group: "Setup" },
-    { label: "Glossary", href: "/glossary", group: "Setup" },
-  );
+  for (const it of SECONDARY_PAGES) pages.push({ label: it.label, href: it.href, group: "More" });
+  for (const it of SETUP_PAGES) pages.push({ label: it.label, href: it.href, group: "Setup" });
   if (isAdmin) for (const it of ADMIN_SECTION.items) pages.push({ label: it.label, href: it.href, group: "Admin" });
-  return pages;
+  const seen = new Set<string>();
+  return pages.filter((p) => (seen.has(p.href) ? false : (seen.add(p.href), true)));
 }
 
 const fetchJson = (u: string) => fetch(u).then((r) => r.json());

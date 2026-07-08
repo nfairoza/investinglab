@@ -5,29 +5,43 @@ import { useRouter } from "next/navigation";
 import useSWR from "swr";
 import { Search, CornerDownLeft } from "lucide-react";
 import type { SymbolMatch } from "@/app/api/search/route";
-import { OVERVIEW, SECTIONS, ADMIN_SECTION } from "@/lib/nav";
+import { OVERVIEW, SECTIONS, ADMIN_SECTION, SECONDARY_PAGES, SETUP_PAGES } from "@/lib/nav";
 
-interface PageEntry { label: string; href: string; group: string }
+interface PageEntry { label: string; href: string; group: string; keywords?: string }
 
-// Pages reachable from the palette — derived from the single nav source of
-// truth so it never drifts from the sidebar. Setup pages + admin are appended;
-// admin pages are only shown to admins.
+// Synonyms so power users reach anything by intent, not exact label ("heatmap"
+// → Stock Map, "checkup" → Doctor). Keyed by href.
+const SYNONYMS: Record<string, string> = {
+  "/map": "heatmap treemap sectors market map",
+  "/portfolio-doctor": "checkup health concentration diversification doctor",
+  "/accounts-doctor": "checkup money health cash doctor",
+  "/screeners": "screener filter find lists",
+  "/rankings": "ranked score leaderboard",
+  "/predictions": "forecast ai prediction outlook",
+  "/power-trades": "congress insider politician senator sec form 4 influence",
+  "/watchlist": "watching watchlist follow",
+  "/networth": "net worth assets liabilities",
+  "/advisor": "advisor plan order of operations rukmani",
+  "/alerts": "alerts notifications price target",
+  "/research": "analyze memo score ticker stock",
+};
+
+// Pages reachable from the palette — derived from the single nav source of truth
+// so it never drifts from the sidebar. Every primary sub-tab, the secondary
+// surfaces (Advisor/Alerts), setup pages, and (for admins) admin tools.
 function buildPages(isAdmin: boolean): PageEntry[] {
-  const pages: PageEntry[] = [{ label: OVERVIEW.label, href: OVERVIEW.href, group: "Overview" }];
+  const pages: PageEntry[] = [{ label: OVERVIEW.label, href: OVERVIEW.href, group: "Home" }];
   for (const s of SECTIONS) {
-    for (const it of s.items) pages.push({ label: it.label, href: it.href, group: s.label });
+    for (const it of s.items) pages.push({ label: it.label, href: it.href, group: s.label, keywords: SYNONYMS[it.href] });
   }
-  pages.push(
-    { label: "Settings", href: "/settings", group: "Setup" },
-    { label: "Profile", href: "/profile", group: "Setup" },
-    { label: "Reports", href: "/reports", group: "Setup" },
-    { label: "Help", href: "/help", group: "Setup" },
-    { label: "Glossary", href: "/glossary", group: "Setup" },
-  );
+  for (const it of SECONDARY_PAGES) pages.push({ label: it.label, href: it.href, group: "More", keywords: SYNONYMS[it.href] });
+  for (const it of SETUP_PAGES) pages.push({ label: it.label, href: it.href, group: "Setup" });
   if (isAdmin) {
     for (const it of ADMIN_SECTION.items) pages.push({ label: it.label, href: it.href, group: "Admin" });
   }
-  return pages;
+  // De-dupe by href (a page could appear in a section AND secondary).
+  const seen = new Set<string>();
+  return pages.filter((p) => (seen.has(p.href) ? false : (seen.add(p.href), true)));
 }
 
 const fetchJson = (u: string) => fetch(u).then((r) => r.json());
@@ -77,7 +91,7 @@ export function CommandPalette() {
   }, [q]);
 
   const pages = q.trim()
-    ? PAGES.filter((p) => p.label.toLowerCase().includes(q.toLowerCase()))
+    ? PAGES.filter((p) => `${p.label} ${p.group} ${p.keywords ?? ""}`.toLowerCase().includes(q.toLowerCase()))
     : PAGES;
 
   // Flattened option list for keyboard nav: symbols first, then pages.
