@@ -9,19 +9,16 @@ import { ConnectEmptyState } from "./connect-empty-state";
 import { TickerInput } from "./ticker-input";
 import { useIsAdmin } from "./use-is-admin";
 import { Sparkline } from "./charts/Sparkline";
-import { Pill } from "./ui/primitives";
 import type { DataResult, Quote } from "@/lib/providers/types";
 import type { Holding } from "@/lib/db";
 
-// Per-row source badge: "Manual" for user-entered rows, "E*TRADE" or the
-// institution name for synced/Plaid rows. One Pill component so every badge is
-// visually identical.
-function SourcePill({ source, readOnly }: { source?: string | null; readOnly: boolean }) {
+// Human label for a holding's source: "Manual", "E*TRADE", or the (already
+// shortened) institution label. Used as quiet ink-faint text — no filled pill.
+function sourceLabel(source?: string | null, readOnly?: boolean): string {
   const src = source ?? "manual";
-  if (!readOnly && src === "manual") return <Pill tone="neutral" className="ml-1.5">Manual</Pill>;
-  if (src === "etrade") return <Pill tone="accent" className="ml-1.5">E*TRADE</Pill>;
-  // Plaid/synced institution name (already shortened upstream).
-  return <Pill tone="accent" className="ml-1.5">{src}</Pill>;
+  if (!readOnly && src === "manual") return "Manual";
+  if (src === "etrade") return "E*TRADE";
+  return src;
 }
 
 async function fetchJson<T>(url: string): Promise<T> {
@@ -83,7 +80,12 @@ function shortInstitution(name: string, mask?: string | null, acctName?: string 
   // Avoid echoing the institution name back inside the account name.
   const an = acctName && !new RegExp(n, "i").test(acctName) ? acctName.trim() : "";
   const parts = [n, an].filter(Boolean).join(" · ");
-  return mask ? `${parts} ••${mask}` : parts;
+  // Append the mask ONCE — skip if the label text already ends in those 4 digits
+  // (some feeds put the mask in the account name, which caused "••4213 ••4213").
+  if (!mask) return parts;
+  const m = String(mask).replace(/\D/g, "");
+  if (m && new RegExp(`${m}\\D*$`).test(parts)) return parts;
+  return `${parts} ••${m}`;
 }
 
 // security  = priceable/researchable ticker → main equities table
@@ -219,6 +221,10 @@ export function HoldingsManager() {
 
   // Which sources actually exist among securities (for the relevant filter chips).
   const presentSources = Array.from(new Set(securities.map((h) => h.source ?? "manual")));
+  // When every holding shares ONE source, show it once in the header instead of a
+  // per-row badge. With multiple, rows carry a tiny ink-faint source line.
+  const soleSource = presentSources.length === 1 ? presentSources[0] : null;
+  const soleReadOnly = soleSource ? securities.some((h) => (h.source ?? "manual") === soleSource && (h as any).readOnly) : false;
   const holdings = sourceFilter === "all"
     ? securities
     : securities.filter((h) => (h.source ?? "manual") === sourceFilter);
@@ -470,6 +476,10 @@ export function HoldingsManager() {
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2">
               <span className="text-xs text-ink-faint">{holdings.length} position{holdings.length !== 1 ? "s" : ""}</span>
+              {/* One account for everything → name it once here (no per-row pills). */}
+              {soleSource && sourceFilter === "all" && (
+                <span className="text-[11px] text-ink-faint">· {sourceLabel(soleSource, soleReadOnly)}</span>
+              )}
               {syncMsg && (
                 <span className={`text-[11px] ${syncMsg.includes("expired") || syncMsg.includes("failed") || syncMsg.includes("Connect") ? "text-rose-400" : "text-ink-faint"}`}>
                   · {syncMsg}
@@ -567,7 +577,7 @@ export function HoldingsManager() {
                   // Single-account symbol (or a filter that matched one account):
                   // render it as a plain row, no collapsing.
                   if (g.rows.length === 1) {
-                    return <HoldingRow key={g.rows[0].h.id} v={g.rows[0]} total={total} sparks={sparks} onRemove={removeHolding} />;
+                    return <HoldingRow key={g.rows[0].h.id} v={g.rows[0]} total={total} sparks={sparks} onRemove={removeHolding} showSource={!soleSource} />;
                   }
                   // Multiple accounts hold this symbol → summed, collapsible parent.
                   const open = expanded.has(g.symbol);
@@ -596,8 +606,12 @@ export function HoldingsManager() {
                           {g.daysGain == null ? "—" : `${g.daysGain >= 0 ? "▲" : "▼"} $${money(g.daysGain)}${g.dayPct != null ? ` (${Math.abs(g.dayPct).toFixed(2)}%)` : ""}`}
                         </td>
                         <td className="px-3 py-2 text-right font-medium text-ink">{g.value != null ? `$${money(g.value)}` : "—"}</td>
-                        <td className={`px-3 py-2 text-right ${g.totalGain == null ? "text-ink-faint" : tUp ? "text-emerald-400" : "text-rose-400"}`}>
-                          {g.totalGain == null ? "—" : `${tUp ? "▲" : "▼"} $${money(g.totalGain)}${g.totalGainPct != null ? ` (${Math.abs(g.totalGainPct).toFixed(1)}%)` : ""}`}
+                        <td className={`px-3 py-2 text-right tabular-nums ${g.totalGain == null ? "text-ink-faint" : tUp ? "text-emerald-400" : "text-rose-400"}`}>
+                          {g.totalGain == null ? "—" : (
+                            <span title={`Weighted across ${g.rows.length} accounts — each account's % is vs its own cost basis.`}>
+                              {tUp ? "▲" : "▼"} ${money(g.totalGain)}{g.totalGainPct != null ? ` (${Math.abs(g.totalGainPct).toFixed(1)}%)` : ""}
+                            </span>
+                          )}
                         </td>
                         <td className="px-3 py-2 text-right text-ink-dim">{g.shares}</td>
                         <td className="px-3 py-2 text-right text-ink-dim">{g.avgCost != null ? `$${g.avgCost.toFixed(2)}` : "—"}</td>
@@ -682,12 +696,16 @@ export function HoldingsManager() {
 }
 
 // One holding row (leaf). `child` indents it under a collapsible group parent.
-function HoldingRow({ v, total, sparks, onRemove, child }: {
+// `showSource` adds a tiny ink-faint source line under the ticker — only when the
+// portfolio spans MULTIPLE accounts (single-account portfolios name it once in
+// the header instead).
+function HoldingRow({ v, total, sparks, onRemove, child, showSource }: {
   v: { h: Holding; price: number | null; value: number | null; totalGain: number | null; totalGainPct: number | null; daysGain: number | null; daysGainPct: number | null };
   total: number;
   sparks: Record<string, { v: number }[]> | undefined;
   onRemove: (id: string) => void;
   child?: boolean;
+  showSource?: boolean;
 }) {
   const { h, price, value, totalGain, totalGainPct, daysGain, daysGainPct } = v;
   const weight = value != null && total > 0 ? (value / total) * 100 : null;
@@ -701,26 +719,39 @@ function HoldingRow({ v, total, sparks, onRemove, child }: {
   return (
     <tr className={child ? "bg-surface/40 hover:bg-surface" : "hover:bg-surface"}>
       <td className={`px-3 py-2 font-medium ${child ? "pl-8" : ""}`}>
-        {child
-          ? <span className="text-ink-dim">{(h as any).readOnly && h.source ? h.source : h.source === "etrade" ? "E*TRADE" : "Manual"}</span>
-          : <Link href={`/holdings/${h.symbol}`} className="text-brand-400 hover:underline">{h.symbol}</Link>}
-        {/* Per-row source indicator: "Manual" for user rows, the institution name
-            for synced/Plaid rows. Single Pill component so every badge matches. */}
-        {!child && <SourcePill source={h.source} readOnly={Boolean((h as any).readOnly)} />}
-        {h.assetType === "crypto" && <span className="ml-1 rounded bg-lime-500/15 px-1 text-[9px] text-lime-300">CRYPTO</span>}
+        {child ? (
+          // Sub-row identity = the account it's held in (quiet ink-faint text).
+          <span className="text-xs text-ink-dim">{sourceLabel(h.source, Boolean((h as any).readOnly))}</span>
+        ) : (
+          <>
+            <Link href={`/holdings/${h.symbol}`} className="text-brand-400 hover:underline">{h.symbol}</Link>
+            {h.assetType === "crypto" && <span className="ml-1 rounded bg-lime-500/15 px-1 text-[9px] text-lime-300">CRYPTO</span>}
+            {/* Multi-account portfolio → name the source quietly under the ticker;
+                single-account portfolios name it once in the header instead. */}
+            {showSource && <div className="text-[10px] text-ink-faint">{sourceLabel(h.source, Boolean((h as any).readOnly))}</div>}
+          </>
+        )}
       </td>
+      {/* Sub-rows drop the redundant trend spark (belongs to the symbol/parent). */}
       <td className="px-3 py-2">
-        <div className="h-7 w-16">
-          {!child && spark.length > 1
-            ? <Sparkline data={spark} height={28} />
-            : <span className="block pt-2 text-xs text-ink-faint">—</span>}
-        </div>
+        {!child && (
+          <div className="h-7 w-16">
+            {spark.length > 1
+              ? <Sparkline data={spark} height={28} />
+              : <span className="block pt-2 text-xs text-ink-faint">—</span>}
+          </div>
+        )}
       </td>
-      <td className="px-3 py-2 text-right tabular-nums text-ink-dim">{price != null ? `$${price.toFixed(2)}` : "—"}</td>
+      {/* Sub-rows drop the duplicated parent price cell. */}
+      <td className="px-3 py-2 text-right tabular-nums text-ink-dim">{child ? "" : (price != null ? `$${price.toFixed(2)}` : "—")}</td>
+      {/* Day's gain: parent/leaf shows $ + %; sub-rows show day $ only (day % is a
+          per-symbol figure — identical on every lot, so it's redundant there). */}
       <td className={`px-3 py-2 text-right tabular-nums ${daysGain == null ? "text-ink-faint" : dUp ? "text-emerald-400" : "text-rose-400"}`}>
         {daysGain == null
-          ? (daysGainPct != null ? `${daysGainPct >= 0 ? "▲" : "▼"} ${Math.abs(daysGainPct).toFixed(2)}%` : "—")
-          : `${dUp ? "▲" : "▼"} $${money(daysGain)}${daysGainPct != null ? ` (${Math.abs(daysGainPct).toFixed(2)}%)` : ""}`}
+          ? (!child && daysGainPct != null ? `${daysGainPct >= 0 ? "▲" : "▼"} ${Math.abs(daysGainPct).toFixed(2)}%` : "—")
+          : child
+            ? `${dUp ? "▲" : "▼"} $${money(daysGain)}`
+            : `${dUp ? "▲" : "▼"} $${money(daysGain)}${daysGainPct != null ? ` (${Math.abs(daysGainPct).toFixed(2)}%)` : ""}`}
       </td>
       <td className="px-3 py-2 text-right tabular-nums text-ink-dim">{value != null ? `$${money(value)}` : "—"}</td>
       <td className={`px-3 py-2 text-right tabular-nums ${totalGain == null || totalGainPct == null ? "text-ink-faint" : tUp ? "text-emerald-400" : "text-rose-400"}`}>
@@ -728,7 +759,8 @@ function HoldingRow({ v, total, sparks, onRemove, child }: {
       </td>
       <td className="px-3 py-2 text-right tabular-nums text-ink-dim">{h.shares}</td>
       <td className="px-3 py-2 text-right tabular-nums text-ink-dim">{h.avgCost > 0 ? `$${h.avgCost.toFixed(2)}` : "—"}</td>
-      <td className="px-3 py-2 text-right tabular-nums text-ink-dim">{weight != null ? `${weight.toFixed(1)}%` : "—"}</td>
+      {/* Weight is a symbol-level figure; blank on sub-rows. */}
+      <td className="px-3 py-2 text-right tabular-nums text-ink-dim">{child ? "" : (weight != null ? `${weight.toFixed(1)}%` : "—")}</td>
       <td className="px-3 py-2 text-right">
         {/* Only MANUALLY-added holdings can be removed. Synced rows (E*TRADE)
             and Plaid-linked rows are managed by the source, not removable here. */}
