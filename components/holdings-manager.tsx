@@ -697,19 +697,19 @@ function HoldingRow({ v, total, sparks, onRemove, child }: {
             : <span className="block pt-2 text-xs text-ink-faint">—</span>}
         </div>
       </td>
-      <td className="px-3 py-2 text-right text-ink-dim">{price != null ? `$${price.toFixed(2)}` : "—"}</td>
-      <td className={`px-3 py-2 text-right ${daysGain == null ? "text-ink-faint" : dUp ? "text-emerald-400" : "text-rose-400"}`}>
+      <td className="px-3 py-2 text-right tabular-nums text-ink-dim">{price != null ? `$${price.toFixed(2)}` : "—"}</td>
+      <td className={`px-3 py-2 text-right tabular-nums ${daysGain == null ? "text-ink-faint" : dUp ? "text-emerald-400" : "text-rose-400"}`}>
         {daysGain == null
           ? (daysGainPct != null ? `${daysGainPct >= 0 ? "▲" : "▼"} ${Math.abs(daysGainPct).toFixed(2)}%` : "—")
           : `${dUp ? "▲" : "▼"} $${money(daysGain)}${daysGainPct != null ? ` (${Math.abs(daysGainPct).toFixed(2)}%)` : ""}`}
       </td>
-      <td className="px-3 py-2 text-right text-ink-dim">{value != null ? `$${money(value)}` : "—"}</td>
-      <td className={`px-3 py-2 text-right ${totalGain == null || totalGainPct == null ? "text-ink-faint" : tUp ? "text-emerald-400" : "text-rose-400"}`}>
+      <td className="px-3 py-2 text-right tabular-nums text-ink-dim">{value != null ? `$${money(value)}` : "—"}</td>
+      <td className={`px-3 py-2 text-right tabular-nums ${totalGain == null || totalGainPct == null ? "text-ink-faint" : tUp ? "text-emerald-400" : "text-rose-400"}`}>
         {totalGain == null || totalGainPct == null ? "—" : `${tUp ? "▲" : "▼"} $${money(totalGain)} (${Math.abs(totalGainPct).toFixed(1)}%)`}
       </td>
-      <td className="px-3 py-2 text-right text-ink-dim">{h.shares}</td>
-      <td className="px-3 py-2 text-right text-ink-dim">{h.avgCost > 0 ? `$${h.avgCost.toFixed(2)}` : "—"}</td>
-      <td className="px-3 py-2 text-right text-ink-dim">{weight != null ? `${weight.toFixed(1)}%` : "—"}</td>
+      <td className="px-3 py-2 text-right tabular-nums text-ink-dim">{h.shares}</td>
+      <td className="px-3 py-2 text-right tabular-nums text-ink-dim">{h.avgCost > 0 ? `$${h.avgCost.toFixed(2)}` : "—"}</td>
+      <td className="px-3 py-2 text-right tabular-nums text-ink-dim">{weight != null ? `${weight.toFixed(1)}%` : "—"}</td>
       <td className="px-3 py-2 text-right">
         {/* Only MANUALLY-added holdings can be removed. Synced rows (E*TRADE)
             and Plaid-linked rows are managed by the source, not removable here. */}

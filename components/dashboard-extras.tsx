@@ -4,6 +4,7 @@ import Link from "next/link";
 import useSWR from "swr";
 import { ArrowUpRight, Bell, NotebookPen, Sparkles } from "lucide-react";
 import { GlowSparkline } from "./charts/GlowSparkline";
+import { DeltaPill } from "./ui/primitives";
 import type { DataResult, PriceHistory } from "@/lib/providers/types";
 
 async function fetchJson<T>(url: string): Promise<T> {
@@ -55,7 +56,6 @@ export function AssetCard({
   const sparkSeries = intradaySeries.length >= 2
     ? (prevClose != null ? [{ v: prevClose }, ...intradaySeries] : intradaySeries)
     : series.slice(-2);
-  const dayUp = (dayPct ?? 0) >= 0;
   // Today's $ change for this position = today's % move × current value.
   const dayChange = dayPct != null && price != null && shares ? (price * shares) * (dayPct / 100) : null;
   return (
@@ -69,12 +69,7 @@ export function AssetCard({
           </div>
           {name && <div className="hidden truncate text-[11px] text-ink-faint sm:block">{name}</div>}
         </div>
-        {dayPct != null && (
-          <span className="flex items-center gap-1 rounded-full px-2 py-0.5 font-mono text-[11px] font-medium sm:text-xs"
-            style={{ color: dayUp ? "var(--positive)" : "var(--negative)", background: dayUp ? "var(--positive-soft)" : "var(--negative-soft)" }}>
-            {dayUp ? "▲" : "▼"} {Math.abs(dayPct).toFixed(2)}% <span className="opacity-60">1D</span>
-          </span>
-        )}
+        {dayPct != null && <DeltaPill pct={dayPct} suffix="1D" />}
       </div>
       <div className="mt-1.5 font-mono text-lg font-semibold tnum text-ink sm:mt-2 sm:text-2xl">{price != null ? `$${price.toFixed(2)}` : "—"}</div>
       {/* Glow sparkline — today's intraday path (shorter on phones) */}

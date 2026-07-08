@@ -20,6 +20,44 @@ export function GlassCard({
   );
 }
 
+// ── Pill / DeltaPill ─────────────────────────────────────────────────────────
+// The single badge primitive. Fixed shape/padding/type size so every chip in the
+// app is pixel-identical. `Pill` is the neutral base; `DeltaPill` is the semantic
+// up/down day-change badge (green up / red down) used on asset cards, holdings
+// rows, etc. Keeping both here means the AMD/SOXL/NVDA badges can never drift.
+export type PillTone = "neutral" | "positive" | "negative" | "accent";
+
+const PILL_TONE: Record<PillTone, React.CSSProperties> = {
+  neutral: { color: "var(--text-dim)", background: "var(--surface-raised)" },
+  positive: { color: "var(--positive)", background: "var(--positive-soft)" },
+  negative: { color: "var(--negative)", background: "var(--negative-soft)" },
+  accent: { color: "var(--accent)", background: "var(--accent-soft)" },
+};
+
+export function Pill({
+  children, tone = "neutral", className,
+}: { children: React.ReactNode; tone?: PillTone; className?: string }) {
+  return (
+    <span
+      className={clsx("inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-mono text-[11px] font-medium tabular-nums", className)}
+      style={PILL_TONE[tone]}
+    >
+      {children}
+    </span>
+  );
+}
+
+// Semantic day/period-change badge: arrow + magnitude, colored by sign. `pct` is
+// the primary number; pass `suffix` (e.g. "1D") for a faint qualifier.
+export function DeltaPill({ pct, suffix, className }: { pct: number; suffix?: string; className?: string }) {
+  const up = pct >= 0;
+  return (
+    <Pill tone={up ? "positive" : "negative"} className={className}>
+      {up ? "▲" : "▼"} {Math.abs(pct).toFixed(2)}%{suffix ? <span className="opacity-60">{suffix}</span> : null}
+    </Pill>
+  );
+}
+
 // ── SectionHeader (page template title block) ────────────────────────────────
 export function SectionHeader({ title, subtitle, action }: { title: string; subtitle?: string; action?: React.ReactNode }) {
   return (
