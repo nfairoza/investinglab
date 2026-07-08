@@ -8,6 +8,8 @@ import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, 
 import { MoneyInsights } from "./money-insights";
 import { WatchlistRecs } from "./watchlist-recs";
 import { SetupChecklist } from "./setup-checklist";
+import { PersonaPrompt } from "./persona-prompt";
+import { HomePowerCard } from "./home-power-card";
 import { fetchJson } from "@/lib/fetch-json";
 import { useCountUp } from "@/lib/use-count-up";
 
@@ -73,6 +75,9 @@ export function Overview() {
     accounts: Balances; holdings: Holding[]; transactions: Txn[];
   }
   const { data: ov, isLoading } = useSWR<OverviewResp>("/api/overview", fetchJson, { revalidateOnFocus: false, keepPreviousData: true });
+  // Persona (money | research | power | null) only reorders/emphasizes Home cards.
+  const { data: prefs } = useSWR<{ persona?: "money" | "research" | "power" | null; personaSet?: boolean }>("/api/profile-prefs", fetchJson, { revalidateOnFocus: false });
+  const persona = prefs?.persona ?? null;
   const nw = ov?.netWorth ?? undefined;
   const nwLoading = isLoading;
   const bal = ov?.accounts;
@@ -198,8 +203,21 @@ export function Overview() {
     );
   }
 
+  // Persona question shows once, before anything else on Home (new or returning).
+  // Self-hides when personaSet. Answer only reorders/emphasizes — hides nothing.
+  if (prefs && !prefs.personaSet) {
+    return (
+      <div className="space-y-4">
+        <div>
+          <h1 className="font-display text-2xl font-semibold text-ink md:text-3xl">{greeting}{firstName ? `, ${firstName}` : ""}</h1>
+        </div>
+        <PersonaPrompt />
+      </div>
+    );
+  }
+
   if (nothingConnected) {
-    return <WelcomeExplore greeting={greeting} firstName={firstName} />;
+    return <WelcomeExplore greeting={greeting} firstName={firstName} persona={persona} />;
   }
 
   return (
@@ -212,6 +230,9 @@ export function Overview() {
 
       {/* First-run setup checklist — self-hides once complete or dismissed */}
       <SetupChecklist hasBank={(bal?.items?.length ?? 0) > 0} hasTicker={inv.count > 0} />
+
+      {/* Power Trades discovery card — pinned high for the "power" persona */}
+      {persona === "power" && <HomePowerCard />}
 
       {/* KPI strip — the big-picture numbers up top */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -432,6 +453,10 @@ export function Overview() {
       {/* AI watchlist ideas based on holdings/lists/recent views */}
       <WatchlistRecs />
 
+      {/* Power Trades discovery — shown lower for non-power personas so the
+          feature is still surfaced without dominating their home. */}
+      {persona !== "power" && <HomePowerCard />}
+
       <p className="text-[11px] text-ink-faint">Tap any card for the full view. Research and education, not financial advice.</p>
     </div>
   );
@@ -440,7 +465,7 @@ export function Overview() {
 // New-user / nothing-connected home: a warm welcome + connect CTA, then a grid
 // of everything you can explore WITHOUT connecting anything yet. The first tile
 // surfaces the day's top screener preset so it feels alive on first visit.
-function WelcomeExplore({ greeting, firstName }: { greeting: string; firstName: string }) {
+function WelcomeExplore({ greeting, firstName, persona }: { greeting: string; firstName: string; persona?: "money" | "research" | "power" | null }) {
   const { data: presetData } = useSWR<{ presets: { key: string; label: string; blurb: string }[]; rankedKeys: string[] }>(
     "/api/screener/presets", fetchJson, { revalidateOnFocus: false });
   const topKey = presetData?.rankedKeys?.[0];
@@ -454,6 +479,14 @@ function WelcomeExplore({ greeting, firstName }: { greeting: string; firstName: 
     { href: "/power-trades", label: "Power Trades", desc: "Congress & insider disclosures, scored.", icon: Landmark, tint: "text-rose-400" },
     { href: "/watchlist", label: "Watchlist", desc: "Track names you care about with AI takes.", icon: Eye, tint: "text-cyan-400" },
   ];
+  // Persona emphasis: float the matching tile(s) to the front (nothing removed).
+  const priority: Record<string, string[]> = {
+    money: ["/money", "/accounts"], research: ["/research", "/screeners"], power: ["/power-trades"],
+  };
+  if (persona && priority[persona]) {
+    const want = priority[persona];
+    explore.sort((a, b) => (want.includes(b.href) ? 1 : 0) - (want.includes(a.href) ? 1 : 0));
+  }
 
   return (
     <div className="space-y-5">

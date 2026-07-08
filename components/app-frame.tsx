@@ -18,6 +18,7 @@ import { ThemeGuard } from "./theme-guard";
 import { DemoBanner } from "./demo-banner";
 import { MarketStatusChip } from "./market-status-chip";
 import { OfflineBanner } from "./offline-banner";
+import { AlertsBell } from "./alerts-bell";
 
 // Auth screens render with NO app chrome (no sidebar, chat, or command palette) —
 // just the page. Everything else gets the full shell.
@@ -45,6 +46,7 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
             <SidebarReopen />
             <div className="flex-1"><TopSearch /></div>
             <MarketStatusChip />
+            <AlertsBell />
             <ThemeToggle compact />
             <AccountMenu />
           </header>
