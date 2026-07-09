@@ -62,6 +62,26 @@ export async function runInsightsBuild(opts: { sliceSize?: number; nowMs?: numbe
         .filter((h) => h.value > 0);
       if (priced.length) fresh.push(...detectConcentration(priced));
 
+      // Stage-3: turn active recurring charges (F6) into insight rows so they
+      // rank alongside everything else on Home + the archive. Price increases
+      // are severity 1 too; the notification (F6) is the timely nudge, this is
+      // the durable, dismissable insight.
+      const { data: recRows } = await db.from("recurring_charges")
+        .select("merchant, cadence, avg_amount, last_amount, status").eq("user_id", userId).eq("status", "active");
+      for (const r of recRows ?? []) {
+        const avg = Number(r.avg_amount) || 0, last = Number(r.last_amount) || 0;
+        const increase = last > avg * 1.1;
+        if (increase) {
+          fresh.push({
+            kind: "recurring_increase", subject: String(r.merchant), severity: 1,
+            headlineSlots: { merchant: String(r.merchant), prev: +avg.toFixed(2), last: +last.toFixed(2) },
+            impactPerYear: r.cadence === "monthly" ? +((last - avg) * 12).toFixed(2) : +(last - avg).toFixed(2),
+            evidence: [{ kind: "inputs", inputs: { merchant: String(r.merchant), previous: +avg.toFixed(2), latest: +last.toFixed(2) }, note: `${r.merchant} charge rose from ${avg.toFixed(2)} to ${last.toFixed(2)}.` }],
+            factsUsed: ["recurring.v1"], action: { label: "See recurring", deeplink: "/recurring" }, cooldownDays: 30, page: "recurring",
+          });
+        }
+      }
+
       if (fresh.length) {
         const prior = await loadPriorInsights(db, userId);
         const keep = dedupe(fresh, prior, nowMs);

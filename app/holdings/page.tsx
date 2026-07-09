@@ -1,6 +1,7 @@
 import { HoldingsManager } from "@/components/holdings-manager";
 import { EarningsStrip } from "@/components/earnings-strip";
 import { BenchmarkHeader } from "@/components/benchmark-header";
+import { InsightStrip } from "@/components/insight-strip";
 
 export const metadata = { title: "Holdings" };
 
@@ -20,6 +21,7 @@ export default function Page() {
         concentrated.
       </div>
       <BenchmarkHeader />
+      <InsightStrip page="holdings" />
       <EarningsStrip />
       <HoldingsManager />
     </div>

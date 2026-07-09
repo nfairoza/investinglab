@@ -1,4 +1,5 @@
 import { RecurringView } from "@/components/recurring-view";
+import { InsightStrip } from "@/components/insight-strip";
 
 export const metadata = { title: "Recurring" };
 
@@ -12,6 +13,7 @@ export default function Page() {
           charge goes up in price.
         </p>
       </div>
+      <InsightStrip page="recurring" />
       <RecurringView />
     </div>
   );

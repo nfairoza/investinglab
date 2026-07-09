@@ -24,6 +24,7 @@ export async function GET() {
     askedRukmani: prefs.askedRukmani ?? false,     // has asked the AI assistant at least once
     persona: prefs.persona ?? null,                // "money" | "research" | "power" | null (skipped)
     personaSet: prefs.personaSet ?? false,         // answered/skipped the persona question
+    digestPrefs: prefs.digestPrefs ?? { weekly: true }, // F2 weekly digest opt-in (default on)
   });
 }
 
@@ -40,6 +41,7 @@ export async function PUT(req: NextRequest) {
     askedRukmani: z.boolean().optional(),
     persona: z.enum(["money", "research", "power"]).nullable().optional(),
     personaSet: z.boolean().optional(),
+    digestPrefs: z.object({ weekly: z.boolean() }).optional(),
   }));
   if (!parsed.ok) return parsed.response;
   const body = parsed.data;

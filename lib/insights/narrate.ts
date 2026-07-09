@@ -35,6 +35,20 @@ export function templateFor(kind: string): { headline: string; body: string } {
       return { headline: "Your net worth is climbing", body: "You've grown from {start} to {end} lately — about {monthlySlope} a month. Steady progress." };
     case "concentration":
       return { headline: "{symbol} is a big slice of your portfolio", body: "{symbol} is about {pct}% of your holdings. Nothing wrong with conviction — just worth a look so one name doesn't carry your whole outcome." };
+    case "idle_cash":
+      return { headline: "You have cash sitting idle", body: "About {idle} is beyond your safety buffer. Some people keep spare cash in a high-yield savings account or short-term treasuries — options worth comparing, your call." };
+    case "utilization":
+      return { headline: "Your credit utilization is climbing", body: "You're using about {totalUtil}% of your available credit. Keeping it lower can help your credit profile — worth a look, especially on {worstCard}." };
+    case "low_buffer":
+      return { headline: "Your cash cushion is running thin", body: "You have under a month of expenses in easy-to-reach cash right now. No alarm — a small, steady auto-transfer to savings is a gentle way to rebuild it when you can." };
+    case "savings_capacity":
+      return { headline: "You have room to save more", body: "You typically have about {capacity} unspent each month. Automating a transfer that day could quietly grow your savings — only if it feels comfortable." };
+    case "category_trend":
+      return { headline: "{category} has crept up", body: "Your {category} spending is running about {upPct}% above your usual — roughly {delta} more. Worth a look if it wasn't planned." };
+    case "recurring_new":
+      return { headline: "New recurring charge spotted", body: "{merchant} looks like a new recurring charge, about {amount} a {cadence}. Worth a glance to make sure it's one you meant to keep." };
+    case "recurring_increase":
+      return { headline: "A subscription went up", body: "{merchant} went from about {prev} to {last}. Price creep is easy to miss — worth a look if you didn't expect it." };
     default:
       return { headline: "A money note for you", body: "There's something worth a look in your accounts." };
   }

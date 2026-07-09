@@ -1,6 +1,7 @@
 import type { Ledger, StructuredInsight } from "../types";
 import {
   pace, interestBleed, debtVsCashArbitrage, categoryTrend, netWorthTrajectory, savingsCapacity, cashBuffer,
+  idleCash, utilization,
 } from "../facts";
 
 // =============================================================================
@@ -129,13 +130,126 @@ export function detectPositive(l: Ledger): StructuredInsight[] {
   return candidates.sort((a, b) => (b.impactPerYear ?? 0) - (a.impactPerYear ?? 0)).slice(0, 1);
 }
 
-// Run all stage-2 generators over a ledger.
+// 5) Idle cash / cash drag — meaningful liquid cash beyond the buffer, framed
+//    as OPTION math (educational). Never directive; no return promises.
+export function detectIdleCash(l: Ledger): StructuredInsight[] {
+  const f = idleCash(l);
+  const v = f.value;
+  // Non-trivial: at least $2,000 idle beyond the buffer.
+  if (v.idle < 2000) return [];
+  return [{
+    kind: "idle_cash",
+    subject: "cash",
+    severity: 1,
+    headlineSlots: { idle: v.idle, targetBuffer: v.targetBuffer, liquid: v.liquid },
+    impactPerYear: null, // option framing — no assumed return
+    evidence: [f.evidence],
+    factsUsed: [f.formulaId],
+    action: { label: "See accounts", deeplink: "/accounts" },
+    cooldownDays: 30,
+    page: "accounts",
+  }];
+}
+
+// 6) Utilization creep — credit utilization crossing the 30% / 50% steps.
+export function detectUtilization(l: Ledger): StructuredInsight[] {
+  const f = utilization(l);
+  const v = f.value;
+  if (v.totalLimit <= 0 || v.totalUtil < 30) return [];
+  // Step severity: >50% is a stronger nudge than >30%.
+  const severity: 1 | 2 | 3 = v.totalUtil >= 50 ? 2 : 1;
+  return [{
+    kind: "utilization",
+    subject: "cards",
+    severity,
+    headlineSlots: { totalUtil: Math.round(v.totalUtil), totalBalance: v.totalBalance, totalLimit: v.totalLimit, worstCard: v.worst?.name ?? "", worstUtil: v.worst ? Math.round(v.worst.util) : 0 },
+    impactPerYear: null,
+    evidence: [f.evidence],
+    factsUsed: [f.formulaId],
+    action: { label: "See card balances", deeplink: "/accounts" },
+    cooldownDays: 21,
+    page: "accounts",
+  }];
+}
+
+// 7) Low-buffer warning — under 1 month of runway. Severity 3 but the GENTLEST
+//    register + one small next step (the narrator template carries the tone).
+export function detectLowBuffer(l: Ledger): StructuredInsight[] {
+  const f = cashBuffer(l);
+  const v = f.value;
+  // Only when we actually have outflow to compare against and runway is short.
+  if (v.monthlyOutflow <= 0 || v.monthsRunway <= 0 || v.monthsRunway >= 1) return [];
+  return [{
+    kind: "low_buffer",
+    subject: "buffer",
+    severity: 3,
+    headlineSlots: { monthsRunway: v.monthsRunway, liquid: v.liquid, monthlyOutflow: v.monthlyOutflow },
+    impactPerYear: null,
+    evidence: [f.evidence],
+    factsUsed: [f.formulaId],
+    action: { label: "Review money", deeplink: "/money" },
+    cooldownDays: 14,
+    page: "accounts",
+  }];
+}
+
+// 8) Savings-capacity opportunity — recurring surplus that could be automated.
+export function detectSavingsCapacity(l: Ledger): StructuredInsight[] {
+  const f = savingsCapacity(l);
+  const v = f.value;
+  if (v.capacity < 150) return [];
+  return [{
+    kind: "savings_capacity",
+    subject: "savings",
+    severity: 1,
+    headlineSlots: { capacity: v.capacity, avgIncome: v.avgIncome, avgFixed: v.avgFixed, medianDiscretionary: v.medianDiscretionary },
+    impactPerYear: +(v.capacity * 12).toFixed(2),
+    evidence: [f.evidence],
+    factsUsed: [f.formulaId],
+    action: { label: "See money dashboard", deeplink: "/money" },
+    cooldownDays: 30,
+    positive: true,
+    page: "spending",
+  }];
+}
+
+// 9) Category-trend shift — a discretionary category up materially vs baseline
+//    over completed months (distinct from pace, which is mid-month projection).
+export function detectCategoryTrend(l: Ledger): StructuredInsight[] {
+  const out: StructuredInsight[] = [];
+  for (const cat of PACEABLE) {
+    const t = categoryTrend(l, cat).value;
+    if (t.direction !== "up" || t.baseline <= 0 || Math.abs(t.deltaPct) < 30 || (t.latest - t.baseline) < 80) continue;
+    const delta = +(t.latest - t.baseline).toFixed(2);
+    out.push({
+      kind: "category_trend",
+      subject: cat,
+      severity: 1,
+      headlineSlots: { category: cat, latest: t.latest, baseline: t.baseline, upPct: Math.round(t.deltaPct), delta },
+      impactPerYear: +(delta * 12).toFixed(2),
+      evidence: [categoryTrend(l, cat).evidence],
+      factsUsed: ["categoryTrend.v1"],
+      action: { label: `See ${cat} spending`, deeplink: "/spending" },
+      cooldownDays: 21,
+      page: "spending",
+    });
+  }
+  return out.sort((a, b) => (b.impactPerYear ?? 0) - (a.impactPerYear ?? 0)).slice(0, 1);
+}
+
+// Run all generators over a ledger. (Concentration + new-recurring insights are
+// added by the nightly job, which has holdings + recurring data.)
 export function generateInsights(l: Ledger): StructuredInsight[] {
   return [
     ...detectPaceAnomaly(l),
     ...detectArbitrage(l),
     ...detectInterestBleed(l),
     ...detectPositive(l),
+    ...detectIdleCash(l),
+    ...detectUtilization(l),
+    ...detectLowBuffer(l),
+    ...detectSavingsCapacity(l),
+    ...detectCategoryTrend(l),
   ];
 }
 

@@ -165,6 +165,24 @@ export function savingsCapacity(l: Ledger): Fact<CapacityValue> {
 }
 
 // ── netWorthTrajectory: 6-mo slope from snapshots ($/month) ──
+// ── utilization: per-card and total credit balance / limit ──
+export interface UtilCard { name: string; balance: number; limit: number; util: number }
+export interface UtilValue { totalUtil: number; totalBalance: number; totalLimit: number; cards: UtilCard[]; worst: UtilCard | null }
+export function utilization(l: Ledger): Fact<UtilValue> {
+  const withLimit = l.cards.filter((c) => c.limit != null && c.limit > 0);
+  const cards: UtilCard[] = withLimit.map((c) => ({ name: c.name, balance: round(c.balance), limit: round(c.limit!), util: +((c.balance / c.limit!) * 100).toFixed(1) }));
+  const totalBalance = round(withLimit.reduce((s, c) => s + c.balance, 0));
+  const totalLimit = round(withLimit.reduce((s, c) => s + (c.limit ?? 0), 0));
+  const totalUtil = totalLimit > 0 ? +((totalBalance / totalLimit) * 100).toFixed(1) : 0;
+  const worst = cards.slice().sort((a, b) => b.util - a.util)[0] ?? null;
+  return {
+    value: { totalUtil, totalBalance, totalLimit, cards, worst },
+    formulaId: "utilization.v1",
+    evidence: { kind: "inputs", inputs: { totalBalance, totalLimit, totalUtil }, note: `Card balances ${totalBalance} against limits ${totalLimit} = ${totalUtil}% utilization.` },
+    asOf: asOf(l),
+  };
+}
+
 export interface TrajectoryValue { start: number; end: number; monthlySlope: number; months: number }
 export function netWorthTrajectory(l: Ledger): Fact<TrajectoryValue> {
   const pts = l.netWorthHistory.slice(-7); // ~6 intervals
