@@ -4,6 +4,7 @@ import { runAlerts } from "@/lib/alerts/run";
 import { runInsightsBuild } from "@/lib/insights/run";
 import { detectFollowFilings } from "@/lib/follows/detect";
 import { runWeeklyDigest } from "@/lib/digest/run";
+import { runRecurring } from "@/lib/recurring/run";
 
 // The job registry. Each job owns its cadence; the dispatcher (/api/cron/tick)
 // runs whatever is due on each tick, so ANY external trigger interval works.
@@ -61,6 +62,13 @@ export const JOBS: CronJob[] = [
     id: "insights-build",
     everyMinutes: 24 * 60,
     run: async () => { const r = await runInsightsBuild({ sliceSize: 40 }); return { ok: true, note: `${r.ledgersBuilt} ledgers, ${r.insightsCreated} insights / ${r.users} users${r.wrapped ? " (full pass)" : ""}` }; },
+  },
+  {
+    // F6: recurring-charge detection over stored transactions. Nightly; notifies
+    // on a newly detected charge or a price increase (dedupe prevents repeats).
+    id: "recurring-detect",
+    everyMinutes: 24 * 60,
+    run: async () => { const r = await runRecurring(); return { ok: true, note: `${r.detected} charges / ${r.notified} notified, ${r.users} users` }; },
   },
   {
     // F1: after Power Trades data refreshes, notify followers of new filings from
