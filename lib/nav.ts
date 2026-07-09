@@ -32,6 +32,7 @@ export const SECTIONS: NavSection[] = [
     items: [
       { href: "/holdings", label: "Holdings", icon: Wallet },
       { href: "/watchlist", label: "Watching", icon: Eye },
+      { href: "/income", label: "Income", icon: Coins },
       { href: "/portfolio-doctor", label: "Doctor", icon: Stethoscope },
       { href: "/journal", label: "Journal", icon: NotebookPen },
     ],
@@ -104,7 +105,7 @@ export const SECONDARY_PAGES: NavItem[] = [
 export interface MobileTab { href: string; label: string; icon: LucideIcon; match: string[]; exact?: boolean }
 export const MOBILE_TABS: MobileTab[] = [
   { href: "/", label: "Home", icon: LayoutDashboard, exact: true, match: ["/"] },
-  { href: "/holdings", label: "Portfolio", icon: Wallet, match: ["/holdings", "/watchlist", "/portfolio-doctor", "/journal"] },
+  { href: "/holdings", label: "Portfolio", icon: Wallet, match: ["/holdings", "/watchlist", "/income", "/portfolio-doctor", "/journal"] },
   { href: "/research", label: "Research", icon: Search, match: ["/research", "/screeners", "/rankings", "/map", "/predictions"] },
   { href: "/power-trades", label: "Power", icon: Landmark, match: ["/power-trades"] },
   { href: "/money", label: "Money", icon: Coins, match: ["/money", "/accounts", "/transactions", "/spending", "/insights", "/networth", "/accounts-doctor"] },
