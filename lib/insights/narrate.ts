@@ -49,6 +49,8 @@ export function templateFor(kind: string): { headline: string; body: string } {
       return { headline: "New recurring charge spotted", body: "{merchant} looks like a new recurring charge, about {amount} a {cadence}. Worth a glance to make sure it's one you meant to keep." };
     case "recurring_increase":
       return { headline: "A subscription went up", body: "{merchant} went from about {prev} to {last}. Price creep is easy to miss — worth a look if you didn't expect it." };
+    case "closure":
+      return { headline: "You followed through on {category}", body: "Since we flagged it, your {category} spending is down about {downPct}% — roughly {savedMonthly} a month, or {capturedYear} a year at this pace. Nicely done." };
     default:
       return { headline: "A money note for you", body: "There's something worth a look in your accounts." };
   }

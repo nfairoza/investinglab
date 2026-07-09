@@ -1,4 +1,5 @@
 import { InsightsView } from "@/components/insights-view";
+import { TrustLedger } from "@/components/trust-ledger";
 
 export const metadata = { title: "Insights" };
 
@@ -12,6 +13,7 @@ export default function Page() {
           from your own transactions, and &ldquo;Show me why&rdquo; opens the exact evidence behind it.
         </p>
       </div>
+      <TrustLedger />
       <InsightsView />
     </div>
   );

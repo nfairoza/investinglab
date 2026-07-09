@@ -3,6 +3,7 @@ import { readServerCache, writeServerCache } from "@/lib/server-cache";
 import { buildLedger } from "./ledger/build";
 import { generateInsights, dedupe } from "./generators";
 import { detectConcentration, type PricedHolding } from "./generators/concentration";
+import { detectClosures, type PriorOpenInsight } from "./closure";
 import { loadLedgerInputs, writeLedger, writeInsights, loadPriorInsights } from "./persist";
 
 // =============================================================================
@@ -80,6 +81,30 @@ export async function runInsightsBuild(opts: { sliceSize?: number; nowMs?: numbe
             factsUsed: ["recurring.v1"], action: { label: "See recurring", deeplink: "/recurring" }, cooldownDays: 30, page: "recurring",
           });
         }
+      }
+
+      // Stage-4 closure loop: detect follow-through on prior open spending
+      // insights (category spending dropped since we flagged it). Emit a
+      // celebratory closure insight + record the captured $/yr in the trust
+      // ledger. Mark the source insight done so it stops nagging.
+      const { data: openRows } = await db.from("insights")
+        .select("id, kind, subject, slots, impact_year")
+        .eq("user_id", userId).in("status", ["new", "seen"]).in("kind", ["pace_anomaly", "category_trend"]);
+      const priorOpen: PriorOpenInsight[] = (openRows ?? []).map((r: any) => ({
+        id: String(r.id), kind: r.kind, subject: r.subject ?? "", slots: (r.slots ?? {}) as Record<string, number | string>, impactPerYear: r.impact_year ?? null,
+      }));
+      const closures = detectClosures(ledger, priorOpen);
+      for (const c of closures) {
+        fresh.push(c.closureInsight);
+        // Record the outcome (idempotent per source insight) + resolve it.
+        try {
+          await db.from("insight_outcomes").upsert({
+            user_id: userId, insight_id: c.insightId, kind: c.kind, subject: c.subject,
+            source: "detected", flagged_year: priorOpen.find((p) => p.id === c.insightId)?.impactPerYear ?? c.capturedYear,
+            captured_year: c.capturedYear, note: `${c.subject} down ${Math.round(c.downPct)}% since flagged.`,
+          }, { onConflict: "user_id,insight_id" });
+        } catch { /* outcome best-effort */ }
+        await db.from("insights").update({ status: "done", updated_at: new Date(nowMs).toISOString() }).eq("id", c.insightId);
       }
 
       if (fresh.length) {

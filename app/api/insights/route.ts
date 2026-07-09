@@ -72,5 +72,21 @@ export async function PATCH(req: NextRequest) {
     .update({ status, updated_at: new Date().toISOString() })
     .eq("id", id).eq("user_id", ctx.userId);
   if (error) return NextResponse.json({ error: "update_failed" }, { status: 500 });
+
+  // Closure loop: "I did this" (done) records an outcome in the trust ledger.
+  // The captured $/yr is the insight's own flagged impact (the user committed to
+  // the opportunity we surfaced). Detected outcomes are written by the nightly
+  // job instead. Idempotent via the unique (user, insight_id).
+  if (status === "done") {
+    const { data: ins } = await ctx.supabase.from("insights")
+      .select("kind, subject, impact_year, positive").eq("id", id).eq("user_id", ctx.userId).maybeSingle();
+    if (ins && !ins.positive && ins.impact_year != null) {
+      await ctx.supabase.from("insight_outcomes").upsert({
+        user_id: ctx.userId, insight_id: id, kind: ins.kind, subject: ins.subject ?? "",
+        source: "user", flagged_year: ins.impact_year, captured_year: ins.impact_year,
+        note: "You marked this done.",
+      }, { onConflict: "user_id,insight_id" });
+    }
+  }
   return NextResponse.json({ ok: true });
 }
