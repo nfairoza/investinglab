@@ -1,4 +1,5 @@
 import { PortfolioDoctor } from "@/components/portfolio-doctor";
+import { TaxCard } from "@/components/tax-card";
 
 export const metadata = { title: "Portfolio Doctor" };
 
@@ -14,6 +15,7 @@ export default function Page() {
         </p>
       </div>
       <PortfolioDoctor />
+      <TaxCard />
     </div>
   );
 }
