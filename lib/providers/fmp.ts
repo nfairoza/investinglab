@@ -38,7 +38,7 @@ import { readServerCache, writeServerCache } from "@/lib/server-cache";
 const NAME = "Financial Modeling Prep";
 const BASE = "https://financialmodelingprep.com/stable";
 
-function getKey(): string {
+export function getKey(): string {
   return getConnectorValue("MARKET_DATA_API_KEY") || getConnectorValue("FINANCIAL_DATA_API_KEY") || "";
 }
 

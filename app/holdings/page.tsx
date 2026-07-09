@@ -1,4 +1,5 @@
 import { HoldingsManager } from "@/components/holdings-manager";
+import { EarningsStrip } from "@/components/earnings-strip";
 
 export const metadata = { title: "Holdings" };
 
@@ -17,6 +18,7 @@ export default function Page() {
         gain/loss column, then the weight column — if one stock is a very large weight, you&apos;re
         concentrated.
       </div>
+      <EarningsStrip />
       <HoldingsManager />
     </div>
   );
