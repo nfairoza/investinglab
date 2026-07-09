@@ -178,6 +178,30 @@ export function ChatWidget() {
     })();
   }, []);
 
+  // F8: "since you were last here" opener. When the chat opens onto an empty
+  // conversation, surface the top unseen insights as a friendly opener, then mark
+  // them seen so they don't reappear. Fires once per open-with-empty-history.
+  const openerShown = useRef(false);
+  useEffect(() => {
+    if (!open || openerShown.current || !historyLoaded.current || messages.length > 0) return;
+    openerShown.current = true;
+    (async () => {
+      try {
+        const r = await fetch("/api/insights?active=1");
+        const j = await r.json();
+        const top = (j.insights ?? []).slice(0, 3) as { id: string; headline: string; body: string }[];
+        if (!top.length) return;
+        const lines = top.map((i) => `• ${i.headline} — ${i.body}`).join("\n");
+        setMessages((prev) => prev.length ? prev : [{
+          id: `opener-${top[0].id}`, role: "assistant",
+          content: `Since you were last here, a few things worth a look:\n\n${lines}\n\nAsk me about any of these.`,
+        }]);
+        // Mark them seen (fire-and-forget) so the opener doesn't repeat.
+        for (const i of top) fetch("/api/insights", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: i.id, status: "seen" }) }).catch(() => {});
+      } catch { /* no opener on failure */ }
+    })();
+  }, [open, messages.length]);
+
   // Persist the conversation (debounced) whenever it changes, but not while a
   // response is still streaming (avoids saving half-finished turns). Each save
   // slides the 1-hour idle window forward server-side.

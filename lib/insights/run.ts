@@ -2,6 +2,7 @@ import { serviceClient } from "@/lib/service-client";
 import { readServerCache, writeServerCache } from "@/lib/server-cache";
 import { buildLedger } from "./ledger/build";
 import { generateInsights, dedupe } from "./generators";
+import { detectConcentration, type PricedHolding } from "./generators/concentration";
 import { loadLedgerInputs, writeLedger, writeInsights, loadPriorInsights } from "./persist";
 
 // =============================================================================
@@ -52,6 +53,15 @@ export async function runInsightsBuild(opts: { sliceSize?: number; nowMs?: numbe
       ledgersBuilt++;
 
       const fresh = generateInsights(ledger);
+
+      // F8: concentration insight from holdings (cost-basis value as a call-free
+      // weight proxy — the nightly job avoids per-user live quote fan-out).
+      const { data: holdRows } = await db.from("holdings").select("symbol, shares, avg_cost").eq("user_id", userId);
+      const priced: PricedHolding[] = (holdRows ?? [])
+        .map((h: any) => ({ symbol: String(h.symbol).toUpperCase(), value: (Number(h.shares) || 0) * (Number(h.avg_cost) || 0) }))
+        .filter((h) => h.value > 0);
+      if (priced.length) fresh.push(...detectConcentration(priced));
+
       if (fresh.length) {
         const prior = await loadPriorInsights(db, userId);
         const keep = dedupe(fresh, prior, nowMs);

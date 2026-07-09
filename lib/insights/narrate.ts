@@ -33,6 +33,8 @@ export function templateFor(kind: string): { headline: string; body: string } {
       return { headline: "Nice — {category} is down", body: "You've spent about {saved} less on {category} than usual — down {downPct}%. Keep it up and that's roughly {saved} back in your pocket each month." };
     case "positive_networth":
       return { headline: "Your net worth is climbing", body: "You've grown from {start} to {end} lately — about {monthlySlope} a month. Steady progress." };
+    case "concentration":
+      return { headline: "{symbol} is a big slice of your portfolio", body: "{symbol} is about {pct}% of your holdings. Nothing wrong with conviction — just worth a look so one name doesn't carry your whole outcome." };
     default:
       return { headline: "A money note for you", body: "There's something worth a look in your accounts." };
   }
