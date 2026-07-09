@@ -1,16 +1,17 @@
 "use client";
 
 import { useState } from "react";
-import { Landmark, Users, FileText, Layers, ShieldCheck, Coins } from "lucide-react";
+import { Landmark, Users, FileText, Layers, ShieldCheck, Coins, Star } from "lucide-react";
 import { CongressAlphaFeed } from "@/components/congress-alpha-feed";
 import { PeopleDirectory } from "./people-directory";
+import { FollowingTab } from "./following-tab";
 import { RawDisclosures } from "./raw-disclosures";
 import { InfluenceContext } from "./influence-context";
 import { SourceCoverage } from "./source-coverage";
 import { SourceDiagnostics } from "./source-diagnostics";
 import { useIsAdmin } from "@/components/use-is-admin";
 
-type Tab = "alpha" | "people" | "raw" | "influence" | "coverage" | "diagnostics";
+type Tab = "alpha" | "people" | "following" | "raw" | "influence" | "coverage" | "diagnostics";
 
 export function PowerTradesTabs() {
   const isAdmin = useIsAdmin();
@@ -19,6 +20,7 @@ export function PowerTradesTabs() {
   const tabs: { key: Tab; label: string; icon: typeof Landmark; adminOnly?: boolean }[] = [
     { key: "alpha", label: "Alpha Feed", icon: Landmark },
     { key: "people", label: "People Directory", icon: Users },
+    { key: "following", label: "Following", icon: Star },
     { key: "raw", label: "Raw Disclosures", icon: FileText },
     { key: "influence", label: "Influence Context", icon: Coins },
     { key: "coverage", label: "Source Coverage", icon: Layers },
@@ -40,6 +42,7 @@ export function PowerTradesTabs() {
 
       {tab === "alpha" && <CongressAlphaFeed />}
       {tab === "people" && <PeopleDirectory />}
+      {tab === "following" && <FollowingTab />}
       {tab === "raw" && <RawDisclosures />}
       {tab === "influence" && <InfluenceContext />}
       {tab === "coverage" && <SourceCoverage />}

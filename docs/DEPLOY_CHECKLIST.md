@@ -21,6 +21,7 @@ brokerage" instead of surfacing the error.)
    - `0025_plaid_snapshot.sql` — cached Plaid balances (PA-A1, so pages don't block on live Plaid)
    - `0026_insights_ledger.sql` — Insights Engine Ledger tables (ledger_month, ledger_txn_flags)
    - `0027_insights.sql` — Insights Engine structured-insight store
+   - `0028_follows_notifications.sql` — F1: follow Power Trades people + notifications inbox
 2. **Set new env vars** in Vercel (and locally in `.env.local`):
    - `SECRETS_ENCRYPTION_KEY` — 32-byte base64 (`openssl rand -base64 32`).
      Required for P1 encryption; without it, keys/tokens fall back to plaintext.

@@ -2,6 +2,7 @@ import type { CronJob } from "./registry";
 import { buildMap, buildMapChunk } from "@/lib/market/map-build";
 import { runAlerts } from "@/lib/alerts/run";
 import { runInsightsBuild } from "@/lib/insights/run";
+import { detectFollowFilings } from "@/lib/follows/detect";
 
 // The job registry. Each job owns its cadence; the dispatcher (/api/cron/tick)
 // runs whatever is due on each tick, so ANY external trigger interval works.
@@ -59,5 +60,13 @@ export const JOBS: CronJob[] = [
     id: "insights-build",
     everyMinutes: 24 * 60,
     run: async () => { const r = await runInsightsBuild({ sliceSize: 40 }); return { ok: true, note: `${r.ledgersBuilt} ledgers, ${r.insightsCreated} insights / ${r.users} users${r.wrapped ? " (full pass)" : ""}` }; },
+  },
+  {
+    // F1: after Power Trades data refreshes, notify followers of new filings from
+    // people they follow. Hourly is plenty (disclosures are daily-ish); dedupe on
+    // (person, filing) means re-runs never double-notify.
+    id: "follow-filings",
+    everyMinutes: 60,
+    run: async () => { const r = await detectFollowFilings(3); return { ok: true, note: `${r.notified} notified / ${r.filings} recent filings, ${r.follows} follows` }; },
   },
 ];

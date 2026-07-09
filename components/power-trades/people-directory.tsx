@@ -7,6 +7,7 @@ import { PersonDetail } from "./person-detail";
 import { fetchJson } from "@/lib/fetch-json";
 import { ErrorState } from "../data-state";
 import { ArtImage } from "../ui/art-image";
+import { FollowButton } from "./follow-button";
 
 interface Person {
   id: string; canonical_name: string; category: string; party: string | null; state: string | null;
@@ -91,7 +92,12 @@ export function PeopleDirectory() {
                       </a>
                     )}
                   </td>
-                  <td className="px-3 py-2 text-xs text-ink-dim">{p.category.replace("_", " ")}</td>
+                  <td className="px-3 py-2 text-xs text-ink-dim">
+                    {p.category.replace("_", " ")}
+                    <span className="mt-1 block">
+                      <FollowButton personId={p.id} personName={p.canonical_name} kind={p.category === "congress" ? "congress" : "insider"} />
+                    </span>
+                  </td>
                   <td className="px-3 py-2 text-right text-ink-dim">{p.trade_count_30d}</td>
                   <td className="px-3 py-2 text-right text-ink-dim">{p.trade_count_90d}</td>
                   <td className="px-3 py-2 text-right text-ink-dim">{p.trade_count_1y}</td>
