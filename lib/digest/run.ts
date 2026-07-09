@@ -27,6 +27,21 @@ export async function runWeeklyDigest(nowMs = Date.now()): Promise<DigestRunResu
     return !dp || dp.weekly !== false;
   });
 
+  // Resolve each user's email from AUTH (auth.users.email) — it is NOT stored in
+  // user_prefs. Batch-fetch once via the admin API, then map user_id → email.
+  // (A prefs.email override, if ever set, still wins.)
+  const emailById = new Map<string, string>();
+  try {
+    let page = 1;
+    for (;;) {
+      const { data: list } = await (db as any).auth.admin.listUsers({ page, perPage: 1000 });
+      const users = list?.users ?? [];
+      for (const u of users) if (u.email) emailById.set(u.id, u.email);
+      if (users.length < 1000) break;
+      page++;
+    }
+  } catch { /* fall back to prefs.email per-user below */ }
+
   let emailed = 0, inApp = 0, skippedEmpty = 0;
   for (const row of optedIn) {
     const userId = String((row as any).user_id);
@@ -46,8 +61,8 @@ export async function runWeeklyDigest(nowMs = Date.now()): Promise<DigestRunResu
       // Store rendered digest for "View last digest".
       await writeServerCache(`digest:last:${userId}`, { html, at: data.generatedAt }).catch(() => {});
 
-      // Email (best-effort). Email address comes from prefs or is skipped.
-      const email = typeof prefs.email === "string" ? prefs.email : null;
+      // Email (best-effort). Prefer the auth email; a prefs.email override wins if set.
+      const email = (typeof prefs.email === "string" && prefs.email) || emailById.get(userId) || null;
       if (email) {
         const r = await sendEmailSafe(email, html, text);
         if (r) emailed++;
