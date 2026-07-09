@@ -25,6 +25,10 @@ brokerage" instead of surfacing the error.)
 2. **Set new env vars** in Vercel (and locally in `.env.local`):
    - `SECRETS_ENCRYPTION_KEY` — 32-byte base64 (`openssl rand -base64 32`).
      Required for P1 encryption; without it, keys/tokens fall back to plaintext.
+   - `RESEND_API_KEY` — (F2) Resend key for the weekly digest email. Optional:
+     without it the digest still posts an in-app notification (email is skipped).
+   - `DIGEST_FROM` — (F2, optional) from-address for digest email (default
+     `digest@rukmoney.com`). `NEXT_PUBLIC_APP_URL` — base URL for email links.
 3. **Run one-time backfills** after the matching migration is applied:
    - `node scripts/backfill-plaid-tokens.mjs` — encrypts existing Plaid tokens
      and nulls the plaintext column (needs `SECRETS_ENCRYPTION_KEY` +

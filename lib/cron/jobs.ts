@@ -3,6 +3,7 @@ import { buildMap, buildMapChunk } from "@/lib/market/map-build";
 import { runAlerts } from "@/lib/alerts/run";
 import { runInsightsBuild } from "@/lib/insights/run";
 import { detectFollowFilings } from "@/lib/follows/detect";
+import { runWeeklyDigest } from "@/lib/digest/run";
 
 // The job registry. Each job owns its cadence; the dispatcher (/api/cron/tick)
 // runs whatever is due on each tick, so ANY external trigger interval works.
@@ -68,5 +69,19 @@ export const JOBS: CronJob[] = [
     id: "follow-filings",
     everyMinutes: 60,
     run: async () => { const r = await detectFollowFilings(3); return { ok: true, note: `${r.notified} notified / ${r.filings} recent filings, ${r.follows} follows` }; },
+  },
+  {
+    // F2: weekly digest. everyMinutes ~6d so it fires at most once/week; the run
+    // itself self-gates to Sunday (ET) so it only actually assembles on Sundays.
+    // (Vercel Hobby crons are daily-only; the tick dispatcher covers cadence.)
+    id: "weekly-digest",
+    everyMinutes: 6 * 24 * 60,
+    run: async () => {
+      // Gate to Sunday in US Eastern (digest rhythm).
+      const et = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
+      if (et.getDay() !== 0) return { ok: true, note: "not sunday — skipped" };
+      const r = await runWeeklyDigest();
+      return { ok: true, note: `${r.emailed} emailed, ${r.inApp} in-app / ${r.eligible} eligible (${r.skippedEmpty} empty)` };
+    },
   },
 ];

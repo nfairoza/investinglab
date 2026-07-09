@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 
 // Per-user profile preferences, stored in user_prefs.prefs (RLS-scoped).
 // Only these fields are accepted (allowlist), so a client can't write arbitrary keys.
-const FIELDS = ["displayName", "phone", "baseCurrency", "beginnerMode", "nwRange", "setupDismissed", "askedRukmani", "persona", "personaSet"] as const;
+const FIELDS = ["displayName", "phone", "baseCurrency", "beginnerMode", "nwRange", "setupDismissed", "askedRukmani", "persona", "personaSet", "digestPrefs"] as const;
 
 export async function GET() {
   const ctx = await getUserClient();
