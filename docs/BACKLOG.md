@@ -6,8 +6,18 @@ stays clean. Add new items here rather than leaving TODOs in code.
 ## Open
 
 - **Research report persistence** — `app/api/research/route.ts` notes that
-  storing/reading `research_reports` is deferred to a later phase. Wire durable
-  persistence when the `server_cache` table lands (spec Phase 1.3).
+  storing/reading `research_reports` is deferred to a later phase. The
+  `server_cache` table it was waiting on has since landed, so this is now
+  unblocked and ready to implement.
+
+- **Features V2 tails** — F1–F8 shipped. Remaining: push delivery (blocked on
+  MOBILE_APP M1.2 / `push_subscriptions`); live digest email (needs
+  `RESEND_API_KEY` — degrades to in-app-only without it); optional F3
+  earnings-reminder alert type (spec marked optional).
+
+- **Insights Engine cleanup** — consolidate the legacy `lib/money/insights.ts`
+  rules into the Insights Engine (they run in parallel harmlessly today; a
+  refactor with no user-facing change).
 
 - **Quiver Power Trades adapter** — `lib/power-trades/stubs.ts` (`quiverStub`)
   is a not-built stub. Verify Quiver API terms + endpoints/fields against their
@@ -50,16 +60,14 @@ Phases 0, 1, 2, and 5 of the hardening spec are done. Still open:
   intentionally (complex headers with tabs/toolbars/refs where Card would be
   lossy — e.g. opportunities-card, market-outlook, the accounts-doctor headline).
   Phase 4 is effectively complete; any further card migration is optional polish.
-- **P6 Rukmani** — P6.3 (ai_usage cost tracking) DONE. P6.1 streaming: already
-  live — the chat route streams via SSE passthrough (Anthropic native + a Gemini
-  re-emit). P6.2 tool use: the intended data (get_portfolio_summary, get_quote,
-  get_watchlist) is now injected server-side deterministically — holdings with
-  live price/gain, per-ticker quotes+news for tickers in the question, and (new)
-  batch-fetched live watchlist quotes. TRUE function-calling (buffer stream ->
-  detect tool_use -> execute -> re-request) was NOT done: it would unwind the
-  working SSE-passthrough architecture for little gain since the data is already
-  supplied. Revisit only if a genuinely dynamic tool (e.g. run a screener mid-
-  chat) is needed.
+- **P6 Rukmani** — DONE, superseded by the Chat Upgrade (commits `CHAT:`).
+  P6.1 streaming + P6.3 cost tracking done. P6.2 TRUE function-calling is now
+  SHIPPED: `app/api/chat/route.ts` runs a real agentic tool loop (model ->
+  tool_use -> server execute -> tool_result -> model, max 5 iters) on the Claude
+  path, with role-gated user/admin tools in `lib/chat/tools.ts` (RLS-scoped),
+  memory (chat_memory), a daily market brief, and tool-status streaming. The
+  Gemini fallback stays tool-less by design (Claude-first). Keyword context-
+  stuffing was removed.
 
 ## Notes
 
