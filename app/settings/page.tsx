@@ -3,6 +3,7 @@ import { CacheSettings } from "@/components/cache-settings";
 import { EtradeConnector } from "@/components/etrade-connector";
 import { PlaidConnect } from "@/components/plaid-connect";
 import { NotificationSettings } from "@/components/notification-settings";
+import { RukmaniMemory } from "@/components/rukmani-memory";
 import { getUserClient } from "@/lib/supabase-data";
 
 export const metadata = { title: "Settings" };
@@ -63,6 +64,15 @@ export default async function Page() {
           <p className="text-sm text-ink-dim">Choose what rukMoney sends you. You can change this anytime.</p>
         </div>
         <NotificationSettings />
+      </section>
+
+      {/* ── Rukmani (chat memory) ── */}
+      <section className="space-y-3">
+        <div>
+          <h2 className="text-lg font-semibold text-ink">Rukmani</h2>
+          <p className="text-sm text-ink-dim">What your assistant remembers about you, to tailor its answers.</p>
+        </div>
+        <RukmaniMemory />
       </section>
 
       {/* ── App preferences ── */}

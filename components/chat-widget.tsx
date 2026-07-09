@@ -53,6 +53,7 @@ interface Message {
   content: string;
   images?: ChatImage[];
   streaming?: boolean;
+  status?: string | null; // transient tool-activity line ("Searching transactions…")
 }
 
 interface HoldingContext {
@@ -92,8 +93,11 @@ async function fetchQuotes(symbols: string[]): Promise<Record<string, DataResult
 
 // ── SSE parser: extracts text deltas from Anthropic's stream ─────────────────
 
-function parseSSEChunk(chunk: string): string {
+// Returns text deltas plus the latest tool-status label (C4: tool activity shows
+// as a subtle inline status line while the agentic loop runs server-side).
+function parseSSEChunk(chunk: string): { text: string; status: string | null } {
   let text = "";
+  let status: string | null = null;
   const lines = chunk.split("\n");
   for (const line of lines) {
     if (!line.startsWith("data: ")) continue;
@@ -103,12 +107,14 @@ function parseSSEChunk(chunk: string): string {
       const json = JSON.parse(data);
       if (json.type === "content_block_delta" && json.delta?.type === "text_delta") {
         text += json.delta.text ?? "";
+      } else if (json.type === "tool_status" && typeof json.label === "string") {
+        status = json.label;
       }
     } catch {
       // skip malformed lines
     }
   }
-  return text;
+  return { text, status };
 }
 
 // ── main widget ───────────────────────────────────────────────────────────────
@@ -416,12 +422,19 @@ export function ChatWidget() {
         const chunk = buffer.slice(0, eol + 1);
         buffer = buffer.slice(eol + 1);
 
-        const delta = parseSSEChunk(chunk);
-        if (delta) {
-          finalText += delta;
+        const { text: delta, status } = parseSSEChunk(chunk);
+        if (delta || status !== null) {
+          if (delta) finalText += delta;
           setMessages((prev) =>
             prev.map((m) =>
-              m.id === assistantId ? { ...m, content: m.content + delta } : m,
+              m.id === assistantId
+                ? {
+                    ...m,
+                    content: m.content + (delta ?? ""),
+                    // Text arriving clears the tool-status line; a status event sets it.
+                    status: delta ? null : (status ?? m.status),
+                  }
+                : m,
             ),
           );
         }
@@ -454,7 +467,7 @@ export function ChatWidget() {
       }
     } finally {
       setMessages((prev) =>
-        prev.map((m) => (m.id === assistantId ? { ...m, streaming: false } : m)),
+        prev.map((m) => (m.id === assistantId ? { ...m, streaming: false, status: null } : m)),
       );
       setStreaming(false);
       abortRef.current = null;
@@ -618,11 +631,16 @@ export function ChatWidget() {
                   }`}>
                   {m.role === "assistant" ? (
                     m.content ? (
-                      <span className="chat-md" dangerouslySetInnerHTML={{ __html: renderMarkdown(m.content) + (m.streaming ? '<span class="animate-pulse">▌</span>' : "") }} />
+                      <>
+                        <span className="chat-md" dangerouslySetInnerHTML={{ __html: renderMarkdown(m.content) + (m.streaming ? '<span class="animate-pulse">▌</span>' : "") }} />
+                        {m.streaming && m.status && (
+                          <span className="mt-1 block text-[11px] italic text-ink-faint">{m.status}</span>
+                        )}
+                      </>
                     ) : (
-                      // No text yet → show a clear themed "thinking" animation so it
-                      // never looks frozen/blank.
-                      m.streaming ? <ThinkingDots /> : ""
+                      // No text yet → tool-status line if a tool is running, else the
+                      // themed "thinking" animation so it never looks frozen/blank.
+                      m.streaming ? (m.status ? <span className="text-[11px] italic text-ink-faint">{m.status}</span> : <ThinkingDots />) : ""
                     )
                   ) : (
                     <div className="space-y-1.5">

@@ -5,6 +5,7 @@ import { runInsightsBuild } from "@/lib/insights/run";
 import { detectFollowFilings } from "@/lib/follows/detect";
 import { runWeeklyDigest } from "@/lib/digest/run";
 import { runRecurring } from "@/lib/recurring/run";
+import { buildMarketBrief } from "@/lib/chat/market-brief";
 
 // The job registry. Each job owns its cadence; the dispatcher (/api/cron/tick)
 // runs whatever is due on each tick, so ANY external trigger interval works.
@@ -69,6 +70,13 @@ export const JOBS: CronJob[] = [
     id: "recurring-detect",
     everyMinutes: 24 * 60,
     run: async () => { const r = await runRecurring(); return { ok: true, note: `${r.detected} charges / ${r.notified} notified, ${r.users} users` }; },
+  },
+  {
+    // C6: refresh the global daily market brief so Rukmani's get_market_brief
+    // tool can ground answers in today's tape. Twice a day is plenty.
+    id: "market-brief",
+    everyMinutes: 12 * 60,
+    run: async () => { const b = await buildMarketBrief(); return { ok: true, note: `${b.indexes.length} indexes, ${b.headlines.length} headlines` }; },
   },
   {
     // F1: after Power Trades data refreshes, notify followers of new filings from
