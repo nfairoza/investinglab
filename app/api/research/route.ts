@@ -14,14 +14,17 @@ export const dynamic = "force-dynamic";
 
 // =============================================================================
 // RESEARCH ENGINE — uses Anthropic Claude.
-//   GET  /api/research?symbol=AAPL  -> latest stored memo (no DB yet => "generate one")
-//   POST /api/research { symbol }   -> pull live data, run Claude, return the memo
+//   GET  /api/research?symbol=AAPL  -> shared cached memo; generates + caches on miss/stale
+//   POST /api/research { symbol }   -> ADMIN force refresh: regenerate + overwrite cache
+//
+// Persistence: memos are stored in the shared_research table (payload + generated_at),
+// shared across users (market-only input), refreshed at the 8am-ET boundary or after
+// 12h (isDailyStale). The first viewer of a stale/missing symbol triggers generation.
 //
 // Honesty rules enforced here:
 //   - no AI key  -> source "unavailable" ("add your Claude key in Settings")
 //   - no data    -> source "unavailable" (don't analyse on top of missing data)
 //   - the memo's source follows the DATA: live data => "live", demo data => "demo"
-// Persistence (store/read research_reports) is wired in Phase 2.5/5 — see TODOs.
 // =============================================================================
 
 const SYSTEM = `You are a senior equity analyst AND a patient finance teacher writing for a non-expert.
