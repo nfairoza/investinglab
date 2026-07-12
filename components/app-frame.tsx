@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { Sidebar } from "./sidebar";
 import { ChatWidget } from "./chat-widget";
@@ -29,6 +30,15 @@ const AUTH_ROUTES = ["/login", "/signup", "/forgot-password", "/reset-password",
 export function AppFrame({ children }: { children: React.ReactNode }) {
   const pathname = usePathname() || "/";
   const isAuth = AUTH_ROUTES.some((r) => pathname.startsWith(r));
+
+  // M1.1 — register the service worker for the offline shell (network-only for
+  // /api/*, offline fallback on failed navigation). Push subscribe stays a
+  // separate, opt-in step. Registration is idempotent.
+  useEffect(() => {
+    if (typeof navigator !== "undefined" && "serviceWorker" in navigator) {
+      navigator.serviceWorker.register("/sw.js").catch(() => { /* SW optional */ });
+    }
+  }, []);
 
   if (isAuth) return <>{children}</>;
 
