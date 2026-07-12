@@ -63,7 +63,7 @@ export function PriceHistoryChart({ symbol }: { symbol: string }) {
 
       {chartable && (
         <div className="mt-4">
-          <ResponsiveContainer width="100%" height={200}>
+          <div data-no-page-swipe><ResponsiveContainer width="100%" height={200}>
             <LineChart data={rows} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
               <XAxis dataKey="date" tick={{ fill: "var(--chart-axis)", fontSize: 10 }} tickLine={false}
@@ -79,7 +79,7 @@ export function PriceHistoryChart({ symbol }: { symbol: string }) {
               <Line dataKey="sma50" name="50-day avg" stroke="var(--accent)" dot={false} strokeWidth={1.5} connectNulls />
               <Line dataKey="sma200" name="200-day avg" stroke="var(--neutral)" dot={false} strokeWidth={1.5} connectNulls />
             </LineChart>
-          </ResponsiveContainer>
+          </ResponsiveContainer></div>
 
           {t && (
             <div className="mt-2 flex flex-wrap gap-4 text-xs text-ink-dim">

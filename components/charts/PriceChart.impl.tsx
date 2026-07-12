@@ -118,7 +118,7 @@ export function PriceChart({ symbol }: { symbol: string }) {
 
       {chartable && (
         <div className="mt-3">
-          <ResponsiveContainer width="100%" height={240}>
+          <div data-no-page-swipe><ResponsiveContainer width="100%" height={240}>
             <AreaChart data={points} margin={{ top: 6, right: 8, left: 0, bottom: 0 }}>
               <defs>
                 <linearGradient id={`grad-${symbol}`} x1="0" y1="0" x2="0" y2="1">
@@ -150,7 +150,7 @@ export function PriceChart({ symbol }: { symbol: string }) {
                   : (null as any))}
                 activeDot={{ r: 4, fill: stroke, stroke: "var(--bg)", strokeWidth: 2 }} />
             </AreaChart>
-          </ResponsiveContainer>
+          </ResponsiveContainer></div>
         </div>
       )}
 

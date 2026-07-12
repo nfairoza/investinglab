@@ -52,7 +52,7 @@ export function AllocationDonut({ slices, title = "Portfolio allocation" }: { sl
       <div className="text-xs text-ink-faint mt-0.5">Am I too concentrated in one stock?</div>
 
       <div className="relative mt-2">
-        <ResponsiveContainer width="100%" height={220}>
+        <div data-no-page-swipe><ResponsiveContainer width="100%" height={220}>
           <PieChart>
             <Pie
               data={data}
@@ -77,7 +77,7 @@ export function AllocationDonut({ slices, title = "Portfolio allocation" }: { sl
               formatter={(v: number, name: string) => [`${v}%`, name]}
             />
           </PieChart>
-        </ResponsiveContainer>
+        </ResponsiveContainer></div>
 
         {/* Center label — largest position */}
         <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">

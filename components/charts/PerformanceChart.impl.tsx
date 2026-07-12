@@ -116,7 +116,7 @@ export function PerformanceChart({ series }: { series: Pt[] }) {
         </div>
       ) : (
         <div className="mt-3">
-          <ResponsiveContainer width="100%" height={240}>
+          <div data-no-page-swipe><ResponsiveContainer width="100%" height={240}>
             <AreaChart data={rows} margin={{ top: 6, right: 8, left: 0, bottom: 0 }}>
               <defs>
                 <linearGradient id="perf-fill" x1="0" y1="0" x2="0" y2="1">
@@ -139,7 +139,7 @@ export function PerformanceChart({ series }: { series: Pt[] }) {
               <Area type="monotone" dataKey="port" name="port" stroke={stroke} strokeWidth={2} fill="url(#perf-fill)" dot={false} isAnimationActive={false} />
               <Line type="monotone" dataKey="spy" name="spy" stroke={ct.neutral} strokeWidth={1.5} strokeDasharray="4 3" dot={false} isAnimationActive={false} connectNulls />
             </AreaChart>
-          </ResponsiveContainer>
+          </ResponsiveContainer></div>
           <p className="mt-2 text-[11px] text-ink-faint">
             Both normalized to 0% at the window start. Portfolio value reconstructed from current holdings × historical prices (doesn&apos;t account for past buys/sells). Not financial advice.
           </p>

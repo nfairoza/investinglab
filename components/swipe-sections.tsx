@@ -2,27 +2,30 @@
 
 import { useRef } from "react";
 import { useRouter, usePathname } from "next/navigation";
+import { MOBILE_TABS } from "@/lib/nav";
 
-// The four swipeable top-level destinations, in order. Swiping left/right on a
-// phone navigates between them; the bottom bar stays in sync (it highlights by
-// path). Order matches the bottom bar's primary tabs.
-const ORDER = ["/", "/dashboard", "/research", "/money"];
+// The swipeable top-level lanes are the 5 primary IA tabs, derived from
+// lib/nav MOBILE_TABS (M0.6 — single source, so the IA can't desync the swipe
+// order from the bottom bar). Each lane = a tab; its `match` prefixes decide
+// which sub-page belongs to which lane.
+const ORDER = MOBILE_TABS.map((t) => t.href);
 
-// Which swipe lane the current path belongs to (so swiping from any Invest or
-// Money sub-page still moves to the neighbouring section).
+// Which swipe lane the current path belongs to (so swiping from any sub-page
+// still moves to the neighbouring section). Uses the same match logic the bar
+// uses to highlight, so they always agree.
 function laneIndex(path: string): number {
-  if (path === "/") return 0;
-  if (["/dashboard", "/holdings", "/rankings", "/map", "/predictions", "/portfolio-doctor", "/congress", "/watchlist", "/journal"].some((p) => path.startsWith(p))) return 1;
-  if (path.startsWith("/research")) return 2;
-  if (["/money", "/networth", "/accounts", "/transactions", "/spending", "/advisor", "/alerts"].some((p) => path.startsWith(p))) return 3;
-  return -1;
+  return MOBILE_TABS.findIndex((t) =>
+    t.exact ? path === t.href : t.match.some((m) => path === m || path.startsWith(m + "/")),
+  );
 }
 
-// Walk up from the touch target; if any ancestor scrolls horizontally, this is a
-// content swipe (chart, wide table, carousel, stock-map) — don't page-swipe.
+// Walk up from the touch target; if any ancestor scrolls horizontally OR is
+// explicitly marked data-no-page-swipe (charts/stock-map — SVGs that scrub but
+// don't scroll, M0.3), this is a content gesture — don't page-swipe.
 function startedInHorizontalScroller(target: EventTarget | null, stop: HTMLElement): boolean {
   let el = target as HTMLElement | null;
   while (el && el !== stop) {
+    if (el.dataset && el.dataset.noPageSwipe !== undefined) return true;
     const style = window.getComputedStyle(el);
     const ox = style.overflowX;
     if ((ox === "auto" || ox === "scroll") && el.scrollWidth > el.clientWidth + 4) return true;

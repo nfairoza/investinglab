@@ -34,7 +34,7 @@ export function GainLossBar({ holdings, title = "Gain / loss by holding" }: { ho
       <div className="text-sm font-semibold text-ink">{title}</div>
       <div className="text-xs text-ink-faint mt-0.5">What's winning and losing? Green = up, red = down, labeled.</div>
       <div className="mt-4">
-        <ResponsiveContainer width="100%" height={Math.max(160, sorted.length * 36)}>
+        <div data-no-page-swipe><ResponsiveContainer width="100%" height={Math.max(160, sorted.length * 36)}>
           <BarChart data={sorted} layout="vertical" margin={{ top: 0, right: 48, left: 8, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" horizontal={false} />
             <XAxis type="number" tick={{ fill: "var(--chart-axis)", fontSize: 10 }} tickLine={false}
@@ -55,7 +55,7 @@ export function GainLossBar({ holdings, title = "Gain / loss by holding" }: { ho
               ))}
             </Bar>
           </BarChart>
-        </ResponsiveContainer>
+        </ResponsiveContainer></div>
       </div>
       <p className="mt-2 text-[11px] text-ink-faint">Research and educational analysis, not financial advice.</p>
     </div>
