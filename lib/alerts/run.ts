@@ -1,7 +1,8 @@
 import { serviceClient } from "@/lib/service-client";
 import { marketData, type DataResult, type Quote } from "@/lib/providers";
 import { withFmpFeature } from "@/lib/providers/fmp";
-import { evaluateAlert, type AlertContext } from "@/lib/alerts/evaluate";
+import { evaluateAlert, describeAlert, formatTriggerValue, type AlertContext } from "@/lib/alerts/evaluate";
+import { sendPushToUser } from "@/lib/push/send";
 import type { Alert } from "@/lib/db";
 
 // =============================================================================
@@ -89,6 +90,13 @@ export async function runAlerts(nowMs = Date.now()): Promise<AlertRunResult> {
         updated_at: nowIso,
       }).eq("id", row.id);
       triggered++;
+      // M1.2: web push to the alert owner (best-effort; no-op if VAPID unset).
+      void sendPushToUser(db, row.user_id, {
+        title: `${a.symbol} alert`,
+        body: `${describeAlert(a)} — now ${formatTriggerValue(a, res.value)}`,
+        url: `/research?ticker=${encodeURIComponent(a.symbol)}`,
+        tag: `alert:${row.id}`,
+      }).catch(() => {});
     } catch { /* skip this row on write failure */ }
   }
 

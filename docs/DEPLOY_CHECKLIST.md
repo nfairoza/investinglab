@@ -25,6 +25,7 @@ brokerage" instead of surfacing the error.)
    - `0029_recurring_charges.sql` — F6: detected subscriptions / recurring charges
    - `0030_insight_outcomes.sql` — Insights Engine closure loop / trust ledger
    - `0031_chat_memory.sql` — Rukmani chat memory (C5) + admin audit log (C1)
+   - `0032_push_subscriptions.sql` — M1.2 web push subscriptions
 2. **Set new env vars** in Vercel (and locally in `.env.local`):
    - `SECRETS_ENCRYPTION_KEY` — 32-byte base64 (`openssl rand -base64 32`).
      Required for P1 encryption; without it, keys/tokens fall back to plaintext.
@@ -32,6 +33,10 @@ brokerage" instead of surfacing the error.)
      without it the digest still posts an in-app notification (email is skipped).
    - `DIGEST_FROM` — (F2, optional) from-address for digest email (default
      `digest@rukmoney.com`). `NEXT_PUBLIC_APP_URL` — base URL for email links.
+   - `WEB_PUSH_PUBLIC_KEY` / `WEB_PUSH_PRIVATE_KEY` — (M1.2) VAPID keypair for web
+     push. Generate with `npx web-push generate-vapid-keys`. Optional
+     `WEB_PUSH_SUBJECT` (default `mailto:alerts@rukmoney.com`). Without them,
+     alert push is a graceful no-op (in-app + client polling still work).
 3. **Run one-time backfills** after the matching migration is applied:
    - `node scripts/backfill-plaid-tokens.mjs` — encrypts existing Plaid tokens
      and nulls the plaintext column (needs `SECRETS_ENCRYPTION_KEY` +

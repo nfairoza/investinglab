@@ -5,6 +5,7 @@ import useSWR from "swr";
 import { Bell, BellRing, X, Sparkles, Plus, RefreshCw, Clock } from "lucide-react";
 import { TickerInput } from "./ticker-input";
 import { ArtImage } from "./ui/art-image";
+import { enablePush, pushSupported } from "@/lib/push/client";
 import { evaluateAlert, describeAlert, formatTriggerValue, needsScore, isExpired, describeExpiry, type AlertContext } from "@/lib/alerts/evaluate";
 import type { Alert } from "@/lib/db";
 import type { DataResult, Quote } from "@/lib/providers/types";
@@ -42,6 +43,9 @@ export function AlertsManager() {
   const [note, setNote] = useState("");
   const [expiresAt, setExpiresAt] = useState(""); // datetime-local string; "" = persistent
   const [addErr, setAddErr] = useState<string | null>(null);
+  // M1.2 — contextual push opt-in: prompt right after the first alert is created.
+  const [pushPrompt, setPushPrompt] = useState(false);
+  const [pushMsg, setPushMsg] = useState<string | null>(null);
 
   // ── Notification permission ──────────────────────────────────────────────────
   const [notifPerm, setNotifPerm] = useState<NotificationPermission | "unsupported">("default");
@@ -78,7 +82,21 @@ export function AlertsManager() {
     if (!r.ok) { const j = await r.json().catch(() => ({})); setAddErr((j as any).error ?? "Could not add alert."); return; }
     setSymbol(""); setPrice(""); setNote(""); setExpiresAt("");
     mutate();
+    // Contextually offer push the first time — only if supported and not already
+    // granted, and not already dismissed this session.
+    if (pushSupported() && Notification.permission === "default" && !localStorage.getItem("pushPromptSeen")) {
+      setPushPrompt(true);
+    }
   }
+
+  async function acceptPush() {
+    setPushPrompt(false);
+    localStorage.setItem("pushPromptSeen", "1");
+    const r = await enablePush();
+    setPushMsg(r.ok ? "Push notifications on — you'll get pinged when an alert triggers." : null);
+    if (r.ok) setTimeout(() => setPushMsg(null), 4000);
+  }
+  function dismissPush() { setPushPrompt(false); localStorage.setItem("pushPromptSeen", "1"); }
 
   async function toggle(a: Alert) {
     await fetch("/api/alerts", {
@@ -335,6 +353,16 @@ export function AlertsManager() {
           )}
         </div>
         {addErr && <p className="mt-2 text-[11px] text-rose-400">{addErr}</p>}
+        {pushPrompt && (
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-brand-500/30 bg-brand-500/[0.06] p-3">
+            <span className="text-sm text-ink"><BellRing size={14} className="mr-1.5 inline text-brand-400" />Get notified when this triggers?</span>
+            <span className="flex gap-2">
+              <button onClick={acceptPush} className="btn-gold rounded-md px-3 py-1 text-xs">Enable</button>
+              <button onClick={dismissPush} className="rounded-md border border-hairline px-3 py-1 text-xs text-ink-dim">Not now</button>
+            </span>
+          </div>
+        )}
+        {pushMsg && <p className="mt-2 text-[11px] text-emerald-400">{pushMsg}</p>}
       </div>
 
       {/* Active alerts */}
