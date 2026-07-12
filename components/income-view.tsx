@@ -4,6 +4,7 @@ import useSWR from "swr";
 import { Coins, CalendarClock } from "lucide-react";
 import { fetchJson } from "@/lib/fetch-json";
 import { ArtImage } from "./ui/art-image";
+import { ResponsiveTable } from "./ui/responsive-table";
 
 interface Position {
   symbol: string; shares: number; price: number | null; annualPerShare: number;
@@ -71,30 +72,22 @@ export function IncomeView() {
       </div>
 
       {/* Per-position table (cards on mobile) */}
-      <div className="overflow-x-auto rounded-2xl border border-hairline">
-        <table className="w-full text-left text-sm">
-          <thead className="bg-surface text-xs uppercase tracking-wide text-ink-faint">
-            <tr>
-              <th className="px-3 py-2">Symbol</th>
-              <th className="px-3 py-2 text-right">Annual income</th>
-              <th className="px-3 py-2 text-right">Fwd yield</th>
-              <th className="px-3 py-2 text-right">Yield on cost</th>
-              <th className="px-3 py-2">Next ex-div</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-white/5">
-            {positions.map((p) => (
-              <tr key={p.symbol} className="hover:bg-surface">
-                <td className="px-3 py-2 font-medium text-ink">{p.symbol}</td>
-                <td className="px-3 py-2 text-right tabular-nums text-ink">{money(p.projectedAnnualIncome)}</td>
-                <td className="px-3 py-2 text-right tabular-nums text-ink-dim">{pct(p.forwardYield)}</td>
-                <td className="px-3 py-2 text-right tabular-nums text-ink-dim" title={p.yieldOnCost == null ? "No cost basis available for this position" : undefined}>{pct(p.yieldOnCost)}</td>
-                <td className="px-3 py-2 text-[11px] text-ink-faint">{p.nextExDate ?? "—"}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <ResponsiveTable
+        rows={positions}
+        rowKey={(p) => p.symbol}
+        columns={[
+          { key: "sym", header: "Symbol", cell: (p) => <span className="font-medium text-ink">{p.symbol}</span> },
+          { key: "inc", header: "Annual income", align: "right", cell: (p) => <span className="text-ink">{money(p.projectedAnnualIncome)}</span> },
+          { key: "fyld", header: "Fwd yield", align: "right", cell: (p) => <span className="text-ink-dim">{pct(p.forwardYield)}</span> },
+          { key: "yoc", header: "Yield on cost", align: "right", cell: (p) => <span className="text-ink-dim" title={p.yieldOnCost == null ? "No cost basis available for this position" : undefined}>{pct(p.yieldOnCost)}</span> },
+          { key: "exdiv", header: "Next ex-div", cell: (p) => <span className="text-[11px] text-ink-faint">{p.nextExDate ?? "—"}</span> },
+        ]}
+        card={(p) => ({
+          title: p.symbol,
+          value: money(p.projectedAnnualIncome),
+          meta: `${pct(p.forwardYield)} yield · YoC ${pct(p.yieldOnCost)}${p.nextExDate ? ` · ex-div ${p.nextExDate}` : ""}`,
+        })}
+      />
       <p className="text-[11px] text-ink-faint">
         Figures use trailing-12-month dividends from FMP{data?.asOf ? ` · as of ${new Date(data.asOf).toLocaleDateString()}` : ""}. Projected income and the
         payout calendar are estimates, not guaranteed. Positions without cost basis show &ldquo;—&rdquo; for yield on cost.
