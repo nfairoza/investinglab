@@ -164,7 +164,7 @@ export function Screener() {
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[250px_1fr_230px]">
         {/* Desktop filter rail */}
         <aside className="hidden lg:block">
-          <div className="sticky top-20 rounded-xl glass p-4" style={{ maxHeight: "calc(100vh - 6rem)" }}>
+          <div className="sticky top-20 rounded-xl glass p-4" style={{ maxHeight: "calc(100dvh - 6rem)" }}>
             <ScreenerFiltersPanel value={filters} onChange={setFilters} onApply={run} onReset={reset} />
           </div>
         </aside>

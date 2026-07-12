@@ -81,6 +81,9 @@ export function TickerInput({
         onKeyDown={onKey}
         placeholder={placeholder}
         autoComplete="off"
+        autoCapitalize="characters"
+        autoCorrect="off"
+        spellCheck={false}
         className={className || "w-64 rounded-md border border-hairline bg-surface px-3 py-2 text-sm text-ink placeholder:text-ink-faint focus:border-brand-500 focus:outline-none"}
       />
       {open && matches.length > 0 && (

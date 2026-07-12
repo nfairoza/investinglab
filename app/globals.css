@@ -147,6 +147,14 @@ html, body { height: 100%; }
 /* No horizontal page scroll on any viewport — content fits the device width;
    wide elements (tables, heatmap) scroll inside their own containers, not here. */
 html, body { overflow-x: hidden; max-width: 100%; }
+/* M0.5 — installed-PWA viewport hygiene: no vertical bounce-reveal of the page
+   background in iOS standalone, and prefer the dynamic viewport unit so the
+   layout accounts for the shrinking/growing browser chrome + keyboard. */
+html, body { overscroll-behavior-y: none; }
+@supports (height: 100dvh) { html, body { min-height: 100dvh; } }
+/* Inputs render at >=16px so iOS never zoom-jumps on focus. */
+input, select, textarea { font-size: 16px; }
+@media (min-width: 768px) { input, select, textarea { font-size: inherit; } }
 
 body {
   background-color: var(--bg);

@@ -555,7 +555,7 @@ export function ChatWidget() {
             top: size === "full" ? 0 : "auto",
             left: "auto",
             width: SIZES[size].w,
-            height: size === "full" ? "100vh" : (minimized ? 52 : SIZES[size].h),
+            height: size === "full" ? "100dvh" : (minimized ? 52 : SIZES[size].h),
             maxWidth: "95vw",
             transformOrigin: "bottom right",
             background: "var(--surface-solid)",

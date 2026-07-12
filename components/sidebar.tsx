@@ -160,7 +160,7 @@ export function Sidebar() {
           collapsed ? "w-0 border-r-0" : "glass w-64",
         )}
       >
-        <div className="w-64 overflow-y-auto p-4" style={{ height: "100vh" }}>
+        <div className="w-64 overflow-y-auto p-4" style={{ height: "100dvh" }}>
           <div className="pb-7 pt-2"><Wordmark /></div>
           {/* Auto-collapse when a nav item is clicked, so the page gets full
               width. Reopen via the top-bar wordmark. */}
