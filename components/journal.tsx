@@ -4,6 +4,7 @@ import { useState } from "react";
 import useSWR from "swr";
 import type { JournalEntry } from "@/lib/db";
 import { ArtImage } from "./ui/art-image";
+import { toastError } from "@/lib/toast";
 
 async function fetchJson<T>(url: string): Promise<T> {
   const r = await fetch(url);
@@ -59,8 +60,16 @@ export function Journal() {
   }
 
   async function removeEntry(id: string) {
-    await fetch(`/api/journal?id=${id}`, { method: "DELETE" });
-    mutate();
+    // Optimistic delete: drop the row now, roll back + toast on failure.
+    const drop = (cur: any) => Array.isArray(cur) ? cur.filter((x: JournalEntry) => x.id !== id)
+      : { ...(cur ?? {}), entries: (cur?.entries ?? []).filter((x: JournalEntry) => x.id !== id) };
+    try {
+      await mutate(async () => {
+        const r = await fetch(`/api/journal?id=${id}`, { method: "DELETE" });
+        if (!r.ok) throw new Error(`journal ${r.status}`);
+        return undefined;
+      }, { optimisticData: drop, rollbackOnError: true, revalidate: true, populateCache: false });
+    } catch { toastError("Couldn't delete that journal entry — restored."); }
   }
 
   const input = "rounded-md border border-hairline bg-surface px-3 py-2 text-sm text-ink placeholder:text-ink-faint focus:border-brand-500 focus:outline-none";

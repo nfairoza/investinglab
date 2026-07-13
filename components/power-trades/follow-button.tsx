@@ -1,8 +1,9 @@
 "use client";
 
-import useSWR, { mutate as globalMutate } from "swr";
+import useSWR from "swr";
 import { Star } from "lucide-react";
 import { fetchJson } from "@/lib/fetch-json";
+import { optimisticUpdate } from "@/lib/optimistic";
 
 const KEY = "/api/follows";
 interface Follow { person_id: string; person_name: string; kind: string }
@@ -18,16 +19,21 @@ export function FollowButton({ personId, personName, kind = "congress", size = "
   async function toggle(e: React.MouseEvent) {
     e.stopPropagation();
     const next = !following;
-    globalMutate(KEY, (cur: { follows: Follow[] } | undefined) => {
-      const list = cur?.follows ?? [];
-      return { follows: next ? [...list, { person_id: personId, person_name: personName, kind }] : list.filter((f) => f.person_id !== personId) };
-    }, { revalidate: false });
-    if (next) {
-      await fetch(KEY, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ personId, personName, kind }) }).catch(() => {});
-    } else {
-      await fetch(`${KEY}?personId=${encodeURIComponent(personId)}`, { method: "DELETE" }).catch(() => {});
-    }
-    globalMutate(KEY);
+    await optimisticUpdate<{ follows: Follow[] }>({
+      key: KEY,
+      current: data,
+      optimistic: (cur) => {
+        const list = cur?.follows ?? [];
+        return { follows: next ? [...list, { person_id: personId, person_name: personName, kind }] : list.filter((f) => f.person_id !== personId) };
+      },
+      request: async () => {
+        const r = next
+          ? await fetch(KEY, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ personId, personName, kind }) })
+          : await fetch(`${KEY}?personId=${encodeURIComponent(personId)}`, { method: "DELETE" });
+        if (!r.ok) throw new Error(`follow ${r.status}`);   // → rollback + toast
+      },
+      errorMessage: next ? `Couldn't follow ${personName} — try again.` : `Couldn't unfollow ${personName} — try again.`,
+    });
   }
 
   const pad = size === "md" ? "px-3 py-1.5 text-sm" : "px-2 py-0.5 text-[11px]";

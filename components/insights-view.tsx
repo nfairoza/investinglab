@@ -1,10 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import useSWR, { mutate as globalMutate } from "swr";
+import useSWR from "swr";
 import { Lightbulb, ChevronDown, X, ThumbsUp, Sparkles } from "lucide-react";
 import { fetchJson } from "@/lib/fetch-json";
 import { ArtImage } from "./ui/art-image";
+import { optimisticUpdate } from "@/lib/optimistic";
 import type { StoredInsight, EvidenceRef } from "@/lib/insights/types";
 
 const KEY = "/api/insights";
@@ -19,11 +20,17 @@ function tint(ins: StoredInsight): string {
 }
 
 async function patchStatus(id: string, status: StoredInsight["status"]) {
-  // Optimistic: drop it from the local list immediately, then revalidate.
-  globalMutate(KEY, (cur: { insights: StoredInsight[] } | undefined) =>
-    cur ? { insights: cur.insights.filter((i) => i.id !== id) } : cur, { revalidate: false });
-  await fetch(KEY, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, status }) }).catch(() => {});
-  globalMutate(KEY);
+  // Optimistic: drop it from the local list immediately; roll back + toast on error.
+  await optimisticUpdate<{ insights: StoredInsight[] }>({
+    key: KEY,
+    current: undefined,
+    optimistic: (cur) => (cur ? { insights: cur.insights.filter((i) => i.id !== id) } : { insights: [] }),
+    request: async () => {
+      const r = await fetch(KEY, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, status }) });
+      if (!r.ok) throw new Error(`insight ${r.status}`);
+    },
+    errorMessage: "Couldn't update that insight — it's back in your list.",
+  });
 }
 
 function Why({ evidence }: { evidence: EvidenceRef[] }) {

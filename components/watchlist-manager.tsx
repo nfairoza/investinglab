@@ -10,6 +10,7 @@ import { ArtImage } from "./ui/art-image";
 import type { DataResult, Quote } from "@/lib/providers/types";
 import type { WatchItem } from "@/lib/db";
 import { prefetchSymbol } from "@/lib/use-prefetch";
+import { toastError } from "@/lib/toast";
 
 async function fetchJson<T>(url: string): Promise<T> {
   const r = await fetch(url);
@@ -94,16 +95,43 @@ export function WatchlistManager({ listId }: { listId?: string } = {}) {
     }
     const target = Number(idealBuy);
     const body = JSON.stringify({ symbol: s, idealBuy: Number.isFinite(target) && target > 0 ? target : undefined, note: note.trim() || undefined });
-    if (listId) await fetch(`/api/watchlists/${listId}/items`, { method: "POST", headers: { "Content-Type": "application/json" }, body });
-    else await fetch("/api/watchlist", { method: "POST", headers: { "Content-Type": "application/json" }, body });
+    // Optimistic add: show the row immediately with a temp id, reconcile on
+    // revalidate (the server assigns the real id/quote), roll back + toast on error.
+    const optimisticRow = { id: `optimistic-${s}`, symbol: s, idealBuy: Number.isFinite(target) && target > 0 ? target : undefined, note: note.trim() || undefined } as WatchItem;
+    const addRow = (cur: any) => Array.isArray(cur)
+      ? [...(cur ?? []), optimisticRow]
+      : { ...(cur ?? {}), items: [...(cur?.items ?? []), optimisticRow] };
     setSymbol(""); setIdealBuy(""); setNote("");
-    mutate();
+    try {
+      await mutate(async () => {
+        const r = listId
+          ? await fetch(`/api/watchlists/${listId}/items`, { method: "POST", headers: { "Content-Type": "application/json" }, body })
+          : await fetch("/api/watchlist", { method: "POST", headers: { "Content-Type": "application/json" }, body });
+        if (!r.ok) throw new Error(`add ${r.status}`);
+        return undefined;
+      }, { optimisticData: addRow, rollbackOnError: true, revalidate: true, populateCache: false });
+    } catch {
+      toastError(`Couldn't add ${s} — try again.`);
+    }
   }
 
   async function removeItem(id: string) {
-    if (listId) await fetch(`/api/watchlists/${listId}/items?itemId=${id}`, { method: "DELETE" });
-    else await fetch(`/api/watchlist?id=${id}`, { method: "DELETE" });
-    mutate();
+    // Optimistic: drop the row immediately (both list shapes), roll back + toast
+    // on failure. keepPreviousData + the bound mutate handle the reconcile.
+    const dropId = (cur: any) => Array.isArray(cur)
+      ? cur.filter((w: WatchItem) => w.id !== id)
+      : { ...(cur ?? {}), items: (cur?.items ?? []).filter((w: WatchItem) => w.id !== id) };
+    try {
+      await mutate(async () => {
+        const r = listId
+          ? await fetch(`/api/watchlists/${listId}/items?itemId=${id}`, { method: "DELETE" })
+          : await fetch(`/api/watchlist?id=${id}`, { method: "DELETE" });
+        if (!r.ok) throw new Error(`remove ${r.status}`);
+        return undefined; // revalidate to reconcile
+      }, { optimisticData: dropId, rollbackOnError: true, revalidate: true, populateCache: false });
+    } catch {
+      toastError("Couldn't remove that ticker — it's back on your list.");
+    }
   }
 
   // ── Reorder (drag, or up/down buttons) ──────────────────────────────────────

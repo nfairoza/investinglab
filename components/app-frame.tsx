@@ -23,6 +23,7 @@ import { OfflineBanner } from "./offline-banner";
 import { AlertsBell } from "./alerts-bell";
 import { NotificationsBell } from "./notifications-bell";
 import { ViewTransitions } from "./view-transitions";
+import { ToastHost } from "./toast-host";
 
 // Auth screens render with NO app chrome (no sidebar, chat, or command palette) —
 // just the page. Everything else gets the full shell.
@@ -79,6 +80,7 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
       <AddSheet />
       <ChatWidget />
       <CommandPalette />
+      <ToastHost />
     </>
   );
 }

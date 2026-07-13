@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import useSWR from "swr";
 import Link from "next/link";
 import { Search, SlidersHorizontal, X, Repeat, Sparkles, AlertTriangle } from "lucide-react";
+import { toastError } from "@/lib/toast";
 import { fetchJson } from "@/lib/fetch-json";
 import { ErrorState } from "./data-state";
 import { ArtImage } from "./ui/art-image";
@@ -138,18 +139,33 @@ export function TransactionsView() {
   }
 
   async function recategorize(t: Txn, newCat: string, applyToMerchant: boolean) {
-    await fetch("/api/plaid/transactions", {
-      method: "PATCH", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ transactionId: t.id, category: newCat, merchant: t.merchant ?? t.name, applyToMerchant }),
-    });
-    mutate();
+    // Optimistic: recolor the row(s) now; roll back + toast on failure.
+    const apply = (cur: any) => cur ? { ...cur, transactions: (cur.transactions ?? []).map((x: Txn) =>
+      (x.id === t.id || (applyToMerchant && (x.merchant ?? x.name) === (t.merchant ?? t.name))) ? { ...x, category: newCat } : x) } : cur;
+    try {
+      await mutate(async () => {
+        const r = await fetch("/api/plaid/transactions", {
+          method: "PATCH", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ transactionId: t.id, category: newCat, merchant: t.merchant ?? t.name, applyToMerchant }),
+        });
+        if (!r.ok) throw new Error(`recategorize ${r.status}`);
+        return undefined;
+      }, { optimisticData: apply, rollbackOnError: true, revalidate: true, populateCache: false });
+    } catch { toastError("Couldn't recategorize that transaction — reverted."); }
   }
   async function toggleFlag(t: Txn, field: "isTransfer" | "excluded") {
-    await fetch("/api/plaid/transactions", {
-      method: "PATCH", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ transactionId: t.id, [field]: !t[field] }),
-    });
-    mutate();
+    const apply = (cur: any) => cur ? { ...cur, transactions: (cur.transactions ?? []).map((x: Txn) =>
+      x.id === t.id ? { ...x, [field]: !x[field] } : x) } : cur;
+    try {
+      await mutate(async () => {
+        const r = await fetch("/api/plaid/transactions", {
+          method: "PATCH", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ transactionId: t.id, [field]: !t[field] }),
+        });
+        if (!r.ok) throw new Error(`flag ${r.status}`);
+        return undefined;
+      }, { optimisticData: apply, rollbackOnError: true, revalidate: true, populateCache: false });
+    } catch { toastError("Couldn't update that transaction — reverted."); }
   }
 
   if (data?.configured === false) return <Empty>Bank connections aren&apos;t available yet.</Empty>;
