@@ -16,9 +16,10 @@ import { CompanyProfileCard } from "./company-profile-card";
 import { AnalystPanel } from "./analyst-panel";
 import { DcfCard } from "./dcf-card";
 import { InsiderFeed } from "./insider-feed";
-import type { DataResult, Quote } from "@/lib/providers/types";
+import type { DataResult, Quote, CompanyProfile } from "@/lib/providers/types";
 import type { StockScore } from "@/lib/scoring/score";
 import type { ResearchReport } from "@/lib/research/types";
+import { EtfLayout } from "./etf/etf-layout";
 type DR<T> = DataResult<T>;
 import { useState, useEffect, useRef } from "react";
 import { useIsAdmin } from "./use-is-admin";
@@ -59,6 +60,14 @@ export function HoldingDetail({ symbol }: { symbol: string }) {
     (url) => getJson<DataResult<Quote>>(url),
     { refreshInterval: 60_000, keepPreviousData: true },
   );
+
+  // E1 — branch to the ETF layout when this symbol is a fund.
+  const { data: profileResult } = useSWR<DataResult<CompanyProfile>>(
+    `/api/profile?symbol=${symbol}`,
+    (url) => getJson<DataResult<CompanyProfile>>(url),
+    { revalidateOnFocus: false, keepPreviousData: true },
+  );
+  const isEtf = Boolean(profileResult?.data?.isEtf || profileResult?.data?.isFund);
 
   const { data: scoreResult } = useSWR<DR<StockScore>>(
     `/api/score?symbol=${symbol}`,
@@ -158,41 +167,50 @@ export function HoldingDetail({ symbol }: { symbol: string }) {
       {/* Company overview */}
       <CompanyProfileCard symbol={symbol} />
 
-      {/* Price chart (Robinhood-style) — right after the overview */}
-      <PriceChart symbol={symbol} />
+      {isEtf ? (
+        // E1 — ETF layout replaces price chart + company-financials sections (no
+        // empty income/DCF/analyst/insider cards for a fund). The AI research memo
+        // below still applies.
+        <EtfLayout symbol={symbol} name={profileResult?.data?.name ?? null} />
+      ) : (
+        <>
+          {/* Price chart (Robinhood-style) — right after the overview */}
+          <PriceChart symbol={symbol} />
 
-      {/* Analyst + DCF side by side */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <AnalystPanel symbol={symbol} />
-        <DcfCard symbol={symbol} />
-      </div>
+          {/* Analyst + DCF side by side */}
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <AnalystPanel symbol={symbol} />
+            <DcfCard symbol={symbol} />
+          </div>
 
-      {/* Score card */}
-      <ScoreCard symbol={symbol} />
+          {/* Score card */}
+          <ScoreCard symbol={symbol} />
 
-      {/* Price zone bar from score */}
-      {score && (
-        <PriceZoneBar
-          currentPrice={price}
-          entryZone={score.entryZone}
-          stopLoss={score.stopLoss}
-          addBelow={researchResult?.data?.actionTable.addBelow ?? null}
-          trimAbove={researchResult?.data?.actionTable.trimAbove ?? null}
-          sellInvalidation={researchResult?.data?.actionTable.sellInvalidation ?? null}
-        />
+          {/* Price zone bar from score */}
+          {score && (
+            <PriceZoneBar
+              currentPrice={price}
+              entryZone={score.entryZone}
+              stopLoss={score.stopLoss}
+              addBelow={researchResult?.data?.actionTable.addBelow ?? null}
+              trimAbove={researchResult?.data?.actionTable.trimAbove ?? null}
+              sellInvalidation={researchResult?.data?.actionTable.sellInvalidation ?? null}
+            />
+          )}
+
+          {/* Moving averages */}
+          <PriceHistoryChart symbol={symbol} />
+
+          {/* Insider transactions */}
+          <InsiderFeed symbol={symbol} />
+
+          {/* Financial charts */}
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <RevenueEarningsChart symbol={symbol} />
+            <MarginChart symbol={symbol} />
+          </div>
+        </>
       )}
-
-      {/* Moving averages */}
-      <PriceHistoryChart symbol={symbol} />
-
-      {/* Insider transactions */}
-      <InsiderFeed symbol={symbol} />
-
-      {/* Financial charts */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <RevenueEarningsChart symbol={symbol} />
-        <MarginChart symbol={symbol} />
-      </div>
 
       {/* AI research section */}
       <div className="rounded-xl glass p-5">

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import useSWR from "swr";
 import { useSearchParams } from "next/navigation";
 import { ScoreCard } from "./score-card";
 import { ResearchPanel } from "./research-panel";
@@ -12,6 +13,9 @@ import { DcfCard } from "./dcf-card";
 import { InsiderFeed } from "./insider-feed";
 import { TickerInput } from "./ticker-input";
 import { MiniPrediction } from "./mini-prediction";
+import { EtfLayout } from "./etf/etf-layout";
+import { fetchJson } from "@/lib/fetch-json";
+import type { DataResult, CompanyProfile } from "@/lib/providers/types";
 
 export function ResearchWorkspace({ initial = "AMD" }: { initial?: string }) {
   const [draft, setDraft] = useState(initial);
@@ -34,6 +38,12 @@ export function ResearchWorkspace({ initial = "AMD" }: { initial?: string }) {
     if (t) { setDraft(t); setSymbol(t); }
   }
 
+  // E1 — branch on isEtf. The profile is fetched here (same key CompanyProfileCard
+  // uses, so it's a cache hit) purely to decide the layout; company pages are
+  // unchanged when isEtf is false.
+  const { data: profile } = useSWR<DataResult<CompanyProfile>>(`/api/profile?symbol=${symbol}`, fetchJson, { revalidateOnFocus: false, keepPreviousData: true });
+  const isEtf = Boolean(profile?.data?.isEtf || profile?.data?.isFund);
+
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center gap-2">
@@ -50,15 +60,23 @@ export function ResearchWorkspace({ initial = "AMD" }: { initial?: string }) {
       {/* AI prediction up top, auto-runs for the searched ticker. */}
       <MiniPrediction symbol={symbol} autoRun />
       <CompanyProfileCard symbol={symbol} />
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <AnalystPanel symbol={symbol} />
-        <DcfCard symbol={symbol} />
-      </div>
-      <ScoreCard symbol={symbol} />
-      <PriceChart symbol={symbol} />
-      <PriceHistoryChart symbol={symbol} />
-      <InsiderFeed symbol={symbol} />
-      <ResearchPanel symbol={symbol} />
+      {isEtf ? (
+        // ETF layout replaces the company-financials sections — no empty
+        // income-statement / DCF / analyst cards for a fund.
+        <EtfLayout symbol={symbol} name={profile?.data?.name ?? null} />
+      ) : (
+        <>
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <AnalystPanel symbol={symbol} />
+            <DcfCard symbol={symbol} />
+          </div>
+          <ScoreCard symbol={symbol} />
+          <PriceChart symbol={symbol} />
+          <PriceHistoryChart symbol={symbol} />
+          <InsiderFeed symbol={symbol} />
+          <ResearchPanel symbol={symbol} />
+        </>
+      )}
     </div>
   );
 }
