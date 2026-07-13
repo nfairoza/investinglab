@@ -1,6 +1,7 @@
 import type { CronJob } from "./registry";
 import { buildMap, buildMapChunk } from "@/lib/market/map-build";
 import { runAlerts } from "@/lib/alerts/run";
+import { runAlertEscalation } from "@/lib/alerts/escalate";
 import { runInsightsBuild } from "@/lib/insights/run";
 import { detectFollowFilings } from "@/lib/follows/detect";
 import { runWeeklyDigest } from "@/lib/digest/run";
@@ -55,6 +56,16 @@ export const JOBS: CronJob[] = [
     everyMinutes: 5,
     marketHoursOnly: true,
     run: async () => { const r = await runAlerts(); return { ok: true, note: `${r.triggered} fired / ${r.evaluated} evaluated (${r.symbols} syms, ${r.pruned} pruned)` }; },
+  },
+  {
+    // ALERTDEL AD3 — missed-push escalation. Every 5 min (any time — a missed push
+    // is worth chasing off-hours too), batch any severity-1 deliveries that have
+    // been unseen for 2h+ into ONE "you may have missed" email per user. Idempotent
+    // and toggle-gated. Not market-hours-gated: escalation is about the user, not
+    // the tape.
+    id: "alert-escalate",
+    everyMinutes: 5,
+    run: async () => { const r = await runAlertEscalation(); return { ok: true, note: `${r.emailed} emailed / ${r.users} users (${r.candidates} candidates)` }; },
   },
   {
     // Insights Engine ("The Confidant") nightly build. Rebuilds the per-user

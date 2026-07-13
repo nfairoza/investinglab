@@ -42,6 +42,7 @@ export function AlertsManager() {
   const [scoreValue, setScoreValue] = useState("40");
   const [note, setNote] = useState("");
   const [expiresAt, setExpiresAt] = useState(""); // datetime-local string; "" = persistent
+  const [critical, setCritical] = useState(false); // ALERTDEL — mark critical → push + email now
   const [addErr, setAddErr] = useState<string | null>(null);
   // M1.2 — contextual push opt-in: prompt right after the first alert is created.
   const [pushPrompt, setPushPrompt] = useState(false);
@@ -63,7 +64,7 @@ export function AlertsManager() {
     const s = symbol.trim().toUpperCase();
     if (!s) { setAddErr("Pick a ticker first."); return; }
     setAddErr(null);
-    const payload: Record<string, unknown> = { symbol: s, type, note: note.trim() || undefined };
+    const payload: Record<string, unknown> = { symbol: s, type, note: note.trim() || undefined, critical };
     if (type === "price") { payload.direction = direction; payload.price = Number(price); }
     if (type === "dayMove") payload.movePct = Number(movePct);
     if (type === "earnings") payload.withinDays = Number(withinDays);
@@ -80,7 +81,7 @@ export function AlertsManager() {
       body: JSON.stringify(payload),
     });
     if (!r.ok) { const j = await r.json().catch(() => ({})); setAddErr((j as any).error ?? "Could not add alert."); return; }
-    setSymbol(""); setPrice(""); setNote(""); setExpiresAt("");
+    setSymbol(""); setPrice(""); setNote(""); setExpiresAt(""); setCritical(false);
     mutate();
     // Contextually offer push the first time — only if supported and not already
     // granted, and not already dismissed this session.
@@ -97,6 +98,14 @@ export function AlertsManager() {
     if (r.ok) setTimeout(() => setPushMsg(null), 4000);
   }
   function dismissPush() { setPushPrompt(false); localStorage.setItem("pushPromptSeen", "1"); }
+
+  async function toggleCritical(a: Alert) {
+    await fetch("/api/alerts", {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: a.id, critical: !a.critical }),
+    });
+    mutate();
+  }
 
   async function toggle(a: Alert) {
     await fetch("/api/alerts", {
@@ -352,6 +361,12 @@ export function AlertsManager() {
             <button onClick={() => setExpiresAt("")} className="text-[11px] text-ink-faint hover:text-rose-300">Clear · keep persistent</button>
           )}
         </div>
+        {/* ALERTDEL — critical: push AND email the moment it fires (routine alerts
+            are push-only, with an email only if a push goes unseen for 2h). */}
+        <label className="mt-2 flex items-center gap-2 text-[11px] text-ink-dim">
+          <input type="checkbox" checked={critical} onChange={(e) => setCritical(e.target.checked)} className="accent-brand-500" />
+          Mark critical — email me immediately too, not just push
+        </label>
         {addErr && <p className="mt-2 text-[11px] text-rose-400">{addErr}</p>}
         {pushPrompt && (
           <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-brand-500/30 bg-brand-500/[0.06] p-3">
@@ -401,6 +416,14 @@ export function AlertsManager() {
                         last: {formatTriggerValue(a, a.lastValue ?? 0)} · {new Date(a.lastTriggeredAt).toLocaleString()}
                       </span>
                     )}
+                    {/* ALERTDEL — critical toggle: fires push + email immediately. */}
+                    <button onClick={() => toggleCritical(a)} title={a.critical ? "Critical — push + email immediately. Click to make routine." : "Routine — push only (email only if unseen 2h). Click to mark critical."}
+                      className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                        a.critical ? "border border-rose-500/40 bg-rose-500/10 text-rose-700 dark:text-rose-300"
+                                   : "border border-hairline text-ink-faint"
+                      }`}>
+                      {a.critical ? "⚠ CRITICAL" : "routine"}
+                    </button>
                     {/* enable toggle */}
                     <button onClick={() => toggle(a)} title={a.enabled ? "Pause" : "Resume"}
                       className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${

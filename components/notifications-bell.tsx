@@ -24,10 +24,16 @@ export function NotificationsBell() {
     globalMutate(KEY);
   }
 
+  // ALERTDEL — opening the feed counts as "seen": mark every unseen alert delivery
+  // seen so the escalation job won't email about alerts the user has now looked at.
+  function markDeliveriesSeen() {
+    fetch("/api/alerts/seen", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ seenAll: true }) }).catch(() => {});
+  }
+
   return (
     <div className="relative">
       <button
-        onClick={() => { setOpen((v) => !v); if (!open && unread > 0) markAll(); }}
+        onClick={() => { const opening = !open; setOpen((v) => !v); if (opening) { markDeliveriesSeen(); if (unread > 0) markAll(); } }}
         aria-label={unread > 0 ? `Notifications — ${unread} unread` : "Notifications"}
         title="Notifications"
         className="relative rounded-md p-2 text-ink-dim transition-colors hover:bg-surface hover:text-ink"

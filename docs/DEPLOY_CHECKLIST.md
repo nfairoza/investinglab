@@ -28,6 +28,7 @@ brokerage" instead of surfacing the error.)
    - `0032_push_subscriptions.sql` — M1.2 web push subscriptions
    - `0033_ai_usage_feature.sql` — AIEFF4: per-feature AI cost attribution (adds `feature` label to ai_usage + backfills from `task`)
    - `0034_lookthrough_exposure.sql` — ETF-E3: per-user look-through exposure cache (nightly `lookthrough-build` job + on-holdings-change invalidation)
+   - `0035_alert_deliveries.sql` — ALERTDEL: adds `alerts.critical` + `alert_deliveries` ledger (push/seen/email outcomes) for layered notification delivery + the `alert-escalate` missed-alert email cron
 2. **Set new env vars** in Vercel (and locally in `.env.local`):
    - `BILLING_ENABLED` / `NEXT_PUBLIC_BILLING_ENABLED` — (optional) set to `"1"` to
      turn on plan gating (ETF look-through = Premium, etc. — see docs/BILLING.md).

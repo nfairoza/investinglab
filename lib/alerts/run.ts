@@ -2,7 +2,7 @@ import { serviceClient } from "@/lib/service-client";
 import { marketData, type DataResult, type Quote } from "@/lib/providers";
 import { withFmpFeature } from "@/lib/providers/fmp";
 import { evaluateAlert, describeAlert, formatTriggerValue, type AlertContext } from "@/lib/alerts/evaluate";
-import { sendPushToUser } from "@/lib/push/send";
+import { recordDelivery } from "@/lib/alerts/delivery";
 import type { Alert } from "@/lib/db";
 
 // =============================================================================
@@ -29,6 +29,7 @@ interface AlertRow {
   within_days: number | null; score_op: Alert["scoreOp"] | null; score_value: number | null;
   enabled: boolean; expires_at: string | null; last_triggered_at: string | null;
   last_value: number | null; trigger_count: number | null;
+  critical: boolean | null; // ALERTDEL — user-marked critical → severity 3 (push + email now)
 }
 
 function toAlert(r: AlertRow): Alert {
@@ -36,7 +37,7 @@ function toAlert(r: AlertRow): Alert {
     id: r.id, symbol: r.symbol, type: r.type,
     direction: r.direction ?? undefined, price: r.price ?? undefined, movePct: r.move_pct ?? undefined,
     withinDays: r.within_days ?? undefined, scoreOp: r.score_op ?? undefined, scoreValue: r.score_value ?? undefined,
-    enabled: r.enabled, expiresAt: r.expires_at ?? undefined,
+    enabled: r.enabled, critical: r.critical ?? false, expiresAt: r.expires_at ?? undefined,
     lastTriggeredAt: r.last_triggered_at ?? undefined, lastValue: r.last_value ?? undefined,
     triggerCount: r.trigger_count ?? 0, createdAt: "", updatedAt: "",
   };
@@ -90,12 +91,22 @@ export async function runAlerts(nowMs = Date.now()): Promise<AlertRunResult> {
         updated_at: nowIso,
       }).eq("id", row.id);
       triggered++;
-      // M1.2: web push to the alert owner (best-effort; no-op if VAPID unset).
-      void sendPushToUser(db, row.user_id, {
-        title: `${a.symbol} alert`,
-        body: `${describeAlert(a)} — now ${formatTriggerValue(a, res.value)}`,
+      // ALERTDEL AD4: one delivery pipeline. recordDelivery writes the in-app feed
+      // row + the delivery ledger, sends push, and (only for critical/severity-3)
+      // emails immediately. Severity-1 escalation is handled by the alert-escalate
+      // cron, not here. Best-effort — a delivery failure never aborts the run.
+      const title = `${a.symbol} alert`;
+      const body = `${describeAlert(a)} — now ${formatTriggerValue(a, res.value)}`;
+      void recordDelivery(db, {
+        alertId: row.id,
+        userId: row.user_id,
+        severity: row.critical ? 3 : 1,
+        kind: "alert",
+        title,
+        body,
         url: `/research?ticker=${encodeURIComponent(a.symbol)}`,
-        tag: `alert:${row.id}`,
+        // One delivery per trigger event — the alert id + the trigger timestamp.
+        dedupeKey: `alert:${row.id}:${nowIso}`,
       }).catch(() => {});
     } catch { /* skip this row on write failure */ }
   }

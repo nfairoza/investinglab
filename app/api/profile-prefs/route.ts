@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 
 // Per-user profile preferences, stored in user_prefs.prefs (RLS-scoped).
 // Only these fields are accepted (allowlist), so a client can't write arbitrary keys.
-const FIELDS = ["displayName", "phone", "baseCurrency", "beginnerMode", "nwRange", "setupDismissed", "askedRukmani", "persona", "personaSet", "digestPrefs"] as const;
+const FIELDS = ["displayName", "phone", "baseCurrency", "beginnerMode", "nwRange", "setupDismissed", "askedRukmani", "persona", "personaSet", "digestPrefs", "notifyPrefs"] as const;
 
 export async function GET() {
   const ctx = await getUserClient();
@@ -25,6 +25,7 @@ export async function GET() {
     persona: prefs.persona ?? null,                // "money" | "research" | "power" | null (skipped)
     personaSet: prefs.personaSet ?? false,         // answered/skipped the persona question
     digestPrefs: prefs.digestPrefs ?? { weekly: true }, // F2 weekly digest opt-in (default on)
+    notifyPrefs: prefs.notifyPrefs ?? { missedAlertEmail: true }, // ALERTDEL missed-alert email (default on)
   });
 }
 
@@ -42,6 +43,7 @@ export async function PUT(req: NextRequest) {
     persona: z.enum(["money", "research", "power"]).nullable().optional(),
     personaSet: z.boolean().optional(),
     digestPrefs: z.object({ weekly: z.boolean() }).optional(),
+    notifyPrefs: z.object({ missedAlertEmail: z.boolean() }).optional(),
   }));
   if (!parsed.ok) return parsed.response;
   const body = parsed.data;

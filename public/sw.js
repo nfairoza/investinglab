@@ -71,20 +71,35 @@ self.addEventListener("push", (event) => {
     icon: "/brand/maskable_icon.png",
     badge: "/brand/maskable_icon.png",
     tag: data.tag || undefined,
-    data: { url: data.url || "/" },
+    // ALERTDEL: carry the delivery id so opening the notification marks it seen.
+    data: { url: data.url || "/", deliveryId: data.deliveryId || null },
   };
   event.waitUntil(self.registration.showNotification(title, options));
 });
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const url = (event.notification.data && event.notification.data.url) || "/";
+  const nd = event.notification.data || {};
+  const url = nd.url || "/";
+  // ALERTDEL: opening the notification is "seen" — beacon it back so the
+  // escalation job won't email about an alert the user already saw.
+  const markSeen = nd.deliveryId
+    ? fetch("/api/alerts/seen", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ deliveryId: nd.deliveryId }),
+        keepalive: true,
+      }).catch(() => {})
+    : Promise.resolve();
   event.waitUntil(
-    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
-      for (const c of clients) {
-        if (c.url.includes(url) && "focus" in c) return c.focus();
-      }
-      if (self.clients.openWindow) return self.clients.openWindow(url);
-    }),
+    Promise.all([
+      markSeen,
+      self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
+        for (const c of clients) {
+          if (c.url.includes(url) && "focus" in c) return c.focus();
+        }
+        if (self.clients.openWindow) return self.clients.openWindow(url);
+      }),
+    ]),
   );
 });

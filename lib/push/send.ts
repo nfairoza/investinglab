@@ -22,8 +22,9 @@ function ensureVapid(): boolean {
 export interface PushPayload {
   title: string;
   body: string;
-  url?: string;   // deep-link (e.g. /research?ticker=NVDA)
-  tag?: string;   // collapse key
+  url?: string;        // deep-link (e.g. /research?ticker=NVDA)
+  tag?: string;        // collapse key
+  deliveryId?: string; // ALERTDEL — opening the notification beacons this back as "seen"
 }
 
 // Send to one user's web subscriptions. `db` may be service-role (cron) or

@@ -57,6 +57,7 @@ export interface Alert {
   scoreValue?: number;             // score threshold 0..100
   note?: string;
   enabled: boolean;
+  critical?: boolean;              // ALERTDEL — user-marked critical → push AND email immediately
   expiresAt?: string;              // ISO; when set & past, alert auto-expires (NULL = persistent)
   lastTriggeredAt?: string;        // ISO; de-dupe + feed
   lastValue?: number;              // the value that tripped it

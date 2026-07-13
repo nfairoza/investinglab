@@ -19,6 +19,7 @@ interface AlertRow {
   score_value?: number | null;
   note?: string | null;
   enabled: boolean;
+  critical?: boolean | null;
   expires_at?: string | null;
   last_triggered_at?: string | null;
   last_value?: number | null;
@@ -40,6 +41,7 @@ function toAlert(r: AlertRow): Alert {
     scoreValue: r.score_value ?? undefined,
     note: r.note ?? undefined,
     enabled: r.enabled,
+    critical: r.critical ?? false,
     expiresAt: r.expires_at ?? undefined,
     lastTriggeredAt: r.last_triggered_at ?? undefined,
     lastValue: r.last_value ?? undefined,
@@ -87,6 +89,7 @@ export async function POST(req: NextRequest) {
     direction: z.string().optional(),
     note: z.string().max(2000).optional(),
     expiresAt: z.string().optional(),
+    critical: z.boolean().optional(),
   }));
   if (!parsed.ok) return parsed.response;
   const body = parsed.data;
@@ -124,6 +127,7 @@ export async function POST(req: NextRequest) {
     note: body.note ? String(body.note) : null,
     expires_at: expiresAt,
     enabled: true,
+    critical: body.critical === true,
     trigger_count: 0,
   });
   return NextResponse.json(await listAlerts(ctx));
@@ -136,6 +140,7 @@ export async function PATCH(req: NextRequest) {
   const parsed = await parseBody(req, z.object({
     id: z.string().min(1),
     enabled: z.boolean().optional(),
+    critical: z.boolean().optional(),
     expiresAt: z.string().nullable().optional(),
     trigger: z.object({ value: z.number(), at: z.string().optional() }).optional(),
   }));
@@ -145,6 +150,7 @@ export async function PATCH(req: NextRequest) {
 
   const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
   if (typeof body.enabled === "boolean") patch.enabled = body.enabled;
+  if (typeof body.critical === "boolean") patch.critical = body.critical;
   // expiresAt: a valid future ISO string sets/extends it; null clears it (make persistent).
   if (body.expiresAt === null) {
     patch.expires_at = null;
