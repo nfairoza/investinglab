@@ -3,6 +3,7 @@ import { readServerCache, writeServerCache } from "@/lib/server-cache";
 import { buildLedger } from "./ledger/build";
 import { generateInsights, dedupe } from "./generators";
 import { detectConcentration, detectLookthroughConcentration, type PricedHolding } from "./generators/concentration";
+import { detectTargetPace, detectTargetMonthResult, type TargetInput } from "./generators/targets";
 import { detectClosures, type PriorOpenInsight } from "./closure";
 import { loadLedgerInputs, writeLedger, writeInsights, loadPriorInsights } from "./persist";
 
@@ -54,6 +55,20 @@ export async function runInsightsBuild(opts: { sliceSize?: number; nowMs?: numbe
       ledgersBuilt++;
 
       const fresh = generateInsights(ledger);
+
+      // MV2: category targets. Targeted categories get target-based pace insights
+      // (and a monthly result); we suppress the generic baseline pace_anomaly for
+      // those categories so the user sees the target framing, not both.
+      const { data: targetRows } = await db.from("category_targets").select("category, monthly_target").eq("user_id", userId);
+      const targets: TargetInput[] = (targetRows ?? []).map((r: any) => ({ category: String(r.category), target: Number(r.monthly_target) }));
+      if (targets.length) {
+        const targetedCats = new Set(targets.map((t) => t.category));
+        for (let i = fresh.length - 1; i >= 0; i--) {
+          if (fresh[i].kind === "pace_anomaly" && targetedCats.has(fresh[i].subject)) fresh.splice(i, 1);
+        }
+        fresh.push(...detectTargetPace(ledger, targets, new Date(nowMs)));
+        fresh.push(...detectTargetMonthResult(ledger, targets, {}, new Date(nowMs)));
+      }
 
       // F8: concentration insight from holdings (cost-basis value as a call-free
       // weight proxy — the nightly job avoids per-user live quote fan-out).

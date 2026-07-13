@@ -55,6 +55,10 @@ export function templateFor(kind: string): { headline: string; body: string } {
       return { headline: "A subscription went up", body: "{merchant} went from about {prev} to {last}. Price creep is easy to miss — worth a look if you didn't expect it." };
     case "closure":
       return { headline: "You followed through on {category}", body: "Since we flagged it, your {category} spending is down about {downPct}% — roughly {savedMonthly} a month, or {capturedYear} a year at this pace. Nicely done." };
+    case "target_pace":
+      return { headline: "{category} is running past your target", body: "You're on track to spend about {projected} on {category} this month — roughly {over} over your {target} target. Worth a look if it wasn't planned." };
+    case "target_month_result":
+      return { headline: "{category} last month vs your target", body: "You spent {spent} against your {target} target for {category} — a difference of {delta}. Small, steady wins add up." };
     default:
       return { headline: "A money note for you", body: "There's something worth a look in your accounts." };
   }

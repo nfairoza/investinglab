@@ -82,6 +82,9 @@ const USER_SCHEMAS: ToolSchema[] = [
   { name: "get_market_brief", description: "Today's market snapshot: index moves and notable headlines.", input_schema: { type: "object", properties: {} } },
   { name: "remember_fact", description: "Store a DURABLE preference/goal/expertise/style the user stated (e.g. 'saving for a house in 2027', 'keep answers short', 'I know finance'). Never transient or sensitive (health/relationships/non-financial).", input_schema: { type: "object", properties: { fact: { type: "string" }, kind: { type: "string", enum: ["preference", "goal", "profile", "style"] } }, required: ["fact", "kind"] } },
   { name: "forget_fact", description: "Forget a previously-remembered fact when the user asks (e.g. 'forget that').", input_schema: { type: "object", properties: { fact: { type: "string", description: "text or keywords of the fact to remove" } }, required: ["fact"] } },
+  { name: "get_targets", description: "This user's monthly category budget targets with month-to-date spend and pace (ahead/on/behind).", input_schema: { type: "object", properties: {} } },
+  { name: "set_target", description: "Set or update the user's monthly budget target for a spending category (e.g. 'set my dining target to $300'). Confirm the category + amount with the user before calling.", input_schema: { type: "object", properties: { category: { type: "string" }, monthly_target: { type: "number" } }, required: ["category", "monthly_target"] } },
+  { name: "get_goals", description: "This user's savings goals with target amount, target date, and the deterministic projected completion (cash-flow only).", input_schema: { type: "object", properties: {} } },
 ];
 
 // F6 recurring tool is added only when the table exists (best-effort; the
@@ -125,6 +128,9 @@ export async function executeTool(name: string, input: any, ctx: ToolContext): P
       case "get_recurring_charges": return await execRecurring(ctx);
       case "remember_fact": return await execRememberFact(input ?? {}, ctx);
       case "forget_fact": return await execForgetFact(input ?? {}, ctx);
+      case "get_targets": return await execGetTargets(ctx);
+      case "set_target": return await execSetTarget(input ?? {}, ctx);
+      case "get_goals": return await execGetGoals(ctx);
       case "get_platform_stats": return await execPlatformStats(ctx);
       case "get_ai_costs": return await execAiCosts(input ?? {}, ctx);
       case "get_error_log": return await execErrorLog(input ?? {}, ctx);
@@ -239,6 +245,34 @@ async function execRecurring(ctx: ToolContext): Promise<ToolResult> {
   const rows = (data ?? []).map((r: any) => compact({ merchant: r.merchant, cadence: r.cadence, avg: num(r.avg_amount), last: num(r.last_amount), up: num(r.last_amount) > num(r.avg_amount) * 1.1 ? true : undefined }));
   const monthly = +rows.reduce((s: number, c: any) => s + (c.cadence === "monthly" ? c.avg : c.avg / 12), 0).toFixed(2);
   return { rows, count: rows.length, monthlyTotal: monthly };
+}
+
+// MV2/MV3 — targets + goals tools (RLS-scoped; degrade to available:false if the
+// tables aren't migrated). set_target upserts; the model confirms before calling.
+async function execGetTargets(ctx: ToolContext): Promise<ToolResult> {
+  const { data, error } = await ctx.supabase.from("category_targets")
+    .select("category, monthly_target").eq("user_id", ctx.userId).order("monthly_target", { ascending: false });
+  if (error) return { available: false };
+  return { rows: (data ?? []).map((r: any) => ({ category: r.category, target: num(r.monthly_target) })), count: (data ?? []).length };
+}
+
+async function execSetTarget(input: { category?: string; monthly_target?: number }, ctx: ToolContext): Promise<ToolResult> {
+  const category = String(input.category ?? "").trim();
+  const target = num(input.monthly_target);
+  if (!category || !(target > 0)) return { error: "invalid_target" };
+  const { error } = await ctx.supabase.from("category_targets").upsert(
+    { user_id: ctx.userId, category, monthly_target: target, updated_at: new Date().toISOString() },
+    { onConflict: "user_id,category" },
+  );
+  if (error) return { available: false };
+  return { ok: true, category, target };
+}
+
+async function execGetGoals(ctx: ToolContext): Promise<ToolResult> {
+  const { data, error } = await ctx.supabase.from("goals")
+    .select("name, target_amount, target_date, linked_kind, status").eq("user_id", ctx.userId).eq("status", "active");
+  if (error) return { available: false };
+  return { rows: (data ?? []).map((r: any) => compact({ name: r.name, target: num(r.target_amount), by: r.target_date, source: r.linked_kind })), count: (data ?? []).length };
 }
 
 async function execRememberFact(input: { fact?: string; kind?: string }, ctx: ToolContext): Promise<ToolResult> {

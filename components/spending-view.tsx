@@ -6,6 +6,7 @@ import Link from "next/link";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { fetchJson } from "@/lib/fetch-json";
 import { ErrorState } from "./data-state";
+import { CategoryTargets } from "./money/category-targets";
 
 interface Txn {
   id: string; date: string; name: string; merchant: string | null;
@@ -123,6 +124,9 @@ export function SpendingView() {
         <Stat label="Expenses" value={money(stats.expenses)} tone="rose" />
         <Stat label="Net" value={money(stats.net)} tone={stats.net >= 0 ? "emerald" : "rose"} />
       </div>
+
+      {/* MV2: opt-in category targets — progress rings + pace + suggestion flow. */}
+      <CategoryTargets />
 
       {/* By category donut + list */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
