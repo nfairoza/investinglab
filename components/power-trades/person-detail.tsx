@@ -4,10 +4,11 @@ import useSWR from "swr";
 import Link from "next/link";
 import { X, ExternalLink } from "lucide-react";
 import { fetchJson } from "@/lib/fetch-json";
+import { LagLine, SinceMove, type TradeDecayFields } from "./trade-decay";
 
 // Inline detail panel for a person in the directory. Reads the SAME local APIs
 // (trades + influence) filtered by name — no navigation, no page reload.
-interface Trade {
+interface Trade extends TradeDecayFields {
   id: string; source: string; source_url: string | null; ticker: string | null; asset_name: string | null;
   transaction_type: string | null; transaction_date: string | null; disclosure_date: string | null;
   amount_label: string | null; chamber_or_branch: string | null;
@@ -44,15 +45,15 @@ export function PersonDetail({ name, onClose }: { name: string; onClose: () => v
         {trades.length > 0 && (
           <div className="mt-1.5 overflow-x-auto">
             <table className="w-full text-left text-xs">
-              <thead className="text-ink-faint"><tr><th className="py-1 pr-3">Ticker</th><th className="py-1 pr-3">Type</th><th className="py-1 pr-3">Amount</th><th className="py-1 pr-3">Traded</th><th className="py-1 pr-3">Disclosed</th><th className="py-1">Source</th></tr></thead>
+              <thead className="text-ink-faint"><tr><th className="py-1 pr-3">Ticker</th><th className="py-1 pr-3">Type</th><th className="py-1 pr-3">Amount</th><th className="py-1 pr-3">Timing</th><th className="py-1 pr-3">Since</th><th className="py-1">Source</th></tr></thead>
               <tbody className="divide-y divide-white/5 text-ink-dim">
                 {trades.map((t) => (
                   <tr key={t.id}>
                     <td className="py-1 pr-3">{t.ticker ? <Link href={`/research?symbol=${t.ticker}`} className="font-mono text-brand-300 hover:underline">{t.ticker}</Link> : <span className="text-ink-faint">{t.asset_name ?? "—"}</span>}</td>
                     <td className="py-1 pr-3"><span className={`rounded border px-1 py-0.5 text-[10px] ${TYPE_CLS[t.transaction_type ?? ""] ?? "border-hairline text-ink-dim"}`}>{t.transaction_type ?? "—"}</span></td>
                     <td className="py-1 pr-3">{t.amount_label ?? "—"}</td>
-                    <td className="py-1 pr-3 text-ink-faint">{t.transaction_date ?? "—"}</td>
-                    <td className="py-1 pr-3 text-ink-faint">{t.disclosure_date ?? "—"}</td>
+                    <td className="py-1 pr-3 whitespace-nowrap"><LagLine t={t} /></td>
+                    <td className="py-1 pr-3 whitespace-nowrap"><SinceMove t={t} /></td>
                     <td className="py-1">{t.source_url ? <a href={t.source_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-brand-400 hover:underline">{t.source === "sec_form_4" ? "Form 4" : "Filing"} <ExternalLink size={10} /></a> : <span className="text-ink-faint">{t.source}</span>}</td>
                   </tr>
                 ))}

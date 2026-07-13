@@ -8,6 +8,7 @@ import { runWeeklyDigest } from "@/lib/digest/run";
 import { runRecurring } from "@/lib/recurring/run";
 import { buildMarketBrief } from "@/lib/chat/market-brief";
 import { runLookthroughBuild } from "@/lib/lookthrough/run";
+import { runPtReturns } from "@/lib/power-trades/returns-run";
 
 // The job registry. Each job owns its cadence; the dispatcher (/api/cron/tick)
 // runs whatever is due on each tick, so ANY external trigger interval works.
@@ -99,6 +100,16 @@ export const JOBS: CronJob[] = [
     id: "market-brief",
     everyMinutes: 12 * 60,
     run: async () => { const b = await buildMarketBrief(); return { ok: true, note: `${b.indexes.length} indexes, ${b.headlines.length} headlines` }; },
+  },
+  {
+    // PT1: signal-decay honesty. For each ticker on a tracked trade, fetch daily
+    // history once (per-ticker global cache) and compute lag + since-trade/since-
+    // disclosure returns for every trade on it into power_trade_returns. Chunked
+    // by ticker cursor for the Hobby 10s cap; nightly cadence covers the universe.
+    // Rows render from the table — the UI never computes returns on request.
+    id: "pt-returns",
+    everyMinutes: 24 * 60,
+    run: async () => { const r = await runPtReturns({ sliceSize: 40 }); return { ok: true, note: `${r.rows} rows / ${r.priced} priced of ${r.tickers} tickers${r.wrapped ? " (full pass)" : ""}` }; },
   },
   {
     // F1: after Power Trades data refreshes, notify followers of new filings from

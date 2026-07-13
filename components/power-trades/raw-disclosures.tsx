@@ -6,8 +6,9 @@ import Link from "next/link";
 import { Search, ExternalLink, FileText } from "lucide-react";
 import { fetchJson } from "@/lib/fetch-json";
 import { ErrorState } from "../data-state";
+import { SinceMove, type TradeDecayFields } from "./trade-decay";
 
-interface Trade {
+interface Trade extends TradeDecayFields {
   id: string; source: string; source_url: string | null; person_name: string; person_role: string | null;
   relationship: string | null; ticker: string | null; asset_name: string | null; transaction_type: string | null;
   transaction_date: string | null; disclosure_date: string | null; amount_label: string | null; chamber_or_branch: string | null;
@@ -63,6 +64,7 @@ export function RawDisclosures() {
                 <th className="px-3 py-2">Amount</th>
                 <th className="px-3 py-2">Traded</th>
                 <th className="px-3 py-2">Disclosed</th>
+                <th className="px-3 py-2">Since</th>
                 <th className="px-3 py-2">Source</th>
               </tr>
             </thead>
@@ -83,7 +85,11 @@ export function RawDisclosures() {
                   </td>
                   <td className="px-3 py-2 text-xs text-ink-dim">{t.amount_label ?? "—"}</td>
                   <td className="px-3 py-2 text-[11px] text-ink-faint">{t.transaction_date ?? "—"}</td>
-                  <td className="px-3 py-2 text-[11px] text-ink-faint">{t.disclosure_date ?? "—"}</td>
+                  <td className="px-3 py-2 text-[11px] text-ink-faint whitespace-nowrap">
+                    {t.disclosure_date ?? "—"}
+                    {t.lag_days != null && <span className="ml-1 rounded bg-surface px-1 py-0.5 text-[10px] text-ink-dim">{t.lag_days}d lag</span>}
+                  </td>
+                  <td className="px-3 py-2 text-[11px] whitespace-nowrap"><SinceMove t={t} /></td>
                   <td className="px-3 py-2 text-xs">
                     {t.source_url
                       ? <a href={t.source_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-brand-400 hover:underline">Filing <ExternalLink size={11} /></a>

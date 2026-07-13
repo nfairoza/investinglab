@@ -22,7 +22,14 @@ export async function GET(req: NextRequest) {
   const limit = Math.min(Number(sp.get("limit")) || 200, 500);
 
   const days = windowKey === "30d" ? 30 : windowKey === "90d" ? 90 : windowKey === "1y" ? 365 : null;
-  let query = sb.from("power_trade_records").select("*").order("disclosure_date", { ascending: false }).limit(limit);
+  // PT1: embed the cached returns row (lag + since-trade/disclosure move) so every
+  // trade renders decay honesty without a per-request price fetch. It's a nightly-
+  // computed LEFT JOIN — absent for trades not yet priced (rendered as "—").
+  let query = sb
+    .from("power_trade_records")
+    .select("*, power_trade_returns(lag_days,since_trade_pct,since_disclosure_pct,as_of)")
+    .order("disclosure_date", { ascending: false })
+    .limit(limit);
   if (source && source !== "all") query = query.eq("source", source);
   if (person) query = query.ilike("person_name", `%${person}%`);
   if (type && type !== "all") query = query.eq("transaction_type", type);
@@ -31,5 +38,17 @@ export async function GET(req: NextRequest) {
 
   const { data, error } = await query;
   if (error) return NextResponse.json({ rows: [], error: error.message }, { status: 500 });
-  return NextResponse.json({ rows: data ?? [] });
+  // Flatten the embedded returns onto the trade row for a flat client shape.
+  const rows = (data ?? []).map((r: any) => {
+    const ret = Array.isArray(r.power_trade_returns) ? r.power_trade_returns[0] : r.power_trade_returns;
+    const { power_trade_returns: _drop, ...trade } = r;
+    return {
+      ...trade,
+      lag_days: ret?.lag_days ?? null,
+      since_trade_pct: ret?.since_trade_pct ?? null,
+      since_disclosure_pct: ret?.since_disclosure_pct ?? null,
+      return_as_of: ret?.as_of ?? null,
+    };
+  });
+  return NextResponse.json({ rows });
 }
