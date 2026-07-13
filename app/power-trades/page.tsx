@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { PowerTradesTabs } from "@/components/power-trades/power-trades-tabs";
 
 export const metadata = { title: "Power Trades" };
@@ -15,7 +16,9 @@ export default function Page() {
         </p>
       </div>
 
-      <PowerTradesTabs />
+      <Suspense fallback={null}>
+        <PowerTradesTabs />
+      </Suspense>
 
       {/* All disclosures combined into one footer block — kept off the top so the
           page doesn't lead with walls of text, but every required legal point is

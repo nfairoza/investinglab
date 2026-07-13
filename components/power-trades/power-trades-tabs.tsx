@@ -1,27 +1,35 @@
 "use client";
 
 import { useState } from "react";
-import { Landmark, Users, FileText, Layers, ShieldCheck, Coins, Star } from "lucide-react";
+import { useSearchParams } from "next/navigation";
+import { Landmark, Users, FileText, Layers, ShieldCheck, Coins, Star, Boxes } from "lucide-react";
 import { CongressAlphaFeed } from "@/components/congress-alpha-feed";
 import { PeopleDirectory } from "./people-directory";
 import { FollowingTab } from "./following-tab";
 import { RawDisclosures } from "./raw-disclosures";
+import { ClustersTab } from "./clusters-tab";
 import { InfluenceContext } from "./influence-context";
 import { SourceCoverage } from "./source-coverage";
 import { SourceDiagnostics } from "./source-diagnostics";
 import { useIsAdmin } from "@/components/use-is-admin";
 
-type Tab = "alpha" | "people" | "following" | "raw" | "influence" | "coverage" | "diagnostics";
+type Tab = "alpha" | "people" | "following" | "raw" | "clusters" | "influence" | "coverage" | "diagnostics";
+
+const TAB_KEYS: Tab[] = ["alpha", "people", "following", "raw", "clusters", "influence", "coverage", "diagnostics"];
 
 export function PowerTradesTabs() {
   const isAdmin = useIsAdmin();
-  const [tab, setTab] = useState<Tab>("alpha");
+  const sp = useSearchParams();
+  // Honor ?tab= (e.g. the insider-cluster notification deeplinks to ?tab=clusters).
+  const initial = sp.get("tab");
+  const [tab, setTab] = useState<Tab>(initial && TAB_KEYS.includes(initial as Tab) ? (initial as Tab) : "alpha");
 
   const tabs: { key: Tab; label: string; icon: typeof Landmark; adminOnly?: boolean }[] = [
     { key: "alpha", label: "Alpha Feed", icon: Landmark },
     { key: "people", label: "People Directory", icon: Users },
     { key: "following", label: "Following", icon: Star },
     { key: "raw", label: "Raw Disclosures", icon: FileText },
+    { key: "clusters", label: "Clusters", icon: Boxes },
     { key: "influence", label: "Influence Context", icon: Coins },
     { key: "coverage", label: "Source Coverage", icon: Layers },
     { key: "diagnostics", label: "Source Diagnostics", icon: ShieldCheck, adminOnly: true },
@@ -44,6 +52,7 @@ export function PowerTradesTabs() {
       {tab === "people" && <PeopleDirectory />}
       {tab === "following" && <FollowingTab />}
       {tab === "raw" && <RawDisclosures />}
+      {tab === "clusters" && <ClustersTab />}
       {tab === "influence" && <InfluenceContext />}
       {tab === "coverage" && <SourceCoverage />}
       {tab === "diagnostics" && isAdmin && <SourceDiagnostics />}

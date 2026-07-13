@@ -11,6 +11,7 @@ import { runLookthroughBuild } from "@/lib/lookthrough/run";
 import { runPtReturns } from "@/lib/power-trades/returns-run";
 import { runPtTrackRecords } from "@/lib/power-trades/track-run";
 import { runPtCommitteeFlags } from "@/lib/power-trades/flags-run";
+import { runInsiderClusters } from "@/lib/power-trades/clusters-run";
 
 // The job registry. Each job owns its cadence; the dispatcher (/api/cron/tick)
 // runs whatever is due on each tick, so ANY external trigger interval works.
@@ -130,6 +131,15 @@ export const JOBS: CronJob[] = [
     id: "pt-committee-flags",
     everyMinutes: 24 * 60,
     run: async () => { const r = await runPtCommitteeFlags({ sliceSize: 60 }); return { ok: true, note: `${r.flagged} flagged / ${r.processed} processed of ${r.trades}${r.wrapped ? " (full pass)" : ""}` }; },
+  },
+  {
+    // PT5: insider cluster detection. Detect 3+ distinct insiders making open-
+    // market purchases (Form 4 code P) of the same issuer within 30 days, persist
+    // to insider_clusters, and notify holders/watchers of the issuer (in-app +
+    // push). Nightly; dedupe on (issuer, window_end) means re-runs don't re-notify.
+    id: "insider-cluster",
+    everyMinutes: 24 * 60,
+    run: async () => { const r = await runInsiderClusters(); return { ok: true, note: `${r.clusters} clusters / ${r.buys} buys, ${r.notified} notified` }; },
   },
   {
     // F1: after Power Trades data refreshes, notify followers of new filings from

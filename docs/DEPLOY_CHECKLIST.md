@@ -32,6 +32,7 @@ brokerage" instead of surfacing the error.)
    - `0036_power_trade_returns.sql` — PT1: per-trade cached returns (lag + since-trade/since-disclosure move) filled by the nightly `pt-returns` cron; the Power Trades UI reads this table, never computes on pageview
    - `0037_power_track_records.sql` — PT3: per-person excess-vs-SPY track record over disclosed buys (windows 30/90/180d), filled by the nightly `pt-track-records` cron; person page + directory read this table
    - `0038_power_trade_flags.sql` — PT4: per-trade committee-jurisdiction flag (ticker sector in the member's committee jurisdiction), filled by the nightly `pt-committee-flags` cron; the "⚖ Committee overlap" chip + filter read this table
+   - `0039_insider_clusters.sql` — PT5: detected insider clusters (3+ insiders buying the same issuer within 30d, Form 4 code P), filled by the nightly `insider-cluster` cron; the Clusters tab reads this table + notifies holders/watchers
 2. **Set new env vars** in Vercel (and locally in `.env.local`):
    - `BILLING_ENABLED` / `NEXT_PUBLIC_BILLING_ENABLED` — (optional) set to `"1"` to
      turn on plan gating (ETF look-through = Premium, etc. — see docs/BILLING.md).
