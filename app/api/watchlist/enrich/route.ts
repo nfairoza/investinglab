@@ -10,6 +10,7 @@ import { readServerCache, writeServerCache } from "@/lib/server-cache";
 import { isDailyStale } from "@/lib/daily-cache";
 import { guardAiRate } from "@/lib/rate-limit";
 import { deriveVerdict, type EnrichAnalysis } from "@/lib/watchlist/verdict";
+import { decideEnrich } from "@/lib/watchlist/enrich-policy";
 import { z } from "zod";
 
 export const dynamic = "force-dynamic";
@@ -74,21 +75,37 @@ Return JSON exactly:
 
 // POST /api/watchlist/enrich { id, refresh? }
 //
-// Called ONLY on explicit user action (Analyze / Re-analyze button click) — never
-// on render. See components/watchlist-manager.tsx `analyze()`.
+// Two callers (components/watchlist-manager.tsx):
+//   - Automatic stale-while-revalidate: a row scrolled into view whose analysis is
+//     daily-stale fires this with refresh:false — the server regenerates ONLY if
+//     the shared cache is missing/stale (first-viewer-pays), so everyone else that
+//     day reuses it. This is how regular users get fresh analysis: on a schedule /
+//     by staleness, never by an on-demand "make AI run now" button.
+//   - Manual force Re-analyze: refresh:true. This is ADMIN-ONLY — it bypasses the
+//     daily-stale gate and regenerates unconditionally, for debugging/QA. A
+//     non-admin who sends refresh:true is rejected 403 (enforced here, not just
+//     hidden in the UI), so the force path can't be reached by crafting a request.
 //
 // Caching strategy (AIEFF1): the AI ANALYSIS (fair value, ideal buy, cases,
 // catalyst) is cached GLOBALLY per symbol for the day — it isn't personal and is
 // the expensive part. The price-sensitive VERDICT (action / "below your ideal
-// entry") is re-derived against the LIVE quote on every read, cached or not, so a
-// symbol user A analyzed this morning is served instantly to user B with B's
-// current-price verdict.
+// entry") is re-derived against the LIVE quote on every read.
 export async function POST(req: NextRequest) {
   const ctx = await getUserClient();
   if (!ctx) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const parsed = await parseBody(req, z.object({ id: z.string().min(1), refresh: z.boolean().optional() }));
   if (!parsed.ok) return parsed.response;
-  const { id, refresh } = parsed.data;
+  const { id } = parsed.data;
+
+  // Force regeneration is admin-only (decideEnrich, pure + tested). A non-admin
+  // force is rejected outright with 403 rather than silently downgraded — the
+  // client must not believe it forced a refresh when it didn't.
+  const decision = decideEnrich(parsed.data.refresh === true, ctx.isAdmin);
+  if (decision.kind === "forbidden") {
+    return NextResponse.json({ error: "forbidden", message: "Manual re-analyze is admin-only. Your analysis refreshes automatically each day." }, { status: 403 });
+  }
+  const force = decision.kind === "force";
+
   const { data: item } = await ctx.supabase.from("watch_list_items").select("*").eq("id", id).maybeSingle();
   if (!item) return NextResponse.json({ error: "watch item not found" }, { status: 404 });
 
@@ -103,20 +120,25 @@ export async function POST(req: NextRequest) {
   const quote = await marketData.getQuote(symbol);
   const livePrice = quote.data?.price ?? null;
 
-  // Resolve the cached analysis. A forced Re-analyze always regenerates (and is
-  // rate-guarded to stop abuse); otherwise first-requester-generates on a
-  // miss/daily-stale, and everyone else reuses today's global analysis.
+  // Resolve the cached analysis. Admin force always regenerates; otherwise
+  // first-requester-generates on a miss/daily-stale, and everyone else reuses
+  // today's global analysis.
   const cacheKey = enrichKey(symbol);
   let analysis: EnrichAnalysis;
   let generatedAt: string;
 
   const cached = await readServerCache<EnrichAnalysis>(cacheKey);
-  const needsGen = refresh || !cached.value || isDailyStale(cached.generatedAt);
+  const needsGen = force || !cached.value || isDailyStale(cached.generatedAt);
 
   if (needsGen) {
     // Only the (re)generation path spends tokens, so only it is rate-limited.
-    const limited = await guardAiRate(ctx);
-    if (limited) return limited;
+    // Two caps: the standard burst guard, plus a per-user/day ceiling on
+    // background enrichment so the automatic refresh can't run away (viewport
+    // storms, many stale rows). Admins bypass both (force path, for QA).
+    const burst = await guardAiRate(ctx, "enrich");
+    if (burst) return burst;
+    const daily = await guardAiRate(ctx, "enrich-daily", 20, 24 * 60 * 60 * 1000);
+    if (daily) return daily;
     try {
       analysis = await generateAnalysis(symbol, quote.data);
       generatedAt = await writeServerCache(cacheKey, analysis);

@@ -1,15 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import useSWR from "swr";
 import { GripVertical, ChevronRight, ExternalLink, X, ArrowUp, ArrowDown, Loader2, Sparkles } from "lucide-react";
 import { DataBadge, DataTimestamp } from "./data-state";
 import { TickerInput } from "./ticker-input";
 import { Sparkline } from "./charts/Sparkline";
 import { ArtImage } from "./ui/art-image";
+import { useIsAdmin } from "./use-is-admin";
 import type { DataResult, Quote } from "@/lib/providers/types";
 import type { WatchItem } from "@/lib/db";
 import { prefetchSymbol } from "@/lib/use-prefetch";
+import { analysisAge } from "@/lib/watchlist/age";
+import { useViewportEnrich } from "@/lib/watchlist/use-viewport-enrich";
 import { toastError } from "@/lib/toast";
 
 async function fetchJson<T>(url: string): Promise<T> {
@@ -59,6 +62,7 @@ export function WatchlistManager({ listId }: { listId?: string } = {}) {
   const { data: raw, mutate } = useSWR<any>(itemsUrl, fetchJson, { revalidateOnFocus: true });
   const items: WatchItem[] = listId ? (raw?.items ?? []) : (raw ?? []);
 
+  const isAdmin = useIsAdmin();
   const [symbol, setSymbol] = useState("");
   const [idealBuy, setIdealBuy] = useState("");
   const [note, setNote] = useState("");
@@ -168,10 +172,9 @@ export function WatchlistManager({ listId }: { listId?: string } = {}) {
     setDragId(null);
   }
 
-  // Analyze (or Re-analyze, when refresh=true) is ONLY ever called from an
-  // explicit button click below — never on render/mount. The route caches the AI
-  // analysis globally per symbol for the day; refresh forces regeneration and is
-  // rate-limited server-side.
+  // Manual force Re-analyze (refresh=true) — ADMIN ONLY. The server rejects a
+  // non-admin force with 403, so this handler is only ever reachable from the
+  // admin-gated buttons below. Shows a busy state + inline error.
   async function analyze(id: string, refresh = false) {
     setBusyId(id);
     setAnalyzeErr(null);
@@ -192,6 +195,27 @@ export function WatchlistManager({ listId }: { listId?: string } = {}) {
       setBusyId(null);
     }
   }
+
+  // Automatic, non-force enrichment fired when a stale/never-analyzed row scrolls
+  // into view (ENRICH1). refresh:false → the server only regenerates if the shared
+  // cache is stale (first-viewer-pays); everyone else reuses today's analysis. No
+  // busy spinner and no error toast — it's a silent background refresh, and the row
+  // simply updates in place via mutate() when it lands. This is how regular users
+  // get fresh analysis without any on-demand "run AI" button.
+  const autoEnrich = async (id: string) => {
+    try {
+      const r = await fetch("/api/watchlist/enrich", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, refresh: false }),
+      });
+      if (r.ok) mutate();
+    } catch { /* silent — background refresh, page keeps its current data */ }
+  };
+  const rowRef = useViewportEnrich(
+    items.map((w) => ({ id: w.id, symbol: w.symbol, analyzedAt: w.analyzedAt })),
+    autoEnrich,
+  );
 
   const [expanded, setExpanded] = useState<string | null>(null);
 
@@ -300,8 +324,10 @@ export function WatchlistManager({ listId }: { listId?: string } = {}) {
                 const isOpen = expanded === w.id;
                 const hasDetail = w.bullCase || w.bearCase || w.note || w.fairValue || w.analyzedAt;
                 const canDrag = !sort; // dragging only makes sense in manual order
+                const age = analysisAge(w.analyzedAt);
                 return (
                   <div key={w.id}
+                    ref={rowRef(w)}
                     onDragOver={(e) => { if (dragId) e.preventDefault(); }}
                     onDrop={() => onDrop(w.id)}
                     className={`transition-opacity ${dragId === w.id ? "opacity-50" : ""}`}>
@@ -353,15 +379,29 @@ export function WatchlistManager({ listId }: { listId?: string } = {}) {
 
                       {/* Actions */}
                       <div className="flex shrink-0 items-center justify-end gap-0.5 sm:w-32" onClick={(e) => e.stopPropagation()}>
+                        {/* Per-row analysis age (ENRICH2) — distinct from the live
+                            price. Amber once past the stale threshold. Only shown
+                            once analyzed; while it's still being generated we show a
+                            quiet "analyzing" hint instead. */}
+                        {age
+                          ? <span className={`hidden shrink-0 text-[10px] sm:inline ${age.amber ? "text-amber-500" : "text-ink-faint"}`} title={`AI analysis from ${new Date(w.analyzedAt!).toLocaleString()}`}>analysis {age.label}</span>
+                          : busy
+                            ? <span className="hidden shrink-0 items-center gap-1 text-[10px] text-ink-faint sm:inline-flex"><Loader2 size={9} className="animate-spin" /> analyzing…</span>
+                            : null}
                         <a href={`/research?symbol=${w.symbol}`} title={`Research ${w.symbol}`}
                           onPointerEnter={() => prefetchSymbol(w.symbol)}
                           className="rounded p-1 text-ink-faint hover:bg-surface hover:text-brand-300"><ExternalLink size={14} /></a>
-                        <button onClick={() => analyze(w.id, Boolean(w.analyzedAt))} disabled={busy} title={w.analyzedAt ? "Re-analyze (force fresh AI analysis)" : "Run AI analysis"}
-                          className="ml-1 inline-flex items-center gap-1 rounded-md border border-brand-500/50 bg-brand-500/10 px-2 py-1 text-[11px] font-medium text-brand-300 hover:bg-brand-500/20 disabled:opacity-70">
-                          {busy
-                            ? <><Loader2 size={12} className="animate-spin" /> Analyzing…</>
-                            : w.analyzedAt ? "↻" : <><Sparkles size={12} /> Analyze</>}
-                        </button>
+                        {/* Manual (re)analyze is ADMIN-ONLY. Regular users rely on the
+                            automatic daily refresh (fires on scroll-into-view). The
+                            server also rejects a non-admin force with 403. */}
+                        {isAdmin && (
+                          <button onClick={() => analyze(w.id, Boolean(w.analyzedAt))} disabled={busy} title={w.analyzedAt ? "Re-analyze (force fresh AI analysis · admin)" : "Run AI analysis (admin)"}
+                            className="ml-1 inline-flex items-center gap-1 rounded-md border border-brand-500/50 bg-brand-500/10 px-2 py-1 text-[11px] font-medium text-brand-300 hover:bg-brand-500/20 disabled:opacity-70">
+                            {busy
+                              ? <><Loader2 size={12} className="animate-spin" /> Analyzing…</>
+                              : w.analyzedAt ? "↻" : <><Sparkles size={12} /> Analyze</>}
+                          </button>
+                        )}
                         <button onClick={() => removeItem(w.id)} title="Remove"
                           className="rounded p-1 text-ink-faint hover:text-rose-300"><X size={14} /></button>
                       </div>
@@ -387,11 +427,17 @@ export function WatchlistManager({ listId }: { listId?: string } = {}) {
                           <div className="mt-2 flex flex-wrap items-center gap-2">
                             {/* The thinking is cached; the Buy/Wait verdict is always
                                 recomputed against the live price on the server. */}
-                            <span className="text-[10px] text-ink-faint">Analysis from {new Date(w.analyzedAt).toLocaleString()} · prices live</span>
-                            <button onClick={(e) => { e.stopPropagation(); analyze(w.id, true); }} disabled={busy}
-                              className="inline-flex items-center gap-1 rounded border border-hairline px-1.5 py-0.5 text-[10px] text-brand-300 hover:bg-surface disabled:opacity-60">
-                              {busy ? <Loader2 size={10} className="animate-spin" /> : <Sparkles size={10} />} Re-analyze
-                            </button>
+                            <span className={`text-[10px] ${age?.amber ? "text-amber-500" : "text-ink-faint"}`}>
+                              Analysis {age?.label ?? "recent"} ({new Date(w.analyzedAt).toLocaleString()}) · prices live
+                              {age?.amber && " · refreshing soon"}
+                            </span>
+                            {/* Re-analyze is admin-only; regular users get the automatic daily refresh. */}
+                            {isAdmin && (
+                              <button onClick={(e) => { e.stopPropagation(); analyze(w.id, true); }} disabled={busy}
+                                className="inline-flex items-center gap-1 rounded border border-hairline px-1.5 py-0.5 text-[10px] text-brand-300 hover:bg-surface disabled:opacity-60">
+                                {busy ? <Loader2 size={10} className="animate-spin" /> : <Sparkles size={10} />} Re-analyze
+                              </button>
+                            )}
                           </div>
                         )}
                       </div>
@@ -401,7 +447,13 @@ export function WatchlistManager({ listId }: { listId?: string } = {}) {
               })}
             </div>
           </div>
-          {quotes && <DataTimestamp asOf={Object.values(quotes)[0]?.asOf ?? null} revalidating={quotesValidating && !!quotes} />}
+          {quotes && (
+            <div className="flex items-center gap-1.5">
+              <span className="text-[11px] text-ink-faint">Prices</span>
+              <DataTimestamp asOf={Object.values(quotes)[0]?.asOf ?? null} revalidating={quotesValidating && !!quotes} />
+              <span className="text-[11px] text-ink-faint">· AI analysis refreshes daily (age shown per row)</span>
+            </div>
+          )}
         </>
       )}
 
