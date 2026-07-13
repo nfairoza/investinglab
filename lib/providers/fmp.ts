@@ -13,6 +13,9 @@ import {
   PriceHistory,
   ScreenerRow,
   ScreenerFilters,
+  EtfInfo,
+  EtfHolding,
+  EtfWeight,
   live,
   unavailable,
 } from "./types";
@@ -72,6 +75,7 @@ const ENDPOINT_TTL_MS: Array<{ match: RegExp; ttl: number }> = [
   { match: /\/(batch-)?quote\b/, ttl: 60_000 },                // 60s
   { match: /\/(income-statement|cash-flow-statement|balance-sheet|ratios|key-metrics|financial-growth|discounted-cash-flow|historical-price-eod)\b/, ttl: 24 * 60 * 60 * 1000 }, // 24h
   { match: /\/(profile|company-outlook)\b/, ttl: 7 * 24 * 60 * 60 * 1000 }, // 7d
+  { match: /\/etf\//, ttl: 24 * 60 * 60 * 1000 }, // 24h — ETF info/holdings/weightings change slowly
 ];
 
 function ttlFor(url: string): number {
@@ -587,6 +591,8 @@ export const fmpProvider: MarketDataProvider = {
         beta: p.beta ?? null,
         ipoDate: p.ipoDate ?? null,
         peers,
+        isEtf: Boolean(p.isEtf),
+        isFund: Boolean(p.isFund),
       };
       return live(NAME, profile);
     } catch (e) {
@@ -695,6 +701,126 @@ export const fmpProvider: MarketDataProvider = {
     }
   },
 };
+
+// ── ETF Intelligence (E2) ─────────────────────────────────────────────────────
+// FMP's ETF endpoints (etf/info, etf/holdings, etf/sector-weightings, etf/country-
+// weightings) are commonly plan-tiered — a 4xx on lower plans. We use the same
+// PROBE-AND-REMEMBER pattern as batch-quote: once an ETF endpoint 4xx's, remember
+// it durably for 24h (server_cache, survives cold starts) and short-circuit to an
+// honest plan-notice `unavailable()` without eating another 4xx. Each endpoint gets
+// its own memo key so a partial plan (info yes, holdings no) degrades per-endpoint.
+const ETF_DISABLED_TTL_MS = 24 * 60 * 60 * 1000;
+const etfDisabledMem = new Map<string, number>(); // endpoint -> until epoch ms
+
+async function etfDisabled(endpoint: string): Promise<boolean> {
+  const memUntil = etfDisabledMem.get(endpoint) ?? 0;
+  if (Date.now() < memUntil) return true;
+  try {
+    const { value } = await readServerCache<{ until: number }>(`fmp:etf-disabled:${endpoint}`, Number.MAX_SAFE_INTEGER);
+    if (value && typeof value.until === "number" && Date.now() < value.until) {
+      etfDisabledMem.set(endpoint, value.until);
+      return true;
+    }
+  } catch { /* treat as not-disabled */ }
+  return false;
+}
+
+async function disableEtf(endpoint: string, status: number): Promise<void> {
+  const until = Date.now() + ETF_DISABLED_TTL_MS;
+  etfDisabledMem.set(endpoint, until);
+  health.lastError = `etf/${endpoint} HTTP ${status} — plan-tiered, remembered 24h`;
+  health.lastErrorAt = new Date().toISOString();
+  try { await writeServerCache(`fmp:etf-disabled:${endpoint}`, { until }); } catch { /* memory memo holds */ }
+}
+
+const PLAN_NOTE = "not available on current data plan";
+
+// Shared runner: probe-and-remember around one ETF endpoint. `endpoint` is the memo
+// key (e.g. "holdings"); `path` is the FMP stable path. Returns unavailable(PLAN_NOTE)
+// on a remembered-disabled endpoint or a fresh 4xx, so the UI renders the plan-notice
+// card. All calls are counted under the "etf" feature for the /connectors strip.
+async function etfFetch<T>(endpoint: string, path: string, map: (raw: any) => T | null): Promise<DataResult<T>> {
+  const KEY = getKey();
+  if (!KEY) return unavailable(NAME, "MARKET_DATA_API_KEY missing");
+  if (await etfDisabled(endpoint)) return unavailable(NAME, PLAN_NOTE);
+  return withFmpFeature("etf", async () => {
+    try {
+      const raw = await getJson(`${BASE}/${path}${path.includes("?") ? "&" : "?"}apikey=${KEY}`);
+      const mapped = map(raw);
+      if (mapped == null) return unavailable(NAME, "No ETF data");
+      return live(NAME, mapped);
+    } catch (e) {
+      const status = (e as { status?: number })?.status;
+      if (typeof status === "number" && status >= 400 && status < 500 && status !== 429) {
+        await disableEtf(endpoint, status);
+        return unavailable(NAME, PLAN_NOTE);
+      }
+      return unavailable(NAME, e instanceof Error ? e.message : "ETF fetch failed");
+    }
+  });
+}
+
+export function getEtfInfo(symbol: string): Promise<DataResult<EtfInfo>> {
+  return etfFetch<EtfInfo>("info", `etf/info?symbol=${symbol}`, (raw) => {
+    const d = Array.isArray(raw) ? raw[0] : raw;
+    if (!d) return null;
+    return {
+      symbol: d.symbol ?? symbol,
+      name: d.name ?? null,
+      expenseRatio: numOrNull(d.expenseRatio),
+      aum: numOrNull(d.assetsUnderManagement ?? d.aum),
+      inceptionDate: d.inceptionDate ?? null,
+      domicile: d.domicile ?? null,
+      etfCompany: d.etfCompany ?? d.issuer ?? null,
+    };
+  });
+}
+
+export function getEtfHoldings(symbol: string): Promise<DataResult<EtfHolding[]>> {
+  return etfFetch<EtfHolding[]>("holdings", `etf/holdings?symbol=${symbol}`, (raw) => {
+    if (!Array.isArray(raw)) return null;
+    const rows: EtfHolding[] = raw.map((h: any) => {
+      const assetType = String(h.assetType ?? h.securityType ?? "").toLowerCase();
+      const name = h.name ?? h.asset ?? null;
+      // Swaps/cash/collateral are NOT equities — flag them so the UI never lists a
+      // swap contract as if it were a stock (swap-based leveraged funds like SOXL).
+      const isEquity =
+        !!h.asset &&
+        !/swap|cash|collateral|repurchase|repo|deposit|money market|treasury bill/i.test(`${assetType} ${name ?? ""}`);
+      return {
+        symbol: isEquity ? (h.asset ?? null) : null,
+        name,
+        weight: numOrNull(h.weightPercentage ?? h.weight) ?? 0,
+        isEquity,
+      };
+    });
+    return rows.filter((r) => r.weight > 0 || r.name);
+  });
+}
+
+export function getEtfSectorWeights(symbol: string): Promise<DataResult<EtfWeight[]>> {
+  return etfFetch<EtfWeight[]>("sector-weightings", `etf/sector-weightings?symbol=${symbol}`, (raw) => {
+    if (!Array.isArray(raw)) return null;
+    return raw
+      .map((s: any) => ({ label: s.sector ?? s.industry ?? "Other", weight: numOrNull(s.weightPercentage ?? s.weight) ?? 0 }))
+      .filter((w: EtfWeight) => w.weight > 0);
+  });
+}
+
+export function getEtfCountryWeights(symbol: string): Promise<DataResult<EtfWeight[]>> {
+  return etfFetch<EtfWeight[]>("country-weightings", `etf/country-weightings?symbol=${symbol}`, (raw) => {
+    if (!Array.isArray(raw)) return null;
+    return raw
+      .map((c: any) => ({ label: c.country ?? "Other", weight: numOrNull(c.weightPercentage ?? c.weight) ?? 0 }))
+      .filter((w: EtfWeight) => w.weight > 0);
+  });
+}
+
+function numOrNull(v: unknown): number | null {
+  if (v == null || v === "") return null;
+  const n = typeof v === "string" ? Number(v.replace(/[%,$]/g, "")) : Number(v);
+  return Number.isFinite(n) ? n : null;
+}
 
 // ── Stock screener ───────────────────────────────────────────────────────────
 // Uses FMP's STABLE company-screener endpoint (verified against FMP docs). Maps

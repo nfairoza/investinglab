@@ -113,6 +113,36 @@ export interface CompanyProfile {
   beta: number | null;
   ipoDate: string | null;
   peers: string[]; // ticker symbols of peers
+  isEtf: boolean;  // FMP flags ETFs/funds so the symbol page can branch to an ETF layout
+  isFund: boolean;
+}
+
+// ── ETF Intelligence (E2) ─────────────────────────────────────────────────────
+// FMP's ETF endpoints are commonly plan-tiered (4xx on lower plans); each is
+// fetched behind probe-and-remember and surfaces an honest plan-notice when tiered
+// out, so `null`/unavailable here means "not on this data plan", not "no such ETF".
+export interface EtfInfo {
+  symbol: string;
+  name: string | null;
+  expenseRatio: number | null; // as a fraction, e.g. 0.0009 = 0.09%
+  aum: number | null;          // assets under management, USD
+  inceptionDate: string | null;
+  domicile: string | null;
+  etfCompany: string | null;   // issuer, e.g. "Vanguard"
+}
+
+export interface EtfHolding {
+  symbol: string | null;       // underlying ticker (null for swaps/cash/other)
+  name: string | null;
+  weight: number;              // percent of fund, 0–100
+  // Non-equity holdings (swaps, cash, collateral) are flagged so the UI never
+  // lists a swap contract as if it were a stock (E2 swap-based funds).
+  isEquity: boolean;
+}
+
+export interface EtfWeight {
+  label: string;               // sector or country name
+  weight: number;              // percent, 0–100
 }
 
 export interface AnalystData {

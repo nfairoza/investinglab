@@ -1,5 +1,6 @@
-import { MarketDataProvider, CongressTradesProvider, DataResult, ScreenerRow, ScreenerFilters, Quote, unavailable } from "./types";
+import { MarketDataProvider, CongressTradesProvider, DataResult, ScreenerRow, ScreenerFilters, Quote, EtfInfo, EtfHolding, EtfWeight, unavailable } from "./types";
 import { fmpProvider, screenStocks as fmpScreenStocks } from "./fmp";
+import * as fmpEtf from "./fmp";
 import { demoProvider } from "./demo";
 import { congressApiProvider } from "./congress-api";
 import { congressDemoProvider } from "./congress-demo";
@@ -65,6 +66,16 @@ export const congressData: CongressTradesProvider = {
   getRecent: (limit) => congress().getRecent(limit),
   getByMember: (m) => congress().getByMember(m),
   getByTicker: (t) => congress().getByTicker(t),
+};
+
+// ETF Intelligence (E2). Only meaningful with a live FMP key (the demo provider
+// has no ETF universe); without one we return an honest plan-notice `unavailable`.
+const NO_PLAN = "not available on current data plan";
+export const etfData = {
+  info: (symbol: string): Promise<DataResult<EtfInfo>> => hasMarketKey() ? fmpEtf.getEtfInfo(symbol) : Promise.resolve(unavailable<EtfInfo>("auto", NO_PLAN)),
+  holdings: (symbol: string): Promise<DataResult<EtfHolding[]>> => hasMarketKey() ? fmpEtf.getEtfHoldings(symbol) : Promise.resolve(unavailable<EtfHolding[]>("auto", NO_PLAN)),
+  sectorWeights: (symbol: string): Promise<DataResult<EtfWeight[]>> => hasMarketKey() ? fmpEtf.getEtfSectorWeights(symbol) : Promise.resolve(unavailable<EtfWeight[]>("auto", NO_PLAN)),
+  countryWeights: (symbol: string): Promise<DataResult<EtfWeight[]>> => hasMarketKey() ? fmpEtf.getEtfCountryWeights(symbol) : Promise.resolve(unavailable<EtfWeight[]>("auto", NO_PLAN)),
 };
 
 export * from "./types";

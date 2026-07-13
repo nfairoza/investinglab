@@ -121,4 +121,10 @@ export const GLOSSARY: Record<string, GlossaryEntry> = {
     why: "It means this data is always lagged; it's history, not a live position.",
     example: "A trade on the 1st might not show up publicly until weeks later.",
   },
+  volatility_decay: {
+    term: "Volatility decay",
+    short: "Leveraged funds reset every day, so over time your return can drift far from the simple multiple of the index.",
+    why: "A 3× fund is designed for one-day moves — held for weeks in a choppy market, it can lose money even if the index ends flat.",
+    example: "If the index drops 10% then rises 11% (back to even), a 3× fund can still finish below where it started.",
+  },
 };
