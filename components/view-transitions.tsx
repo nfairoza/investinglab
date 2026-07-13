@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { recordNavIntent } from "@/lib/nav-timing";
 
 // SMOOTH S3 — View Transitions as PROGRESSIVE ENHANCEMENT.
 //
@@ -20,14 +21,13 @@ export function ViewTransitions() {
 
   useEffect(() => {
     const doc = document as Document & { startViewTransition?: (cb: () => void) => void };
-    if (typeof doc.startViewTransition !== "function") return; // unsupported → no-op
+    const hasVT = typeof doc.startViewTransition === "function";
     const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)");
 
     function onClick(e: MouseEvent) {
       // Only plain left-clicks with no modifiers — let ctrl/cmd/middle-click open
       // tabs, etc., untouched.
       if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
-      if (reduce?.matches) return; // honor reduced-motion → default nav (no crossfade)
 
       const el = (e.target as HTMLElement | null)?.closest("a");
       if (!el) return;
@@ -38,13 +38,20 @@ export function ViewTransitions() {
       if (a.origin !== window.location.origin) return;
       const href = a.getAttribute("href");
       if (!href || href.startsWith("#") || href.startsWith("mailto:") || href.startsWith("tel:")) return;
-      // Same URL (hash-only or identical) → nothing to transition.
+      // Same URL (hash-only or identical) → nothing to transition/measure.
       if (a.href === window.location.href) return;
 
-      e.preventDefault();
       const url = a.pathname + a.search + a.hash;
-      // Wrap the navigation in a view transition. If startViewTransition throws for
-      // any reason, fall back to a plain push so navigation never breaks.
+      // Stamp the navigation intent for nav-timing (S5) regardless of whether we
+      // take over the click — this is the "click" moment we measure to.
+      recordNavIntent(a.pathname);
+
+      // Crossfade is a pure enhancement: only intercept when VT is supported AND
+      // reduced-motion is off. Otherwise let Next's <Link> handle the click (intent
+      // is already stamped, so timing still works).
+      if (!hasVT || reduce?.matches) return;
+
+      e.preventDefault();
       try {
         doc.startViewTransition!(() => { router.push(url); });
       } catch {

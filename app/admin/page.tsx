@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { AlertTriangle, Plug } from "lucide-react";
 import { AiCostCard } from "@/components/admin/ai-cost-card";
+import { NavTimingCard } from "@/components/admin/nav-timing-card";
 
 export const metadata = { title: "Admin Portal" };
 
@@ -16,6 +17,7 @@ export default function AdminHome() {
         <p className="mt-1 text-sm text-ink-dim">Platform API keys: AI providers, brokerage, and finance-data sources.</p>
       </Link>
       <AiCostCard />
+      <NavTimingCard />
     </div>
   );
 }
