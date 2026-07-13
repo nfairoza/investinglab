@@ -54,6 +54,38 @@ rather than inventing an ad-hoc TTL in one route.
   (`lib/ai/usage.ts`, migration 0033); the /admin cost card groups spend by feature,
   so a token leak in one surface shows as a line item, not a mystery total.
 
+## Who may trigger AI generation
+
+> **Policy: users CONSUME AI output; only schedules, staleness, and admins TRIGGER
+> generation.** There is no user-facing button that spends AI tokens on demand.
+
+An AI call costs money and latency, so a "Regenerate / Re-analyze / Refresh / Re-scan"
+button that any user can mash is a token leak and a DoS foot-gun. Every AI route
+therefore falls into one of two shapes:
+
+1. **Shared, cron-or-staleness fed** (research memo, watchlist enrichment, predictions,
+   opportunities, congress alpha). The output is the same for everyone, cached
+   globally/daily, and refreshed automatically (staleness on read, or a cron). The
+   manual **force-refresh is admin-only, enforced server-side**: a non-admin `refresh`/
+   `force` is rejected `403` (not silently downgraded), and the button is hidden in the
+   UI. Users get the auto-refreshed cache. Examples:
+   `app/api/watchlist/enrich` (`decideEnrich`, 403 + `tests/enrich-policy.test.ts`),
+   `research` (admin 403), `predict` (admin 403 on force), `portfolio-doctor`/`advisor`
+   (`force = … && ctx.isAdmin`), `opportunities`/`money/analysis` (cache-first + admin
+   force), `congress/alpha` (admin-only `refresh=1`).
+
+2. **Per-user, no cron** (Money Doctor, alert suggestions, opportunities first-run).
+   These can't be admin-only — a user must be able to produce their own first result —
+   so they are **cache-first + hard per-user/day rate-limited** server-side
+   (`guardAiRate(ctx, "<feature>-daily", N, 24h)`), on top of the standard burst guard.
+   A fresh cache is served with zero token spend; only genuine staleness regenerates,
+   and the daily cap backstops abuse.
+
+**Rule for any NEW AI route:** it must be either (a) admin-gated on its force path with
+a server-side `403`, or (b) hard per-user/day rate-limited — and always cache-first and
+`feature`-labelled. A user-clickable control that regenerates AI output with neither is
+a bug. `tests/ai-route-guard.test.ts` enforces cache-or-rate-guard at build time.
+
 ## Why the price-sensitivity rule exists
 
 An AI verdict like "Buy now — below your ideal entry" is two things glued together:

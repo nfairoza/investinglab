@@ -9,6 +9,7 @@ import { AmbientLoader } from "./ambient-loader";
 import { fetchJson as fetcher } from "@/lib/fetch-json";
 import type { DataSource } from "@/lib/providers/types";
 import { Card } from "./ui/primitives";
+import { useIsAdmin } from "./use-is-admin";
 
 interface ScoredTrade {
   id: string;
@@ -102,6 +103,7 @@ function Th({ label, k, sortKey, sortDir, onSort, align = "left" }: {
 }
 
 export function CongressAlphaFeed() {
+  const isAdmin = useIsAdmin();
   const [days, setDays] = useState(90);
   // Always fetch the FULL YEAR once, then filter the window CLIENT-SIDE. This
   // guarantees every window is a strict subset of the same dataset (6mo always
@@ -247,10 +249,13 @@ export function CongressAlphaFeed() {
             <span className="text-[11px] text-ink-faint">Analyzed {new Date(data.generatedAt).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</span>
           )}
           {data && <DataBadge source={data.source} />}
-          <button onClick={reanalyze} disabled={isValidating}
-            className="rounded-md border border-hairline px-2 py-1 text-xs text-ink-dim hover:bg-surface-raised disabled:opacity-50">
-            {isValidating ? "Re-analyzing…" : "Re-analyze"}
-          </button>
+          {/* Force re-analyze is admin-only; the feed refreshes on its 12h cycle. */}
+          {isAdmin && (
+            <button onClick={reanalyze} disabled={isValidating}
+              className="rounded-md border border-hairline px-2 py-1 text-xs text-ink-dim hover:bg-surface-raised disabled:opacity-50">
+              {isValidating ? "Re-analyzing…" : "Re-analyze"}
+            </button>
+          )}
         </div>
       </div>
 

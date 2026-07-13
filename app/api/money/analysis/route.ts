@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUserClient, readAiCache, writeAiCache } from "@/lib/supabase-data";
+import { guardAiRate } from "@/lib/rate-limit";
 import { resolveApiKey } from "@/lib/ai/anthropic";
 import { geminiKey } from "@/lib/ai/gemini";
 import { routeText } from "@/lib/ai/router";
@@ -85,10 +86,27 @@ export async function GET() {
   return NextResponse.json({ cached: false, data: cached?.data ?? null, generatedAt: cached?.generatedAt ?? null });
 }
 
-// POST — run a fresh Money Doctor analysis, cache it 24h, return it.
-export async function POST(_req: NextRequest) {
+// POST — return the Money Doctor analysis. This is PER-USER data (each account
+// picture is unique) with no cron to pre-generate it, so unlike the shared feeds
+// it can't be admin-only — a user must be able to produce their own first checkup.
+// Instead it's cache-first + hard per-user/day rate-limited: a fresh 24h cache is
+// served with zero token spend; only a genuine miss/staleness regenerates, and the
+// daily cap backstops abuse. Admin ?force=1 bypasses the cache for QA.
+export async function POST(req: NextRequest) {
   const ctx = await getUserClient();
   if (!ctx) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+
+  const force = req.nextUrl.searchParams.get("force") === "1" && ctx.isAdmin;
+  if (!force) {
+    const cached = await readAiCache(ctx, CACHE_KEY);
+    if (cached && Date.now() - new Date(cached.generatedAt).getTime() < TTL_MS) {
+      return NextResponse.json({ cached: true, ...(cached.data as object), generatedAt: cached.generatedAt });
+    }
+  }
+
+  // Generation path spends tokens — cap it per user per day (admins exempt).
+  const daily = await guardAiRate(ctx, "money-analysis-daily", 10, 24 * 60 * 60 * 1000);
+  if (daily) return daily;
 
   const result = await generate(ctx);
   if ("error" in result && result.error === "no_data") {

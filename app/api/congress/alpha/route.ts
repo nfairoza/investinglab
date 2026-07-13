@@ -7,6 +7,7 @@ import { bucketSector, findOverlap, type SectorBucket } from "@/lib/congress/sec
 import { computeClusters, scoreTrade, bracketLow, type ScoredTrade, type OptionsValidation } from "@/lib/congress/score";
 import { routeText } from "@/lib/ai/router";
 import { readServerCache, writeServerCache } from "@/lib/server-cache";
+import { getUserClient } from "@/lib/supabase-data";
 
 export const dynamic = "force-dynamic";
 
@@ -89,7 +90,17 @@ export async function GET(req: NextRequest) {
   const limit = Math.min(400, Math.max(50, Number(req.nextUrl.searchParams.get("limit")) || 250));
   // How far back to consider (days). Default 90; the UI exposes a window slider.
   const windowDays = Math.min(365, Math.max(7, Number(req.nextUrl.searchParams.get("days")) || 90));
-  const force = req.nextUrl.searchParams.get("refresh") === "1";
+  // Force rebuild (?refresh=1) is admin-only — the AI thesis + options read is
+  // expensive and shared; users consume the 12h cache, only an admin regenerates
+  // early. A non-admin refresh is ignored (falls through to the normal cache
+  // path) rather than 403'd, since the endpoint is otherwise unauthenticated
+  // shared data and the request is harmless — it just won't force.
+  const wantsForce = req.nextUrl.searchParams.get("refresh") === "1";
+  let force = false;
+  if (wantsForce) {
+    const ctx = await getUserClient().catch(() => null);
+    force = Boolean(ctx?.isAdmin);
+  }
 
   // Serve from the 12h cache unless a refresh was requested. Check L1 (memory)
   // first, then L2 (durable server_cache) which survives cold starts.

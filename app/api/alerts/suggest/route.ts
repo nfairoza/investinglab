@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { now } from "@/lib/db";
 import { getUserClient, readAiCache, writeAiCache } from "@/lib/supabase-data";
+import { guardAiRate } from "@/lib/rate-limit";
 import { getUnifiedHoldings } from "@/lib/holdings-server";
 import { routeText } from "@/lib/ai/router";
 import { resolveApiKey } from "@/lib/ai/anthropic";
@@ -66,13 +67,24 @@ export async function GET() {
   return NextResponse.json({ cached: false, data: cached?.data ?? null });
 }
 
-// POST — generate fresh suggestions, cache, return.
+// POST — return alert suggestions. Per-user data with no cron, so (like Money
+// Doctor) it stays user-triggerable but is cache-first + hard per-user/day
+// rate-limited: a fresh cache is served with no token spend; only staleness
+// regenerates, and the daily cap backstops abuse. Users consume; only staleness
+// (or the cap-limited first run) triggers generation.
 export async function POST() {
   const ctx = await getUserClient();
   if (!ctx) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  const cached = await readAiCache(ctx, CACHE_KEY);
+  if (cached && Date.now() - new Date(cached.generatedAt).getTime() < TTL_MS) {
+    return NextResponse.json({ cached: true, ...(cached.data as object) });
+  }
   if (!resolveApiKey() && !geminiKey()) {
     return NextResponse.json({ error: "no_key", message: "Add a Claude or Gemini API key in Connectors." }, { status: 400 });
   }
+  // Generation path spends tokens — cap per user per day (admins exempt).
+  const daily = await guardAiRate(ctx, "alerts-suggest-daily", 10, 24 * 60 * 60 * 1000);
+  if (daily) return daily;
   const [unified, { data: wl }] = await Promise.all([
     getUnifiedHoldings(ctx.supabase, { realTickersOnly: true }),
     ctx.supabase.from("watch_list_items").select("symbol"),

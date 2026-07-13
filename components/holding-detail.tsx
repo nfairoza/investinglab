@@ -21,6 +21,7 @@ import type { StockScore } from "@/lib/scoring/score";
 import type { ResearchReport } from "@/lib/research/types";
 type DR<T> = DataResult<T>;
 import { useState, useEffect, useRef } from "react";
+import { useIsAdmin } from "./use-is-admin";
 import { freshness } from "@/lib/research/staleness";
 import { AmbientLoader } from "./ambient-loader";
 
@@ -49,6 +50,7 @@ const ACTION_ROWS: { key: keyof ResearchReport["actionTable"]; label: string }[]
 ];
 
 export function HoldingDetail({ symbol }: { symbol: string }) {
+  const isAdmin = useIsAdmin();
   const { data: holdings = [] } = useSWR<Holding[]>("/api/holdings?withBrokers=1", (url: string) => fetch(url).then((r) => r.json()));
   const holding = holdings.find((h) => h.symbol === symbol);
 
@@ -204,13 +206,18 @@ export function HoldingDetail({ symbol }: { symbol: string }) {
               <input type="checkbox" checked={beginner} onChange={(e) => setBeginner(e.target.checked)} className="accent-brand-500" />
               Explain Like I&apos;m New
             </label>
-            <button
-              onClick={generateAnalysis}
-              disabled={memoGenerating}
-              className="rounded-md bg-brand-600 px-3 py-1 text-[12px] font-medium text-white hover:bg-brand-600 disabled:opacity-50"
-            >
-              {memoGenerating ? "Generating…" : "Refresh analysis"}
-            </button>
+            {/* Refresh analysis regenerates the shared research memo (admin-only —
+                /api/research POST 403s non-admins). Users get the auto-refreshed
+                cached memo. */}
+            {isAdmin && (
+              <button
+                onClick={generateAnalysis}
+                disabled={memoGenerating}
+                className="rounded-md bg-brand-600 px-3 py-1 text-[12px] font-medium text-white hover:bg-brand-600 disabled:opacity-50"
+              >
+                {memoGenerating ? "Generating…" : "Refresh analysis"}
+              </button>
+            )}
           </div>
         </div>
 

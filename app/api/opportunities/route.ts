@@ -154,6 +154,24 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "no_key", message: "Add a Claude or Gemini API key in Connectors to use AI opportunities." }, { status: 400 });
   }
   const useCongress = req.nextUrl.searchParams.get("congress") === "1";
+  // Users consume the cached scan; only staleness or an admin force regenerates.
+  // A non-admin force is rejected; otherwise serve a still-fresh cache instead of
+  // spending tokens on every click/auto-run.
+  const cacheKey = useCongress ? CACHE_KEY_CONGRESS : CACHE_KEY;
+  const force = req.nextUrl.searchParams.get("force") === "1";
+  if (force && !ctx.isAdmin) {
+    return NextResponse.json({ error: "forbidden", message: "Manual re-scan is admin-only. Opportunities refresh automatically." }, { status: 403 });
+  }
+  if (!force) {
+    const cached = await readAiCache(ctx, cacheKey);
+    if (cached && Date.now() - new Date(cached.generatedAt).getTime() < TTL_MS) {
+      return NextResponse.json({ cached: true, ...(cached.data as object) });
+    }
+  }
+  // Generation path spends tokens — cap per user per day (admins exempt) on top of
+  // the burst guard above, so a non-admin's first-run/auto-run can't be looped.
+  const daily = await guardAiRate(ctx, "opportunities-daily", 10, 24 * 60 * 60 * 1000);
+  if (daily) return daily;
   const [nw, unified, invCash, { data: wl }, { data: cashRow }] = await Promise.all([
     computeNetWorth(ctx).catch(() => null),
     getUnifiedHoldings(ctx.supabase, { realTickersOnly: true }),

@@ -104,7 +104,13 @@ export async function POST(req: NextRequest) {
   const parsed = await parseBody(req, z.object({ symbol: zSymbol, refresh: z.boolean().optional() }));
   if (!parsed.ok) return parsed.response;
   const { symbol } = parsed.data;
-  const forceRefresh = parsed.data.refresh === true;
+  // Force-refresh (bypass a still-fresh shared cache) is admin-only — users
+  // consume the cached prediction; only staleness or an admin regenerates. A
+  // non-admin force is rejected rather than silently downgraded.
+  if (parsed.data.refresh === true && !ctx.isAdmin) {
+    return NextResponse.json({ error: "forbidden", message: "Manual refresh is admin-only. Predictions refresh automatically." }, { status: 403 });
+  }
+  const forceRefresh = parsed.data.refresh === true && ctx.isAdmin;
 
   // Serve the shared cache when it's fresh (<2h) unless an explicit refresh was
   // requested. Market-only prediction → identical for every user → reuse it.
