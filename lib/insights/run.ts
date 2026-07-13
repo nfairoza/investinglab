@@ -2,7 +2,7 @@ import { serviceClient } from "@/lib/service-client";
 import { readServerCache, writeServerCache } from "@/lib/server-cache";
 import { buildLedger } from "./ledger/build";
 import { generateInsights, dedupe } from "./generators";
-import { detectConcentration, type PricedHolding } from "./generators/concentration";
+import { detectConcentration, detectLookthroughConcentration, type PricedHolding } from "./generators/concentration";
 import { detectClosures, type PriorOpenInsight } from "./closure";
 import { loadLedgerInputs, writeLedger, writeInsights, loadPriorInsights } from "./persist";
 
@@ -62,6 +62,22 @@ export async function runInsightsBuild(opts: { sliceSize?: number; nowMs?: numbe
         .map((h: any) => ({ symbol: String(h.symbol).toUpperCase(), value: (Number(h.shares) || 0) * (Number(h.avg_cost) || 0) }))
         .filter((h) => h.value > 0);
       if (priced.length) fresh.push(...detectConcentration(priced));
+
+      // E3: look-through concentration from the nightly-built lookthrough_exposure
+      // row (fans ETFs into their holdings). Fires only when true exposure exceeds
+      // the direct view, so it doesn't duplicate the direct concentration insight.
+      const { data: ltRow } = await db
+        .from("lookthrough_exposure")
+        .select("by_symbol, by_sector, total_value")
+        .eq("user_id", userId)
+        .maybeSingle();
+      if (ltRow && Number(ltRow.total_value) > 0) {
+        fresh.push(...detectLookthroughConcentration(
+          (ltRow.by_symbol ?? []) as any,
+          (ltRow.by_sector ?? []) as any,
+          Number(ltRow.total_value),
+        ));
+      }
 
       // Stage-3: turn active recurring charges (F6) into insight rows so they
       // rank alongside everything else on Home + the archive. Price increases

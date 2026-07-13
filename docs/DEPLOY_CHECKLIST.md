@@ -27,7 +27,11 @@ brokerage" instead of surfacing the error.)
    - `0031_chat_memory.sql` — Rukmani chat memory (C5) + admin audit log (C1)
    - `0032_push_subscriptions.sql` — M1.2 web push subscriptions
    - `0033_ai_usage_feature.sql` — AIEFF4: per-feature AI cost attribution (adds `feature` label to ai_usage + backfills from `task`)
+   - `0034_lookthrough_exposure.sql` — ETF-E3: per-user look-through exposure cache (nightly `lookthrough-build` job + on-holdings-change invalidation)
 2. **Set new env vars** in Vercel (and locally in `.env.local`):
+   - `BILLING_ENABLED` / `NEXT_PUBLIC_BILLING_ENABLED` — (optional) set to `"1"` to
+     turn on plan gating (ETF look-through = Premium, etc. — see docs/BILLING.md).
+     ABSENT/not-"1" = billing off = every gated feature ships to all users.
    - `SECRETS_ENCRYPTION_KEY` — 32-byte base64 (`openssl rand -base64 32`).
      Required for P1 encryption; without it, keys/tokens fall back to plaintext.
    - `RESEND_API_KEY` — (F2) Resend key for the weekly digest email. Optional:

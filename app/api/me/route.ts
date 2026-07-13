@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
 import { isAdminUser } from "@/lib/supabase-data";
 import { isDemoRequest, demoIdentity } from "@/lib/demo/session";
+import { billingEnabled, normalizePlan } from "@/lib/billing/entitlements";
 
 export const dynamic = "force-dynamic";
 
@@ -16,6 +17,11 @@ export async function GET() {
   return NextResponse.json({
     authenticated: true,
     isAdmin: isAdminUser(user),
+    // Plan tier (from server-controlled app_metadata) + whether billing is even on.
+    // While billingEnabled is false, gated features ship to everyone regardless of
+    // plan — see lib/billing/entitlements.
+    plan: normalizePlan(user.app_metadata?.plan),
+    billingEnabled: billingEnabled(),
     email: user.email ?? null,
     createdAt: user.created_at ?? null,
     provider: (user.app_metadata?.provider as string) ?? "email",

@@ -6,6 +6,7 @@ import { detectFollowFilings } from "@/lib/follows/detect";
 import { runWeeklyDigest } from "@/lib/digest/run";
 import { runRecurring } from "@/lib/recurring/run";
 import { buildMarketBrief } from "@/lib/chat/market-brief";
+import { runLookthroughBuild } from "@/lib/lookthrough/run";
 
 // The job registry. Each job owns its cadence; the dispatcher (/api/cron/tick)
 // runs whatever is due on each tick, so ANY external trigger interval works.
@@ -70,6 +71,16 @@ export const JOBS: CronJob[] = [
     id: "recurring-detect",
     everyMinutes: 24 * 60,
     run: async () => { const r = await runRecurring(); return { ok: true, note: `${r.detected} charges / ${r.notified} notified, ${r.users} users` }; },
+  },
+  {
+    // E3: ETF look-through exposure. For each user's holdings, fan every held ETF
+    // into its constituent weights and compute per-symbol/per-sector exposure into
+    // lookthrough_exposure. ETF constituents are globally cached (etf:const:SYM) so
+    // an ETF is fetched at most once/day no matter how many users hold it. Chunked
+    // over the user list (cursor in server_cache) for the Hobby 10s cap. Nightly.
+    id: "lookthrough-build",
+    everyMinutes: 24 * 60,
+    run: async () => { const r = await runLookthroughBuild({ sliceSize: 25 }); return { ok: true, note: `${r.computed} computed / ${r.users} users${r.wrapped ? " (full pass)" : ""}` }; },
   },
   {
     // C6: refresh the global daily market brief so Rukmani's get_market_brief

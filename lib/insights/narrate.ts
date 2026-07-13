@@ -35,6 +35,10 @@ export function templateFor(kind: string): { headline: string; body: string } {
       return { headline: "Your net worth is climbing", body: "You've grown from {start} to {end} lately — about {monthlySlope} a month. Steady progress." };
     case "concentration":
       return { headline: "{symbol} is a big slice of your portfolio", body: "{symbol} is about {pct}% of your holdings. Nothing wrong with conviction — just worth a look so one name doesn't carry your whole outcome." };
+    case "lookthrough-concentration":
+      return { headline: "{symbol} exposure is bigger than it looks", body: "{symbol} is {directPct}% of your portfolio directly, but about {ltPct}% once you count what your ETFs hold. Worth knowing so a name you don't see on your holdings list isn't quietly carrying your outcome." };
+    case "lookthrough-sector":
+      return { headline: "You're more concentrated in {sector} than it looks", body: "{sector} is {directPct}% of your portfolio directly, but about {ltPct}% once your ETFs are counted through to what they hold. Just context on your real exposure." };
     case "idle_cash":
       return { headline: "You have cash sitting idle", body: "About {idle} is beyond your safety buffer. Some people keep spare cash in a high-yield savings account or short-term treasuries — options worth comparing, your call." };
     case "utilization":

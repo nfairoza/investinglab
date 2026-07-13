@@ -9,6 +9,7 @@ import { DataBadge, friendlyMessage } from "./data-state";
 import { useIsAdmin } from "./use-is-admin";
 import { AllocationDonut } from "./charts/AllocationDonut";
 import { AmbientLoader } from "./ambient-loader";
+import { LookthroughSectors } from "./etf/lookthrough-sectors";
 import type { Holding } from "@/lib/db";
 import type { DataSource } from "@/lib/providers/types";
 
@@ -210,21 +211,9 @@ export function PortfolioDoctor() {
             </div>
           </div>
 
-          {/* Sector exposure bars */}
-          <div className="rounded-xl glass p-4">
-            <div className="text-sm font-semibold text-ink">Sector exposure</div>
-            <div className="mt-3 space-y-1.5">
-              {result.portfolio.sectors.map((s) => (
-                <div key={s.sector} className="flex items-center gap-3 text-sm">
-                  <span className="w-40 shrink-0 truncate text-ink-dim">{s.sector}</span>
-                  <div className="h-2 flex-1 overflow-hidden rounded bg-surface-raised">
-                    <div className="h-full bg-brand-500" style={{ width: `${Math.min(100, s.pct)}%` }} />
-                  </div>
-                  <span className="w-12 shrink-0 text-right text-xs text-ink-dim">{s.pct.toFixed(0)}%</span>
-                </div>
-              ))}
-            </div>
-          </div>
+          {/* Sector exposure bars — with the E3 Look-through toggle (fans ETFs into
+              their underlying sectors). */}
+          <LookthroughSectors directSectors={result.portfolio.sectors.map((s) => ({ sector: s.sector, pct: s.pct }))} />
 
           {/* Horizon-based action plan */}
           <div className="rounded-xl glass p-4">

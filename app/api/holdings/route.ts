@@ -8,6 +8,13 @@ import { z } from "zod";
 
 export const dynamic = "force-dynamic";
 
+// E3 — invalidate the user's look-through cache on any holdings change so the next
+// /api/lookthrough read recomputes fresh (cheaper than a synchronous recompute on
+// the write path; the nightly job also rebuilds it). Best-effort.
+async function invalidateLookthrough(ctx: { supabase: SupabaseClient; userId: string }): Promise<void> {
+  try { await ctx.supabase.from("lookthrough_exposure").delete().eq("user_id", ctx.userId); } catch { /* non-critical */ }
+}
+
 interface HoldingRow {
   id: string;
   symbol: string;
@@ -114,6 +121,7 @@ export async function POST(req: NextRequest) {
       await ctx.supabase.from("holdings").delete().eq("source", "manual").in("symbol", incomingSymbols);
     }
     if (rows.length) await ctx.supabase.from("holdings").insert(rows);
+    await invalidateLookthrough(ctx);
     return NextResponse.json(await listHoldings(ctx));
   }
 
@@ -138,6 +146,7 @@ export async function POST(req: NextRequest) {
       source: body.source ?? "manual",
     });
   }
+  await invalidateLookthrough(ctx);
   return NextResponse.json(await listHoldings(ctx));
 }
 
@@ -147,5 +156,6 @@ export async function DELETE(req: NextRequest) {
   const id = req.nextUrl.searchParams.get("id");
   if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
   await ctx.supabase.from("holdings").delete().eq("id", id);
+  await invalidateLookthrough(ctx);
   return NextResponse.json({ ok: true });
 }
