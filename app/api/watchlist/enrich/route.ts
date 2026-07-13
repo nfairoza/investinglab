@@ -6,6 +6,10 @@ import { routeText } from "@/lib/ai/router";
 import { parseLooseJson } from "@/lib/ai/json";
 import { getUserClient } from "@/lib/supabase-data";
 import { parseBody } from "@/lib/validate";
+import { readServerCache, writeServerCache } from "@/lib/server-cache";
+import { isDailyStale } from "@/lib/daily-cache";
+import { guardAiRate } from "@/lib/rate-limit";
+import { deriveVerdict, type EnrichAnalysis } from "@/lib/watchlist/verdict";
 import { z } from "zod";
 
 export const dynamic = "force-dynamic";
@@ -16,31 +20,21 @@ buy price, fair value range, bull case, bear case, next catalyst, and an action.
 Be realistic — separate "good company" from "good price today". Use ranges, not
 false precision. Return ONLY valid JSON (no markdown).`;
 
-// POST /api/watchlist/enrich { id }  → AI-fill ideal buy / fair value / cases /
-// catalyst / action for one watchlist item, using live FMP data + web search.
-export async function POST(req: NextRequest) {
-  const ctx = await getUserClient();
-  if (!ctx) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  const parsed = await parseBody(req, z.object({ id: z.string().min(1) }));
-  if (!parsed.ok) return parsed.response;
-  const { id } = parsed.data;
-  const { data: item } = await ctx.supabase.from("watch_list_items").select("*").eq("id", id).maybeSingle();
-  if (!item) return NextResponse.json({ error: "watch item not found" }, { status: 404 });
+// Global (not per-user) cache key for a symbol's enrichment analysis. The AI
+// analysis of a stock isn't personal, so user B reuses user A's for the day.
+const enrichKey = (symbol: string) => `shared:enrich:${symbol.toUpperCase()}`;
 
-  const symbol = item.symbol;
-  const [quote, fin, analyst, dcf] = await Promise.all([
-    marketData.getQuote(symbol),
+// Generate the AI analysis for a symbol from live data. Returns the parsed analysis
+// object (the price-INSENSITIVE "thinking" we cache), or throws.
+async function generateAnalysis(symbol: string, quoteData: unknown): Promise<EnrichAnalysis> {
+  const [fin, analyst, dcf] = await Promise.all([
     marketData.getFinancials(symbol),
     marketData.getAnalystData(symbol),
     marketData.getDcf(symbol),
   ]);
 
-  if (!resolveApiKey() && !geminiKey()) {
-    return NextResponse.json({ error: "no_key", message: "No AI key configured — add a Claude or Gemini key in Connectors." }, { status: 400 });
-  }
-
-  const dataBlock = quote.data
-    ? `QUOTE: ${JSON.stringify(quote.data)}
+  const dataBlock = quoteData
+    ? `QUOTE: ${JSON.stringify(quoteData)}
 FINANCIALS(recent): ${JSON.stringify(fin.data?.quarters?.slice(-4) ?? "n/a")}
 ANALYST: ${JSON.stringify(analyst.data ?? "n/a")}
 DCF: ${JSON.stringify(dcf.data ?? "n/a")}`
@@ -62,24 +56,107 @@ Return JSON exactly:
   "note": "one-line summary"
 }`;
 
-  try {
-    // routeText gives Claude→Gemini fallback, so a missing/limited Claude key
-    // doesn't make Analyze silently do nothing.
-    const { text } = await routeText({ task: "light", system: SYSTEM, user, maxTokens: 800, webSearch: !quote.data });
-    const parsed = parseLooseJson(text) as any;
-    if (!parsed || typeof parsed !== "object") throw new Error("Could not parse the analysis.");
+  // routeText gives Claude→Gemini fallback so a missing Claude key doesn't make
+  // Analyze silently do nothing. Labeled "enrich" for per-feature cost tracking.
+  const { text } = await routeText({ task: "light", feature: "enrich", system: SYSTEM, user, maxTokens: 800, webSearch: !quoteData });
+  const parsed = parseLooseJson(text) as any;
+  if (!parsed || typeof parsed !== "object") throw new Error("Could not parse the analysis.");
+  const out: EnrichAnalysis = {};
+  if (typeof parsed.idealBuy === "number" && parsed.idealBuy > 0) out.idealBuy = parsed.idealBuy;
+  if (parsed.fairValue) out.fairValue = String(parsed.fairValue);
+  if (parsed.bullCase) out.bullCase = String(parsed.bullCase);
+  if (parsed.bearCase) out.bearCase = String(parsed.bearCase);
+  if (parsed.catalyst) out.catalyst = String(parsed.catalyst);
+  if (parsed.aiAction) out.aiAction = String(parsed.aiAction);
+  if (parsed.note) out.note = String(parsed.note);
+  return out;
+}
 
-    const patch: Record<string, unknown> = { analyzed_at: new Date().toISOString(), updated_at: new Date().toISOString() };
-    if (typeof parsed.idealBuy === "number" && parsed.idealBuy > 0) patch.ideal_buy = parsed.idealBuy;
-    if (parsed.fairValue) patch.fair_value = parsed.fairValue;
-    if (parsed.bullCase) patch.bull_case = parsed.bullCase;
-    if (parsed.bearCase) patch.bear_case = parsed.bearCase;
-    if (parsed.catalyst) patch.catalyst = parsed.catalyst;
-    if (parsed.aiAction) patch.ai_action = parsed.aiAction;
-    if (parsed.note) patch.note = parsed.note;
-    const { data: updated } = await ctx.supabase.from("watch_list_items").update(patch).eq("id", id).select("*").maybeSingle();
-    return NextResponse.json({ item: updated, source: quote.source });
-  } catch (e) {
-    return NextResponse.json({ error: "analysis_failed", message: e instanceof Error ? e.message : "Analysis failed" }, { status: 500 });
+// POST /api/watchlist/enrich { id, refresh? }
+//
+// Called ONLY on explicit user action (Analyze / Re-analyze button click) — never
+// on render. See components/watchlist-manager.tsx `analyze()`.
+//
+// Caching strategy (AIEFF1): the AI ANALYSIS (fair value, ideal buy, cases,
+// catalyst) is cached GLOBALLY per symbol for the day — it isn't personal and is
+// the expensive part. The price-sensitive VERDICT (action / "below your ideal
+// entry") is re-derived against the LIVE quote on every read, cached or not, so a
+// symbol user A analyzed this morning is served instantly to user B with B's
+// current-price verdict.
+export async function POST(req: NextRequest) {
+  const ctx = await getUserClient();
+  if (!ctx) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  const parsed = await parseBody(req, z.object({ id: z.string().min(1), refresh: z.boolean().optional() }));
+  if (!parsed.ok) return parsed.response;
+  const { id, refresh } = parsed.data;
+  const { data: item } = await ctx.supabase.from("watch_list_items").select("*").eq("id", id).maybeSingle();
+  if (!item) return NextResponse.json({ error: "watch item not found" }, { status: 404 });
+
+  const symbol = String(item.symbol).toUpperCase();
+
+  if (!resolveApiKey() && !geminiKey()) {
+    return NextResponse.json({ error: "no_key", message: "No AI key configured — add a Claude or Gemini key in Connectors." }, { status: 400 });
   }
+
+  // Live quote is always fetched (60s-cached, cheap) — it's what the verdict is
+  // re-derived against.
+  const quote = await marketData.getQuote(symbol);
+  const livePrice = quote.data?.price ?? null;
+
+  // Resolve the cached analysis. A forced Re-analyze always regenerates (and is
+  // rate-guarded to stop abuse); otherwise first-requester-generates on a
+  // miss/daily-stale, and everyone else reuses today's global analysis.
+  const cacheKey = enrichKey(symbol);
+  let analysis: EnrichAnalysis;
+  let generatedAt: string;
+
+  const cached = await readServerCache<EnrichAnalysis>(cacheKey);
+  const needsGen = refresh || !cached.value || isDailyStale(cached.generatedAt);
+
+  if (needsGen) {
+    // Only the (re)generation path spends tokens, so only it is rate-limited.
+    const limited = await guardAiRate(ctx);
+    if (limited) return limited;
+    try {
+      analysis = await generateAnalysis(symbol, quote.data);
+      generatedAt = await writeServerCache(cacheKey, analysis);
+    } catch (e) {
+      // On a fresh generation failure, fall back to any stale cache we have rather
+      // than failing the click outright.
+      if (cached.value) { analysis = cached.value; generatedAt = cached.generatedAt ?? new Date().toISOString(); }
+      else return NextResponse.json({ error: "analysis_failed", message: e instanceof Error ? e.message : "Analysis failed" }, { status: 500 });
+    }
+  } else {
+    analysis = cached.value!;
+    generatedAt = cached.generatedAt ?? new Date().toISOString();
+  }
+
+  // Re-derive the price-sensitive verdict against the LIVE price — never served
+  // from the cached analysis verbatim.
+  const verdict = deriveVerdict(analysis, livePrice);
+
+  // Persist the analysis + live verdict onto the user's row so the existing table
+  // renders it. `analyzed_at` is the ANALYSIS generation time (what "Analysis from
+  // {time}" shows); the action is the live-derived verdict.
+  const patch: Record<string, unknown> = {
+    analyzed_at: generatedAt,
+    updated_at: new Date().toISOString(),
+    ai_action: verdict.action,
+  };
+  if (analysis.idealBuy != null) patch.ideal_buy = analysis.idealBuy;
+  if (analysis.fairValue) patch.fair_value = analysis.fairValue;
+  if (analysis.bullCase) patch.bull_case = analysis.bullCase;
+  if (analysis.bearCase) patch.bear_case = analysis.bearCase;
+  if (analysis.catalyst) patch.catalyst = analysis.catalyst;
+  if (analysis.note) patch.note = analysis.note;
+  const { data: updated } = await ctx.supabase.from("watch_list_items").update(patch).eq("id", id).select("*").maybeSingle();
+
+  return NextResponse.json({
+    item: updated,
+    source: quote.source,
+    generatedAt,
+    livePrice,
+    verdict,
+    cached: !needsGen,
+  });
 }

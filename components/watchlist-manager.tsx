@@ -139,14 +139,18 @@ export function WatchlistManager({ listId }: { listId?: string } = {}) {
     setDragId(null);
   }
 
-  async function analyze(id: string) {
+  // Analyze (or Re-analyze, when refresh=true) is ONLY ever called from an
+  // explicit button click below — never on render/mount. The route caches the AI
+  // analysis globally per symbol for the day; refresh forces regeneration and is
+  // rate-limited server-side.
+  async function analyze(id: string, refresh = false) {
     setBusyId(id);
     setAnalyzeErr(null);
     try {
       const r = await fetch("/api/watchlist/enrich", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id }),
+        body: JSON.stringify({ id, refresh }),
       });
       const j = await r.json().catch(() => ({}));
       if (!r.ok || (j as any).error) {
@@ -322,7 +326,7 @@ export function WatchlistManager({ listId }: { listId?: string } = {}) {
                       <div className="flex shrink-0 items-center justify-end gap-0.5 sm:w-32" onClick={(e) => e.stopPropagation()}>
                         <a href={`/research?symbol=${w.symbol}`} title={`Research ${w.symbol}`}
                           className="rounded p-1 text-ink-faint hover:bg-surface hover:text-brand-300"><ExternalLink size={14} /></a>
-                        <button onClick={() => analyze(w.id)} disabled={busy} title={w.analyzedAt ? "Refresh AI analysis" : "Run AI analysis"}
+                        <button onClick={() => analyze(w.id, Boolean(w.analyzedAt))} disabled={busy} title={w.analyzedAt ? "Re-analyze (force fresh AI analysis)" : "Run AI analysis"}
                           className="ml-1 inline-flex items-center gap-1 rounded-md border border-brand-500/50 bg-brand-500/10 px-2 py-1 text-[11px] font-medium text-brand-300 hover:bg-brand-500/20 disabled:opacity-70">
                           {busy
                             ? <><Loader2 size={12} className="animate-spin" /> Analyzing…</>
@@ -349,7 +353,17 @@ export function WatchlistManager({ listId }: { listId?: string } = {}) {
                           </div>
                         )}
                         {w.note && <p className="mt-2 text-xs text-ink-faint"><span className="font-medium text-ink-dim">Note:</span> {w.note}</p>}
-                        {w.analyzedAt && <p className="mt-1 text-[10px] text-ink-faint">AI analysis {new Date(w.analyzedAt).toLocaleString()}</p>}
+                        {w.analyzedAt && (
+                          <div className="mt-2 flex flex-wrap items-center gap-2">
+                            {/* The thinking is cached; the Buy/Wait verdict is always
+                                recomputed against the live price on the server. */}
+                            <span className="text-[10px] text-ink-faint">Analysis from {new Date(w.analyzedAt).toLocaleString()} · prices live</span>
+                            <button onClick={(e) => { e.stopPropagation(); analyze(w.id, true); }} disabled={busy}
+                              className="inline-flex items-center gap-1 rounded border border-hairline px-1.5 py-0.5 text-[10px] text-brand-300 hover:bg-surface disabled:opacity-60">
+                              {busy ? <Loader2 size={10} className="animate-spin" /> : <Sparkles size={10} />} Re-analyze
+                            </button>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
