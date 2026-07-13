@@ -6,15 +6,26 @@ import { committeesForName, partyFor, ensureRoster } from "@/lib/congress/commit
 import { bucketSector, findOverlap, type SectorBucket } from "@/lib/congress/sectors";
 import { computeClusters, scoreTrade, bracketLow, type ScoredTrade, type OptionsValidation } from "@/lib/congress/score";
 import { routeText } from "@/lib/ai/router";
+import { readServerCache, writeServerCache } from "@/lib/server-cache";
 
 export const dynamic = "force-dynamic";
 
 // Congress alpha is shared market data (not per-user) and expensive to compute
-// (AI thesis + options read on every call). Cache the full payload in-memory for
-// 12h, keyed by the window/limit. ?refresh=1 forces a rebuild. Cache resets on
-// deploy, which is fine for a 12h-fresh signal.
+// (AI thesis + options read on every call). Cache the full payload for 12h, keyed
+// by window/limit. Two layers (AIEFF2):
+//   L1 — in-memory Map: fastest, but per serverless instance and lost on cold
+//        start, so alone it regenerated the "12h" payload many times per day
+//        across instances (the bug this fixes).
+//   L2 — durable server_cache: survives cold starts + shared across instances, so
+//        the AI call truly runs at most ~twice a day per key.
+// ?refresh=1 forces a rebuild (admin). No staleness concern beyond 12h: the source
+// disclosures lag the trades by 30–45 days, so 12h freshness is already generous.
 const ALPHA_TTL_MS = 12 * 60 * 60 * 1000;
 const alphaCache = new Map<string, { at: number; payload: any }>();
+
+// server_cache key for a given window/limit. Namespaced so it can't collide with
+// other cached surfaces sharing the table.
+const alphaCacheKey = (windowDays: number, limit: number) => `congress-alpha:${windowDays}:${limit}`;
 
 // The most-watched congressional traders (high volume / size / committee power).
 // We always pull their recent trades and merge them into the feed so they surface
@@ -80,11 +91,20 @@ export async function GET(req: NextRequest) {
   const windowDays = Math.min(365, Math.max(7, Number(req.nextUrl.searchParams.get("days")) || 90));
   const force = req.nextUrl.searchParams.get("refresh") === "1";
 
-  // Serve from the 12h cache unless a refresh was requested.
-  const cacheKey = `${windowDays}:${limit}`;
-  const hit = alphaCache.get(cacheKey);
-  if (!force && hit && Date.now() - hit.at < ALPHA_TTL_MS) {
-    return NextResponse.json({ ...hit.payload, cached: true, generatedAt: new Date(hit.at).toISOString() });
+  // Serve from the 12h cache unless a refresh was requested. Check L1 (memory)
+  // first, then L2 (durable server_cache) which survives cold starts.
+  const memKey = `${windowDays}:${limit}`;
+  if (!force) {
+    const hit = alphaCache.get(memKey);
+    if (hit && Date.now() - hit.at < ALPHA_TTL_MS) {
+      return NextResponse.json({ ...hit.payload, cached: true, generatedAt: new Date(hit.at).toISOString() });
+    }
+    const l2 = await readServerCache<{ at: number; payload: any }>(alphaCacheKey(windowDays, limit), ALPHA_TTL_MS);
+    if (l2.value && Date.now() - l2.value.at < ALPHA_TTL_MS) {
+      // Hydrate L1 from L2 so the next same-instance hit is memory-fast.
+      alphaCache.set(memKey, l2.value);
+      return NextResponse.json({ ...l2.value.payload, cached: true, generatedAt: new Date(l2.value.at).toISOString() });
+    }
   }
 
   // Recent global stream + notable members' trades, merged & de-duped.
@@ -236,6 +256,8 @@ export async function GET(req: NextRequest) {
     aiProvider: ai === "none" ? null : `${ai === "claude" ? "Claude" : "Gemini"}${aiModel ? ` (${aiModel})` : ""}`,
     generatedAt,
   };
-  alphaCache.set(cacheKey, { at: Date.parse(generatedAt), payload });
+  const entry = { at: Date.parse(generatedAt), payload };
+  alphaCache.set(memKey, entry);                                    // L1
+  await writeServerCache(alphaCacheKey(windowDays, limit), entry);  // L2 (durable)
   return NextResponse.json({ ...payload, cached: false });
 }
