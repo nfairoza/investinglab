@@ -22,9 +22,10 @@ const pct = (n: number | null) => (n == null ? "—" : `${n.toFixed(2)}%`);
 
 // F4 — dividend & income sub-tab under Portfolio.
 export function IncomeView() {
-  const { data, isLoading } = useSWR<IncomeResp>("/api/income", fetchJson, { revalidateOnFocus: false });
+  const { data, isLoading } = useSWR<IncomeResp>("/api/income", fetchJson, { revalidateOnFocus: false, keepPreviousData: true });
 
-  if (isLoading) return <div className="rounded-2xl glass p-6 text-sm text-ink-faint">Loading your income…</div>;
+  // First-visit-only skeleton (S2): keep showing prior data during a refresh.
+  if (!data && isLoading) return <div className="rounded-2xl glass p-6 text-sm text-ink-faint">Loading your income…</div>;
   const positions = data?.positions ?? [];
 
   if (positions.length === 0) {

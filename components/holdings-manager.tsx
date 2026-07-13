@@ -231,7 +231,7 @@ export function HoldingsManager() {
     : securities.filter((h) => (h.source ?? "manual") === sourceFilter);
 
   const symbols = holdings.map((h) => h.symbol);
-  const { data: quotes } = useSWR(
+  const { data: quotes, isValidating: quotesValidating } = useSWR(
     symbols.length ? ["holdings-quotes", symbols.join(",")] : null,
     () => fetchQuotes(symbols),
     { refreshInterval: 60_000, revalidateOnFocus: true, keepPreviousData: true },
@@ -633,7 +633,7 @@ export function HoldingsManager() {
             </table>
           </div>
           )}
-          {quotes && <DataTimestamp asOf={Object.values(quotes)[0]?.asOf ?? null} />}
+          {quotes && <DataTimestamp asOf={Object.values(quotes)[0]?.asOf ?? null} revalidating={quotesValidating && !!quotes} />}
         </>
       )}
 

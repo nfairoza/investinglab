@@ -66,7 +66,7 @@ export function WatchlistManager({ listId }: { listId?: string } = {}) {
   const [addErr, setAddErr] = useState<string | null>(null);
 
   const symbols = items.map((w) => w.symbol);
-  const { data: quotes } = useSWR(
+  const { data: quotes, isValidating: quotesValidating } = useSWR(
     symbols.length ? ["watch-quotes", symbols.join(",")] : null,
     () => fetchQuotes(symbols),
     { refreshInterval: 60_000, revalidateOnFocus: true, keepPreviousData: true },
@@ -373,7 +373,7 @@ export function WatchlistManager({ listId }: { listId?: string } = {}) {
               })}
             </div>
           </div>
-          {quotes && <DataTimestamp asOf={Object.values(quotes)[0]?.asOf ?? null} />}
+          {quotes && <DataTimestamp asOf={Object.values(quotes)[0]?.asOf ?? null} revalidating={quotesValidating && !!quotes} />}
         </>
       )}
 

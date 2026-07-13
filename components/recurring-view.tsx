@@ -20,10 +20,11 @@ async function dismiss(merchant: string) {
 
 // F6 — recurring / subscription view under Money.
 export function RecurringView() {
-  const { data, isLoading } = useSWR<{ recurring: Charge[]; monthlyTotal: number }>(KEY, fetchJson, { revalidateOnFocus: false });
+  const { data, isLoading } = useSWR<{ recurring: Charge[]; monthlyTotal: number }>(KEY, fetchJson, { revalidateOnFocus: false, keepPreviousData: true });
   const active = (data?.recurring ?? []).filter((c) => c.status !== "dismissed");
 
-  if (isLoading) return <div className="rounded-2xl glass p-6 text-sm text-ink-faint">Finding your subscriptions…</div>;
+  // First-visit-only skeleton (S2): keep prior data visible during a refresh.
+  if (!data && isLoading) return <div className="rounded-2xl glass p-6 text-sm text-ink-faint">Finding your subscriptions…</div>;
 
   if (active.length === 0) {
     return (

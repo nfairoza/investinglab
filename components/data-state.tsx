@@ -35,10 +35,20 @@ export function DataBadge({ source }: { source: DataSource }) {
   );
 }
 
-// Always shown next to any market figure or chart.
-export function DataTimestamp({ asOf }: { asOf: string | null }) {
+// Always shown next to any market figure or chart. When `revalidating` is true
+// (cached data is showing while a background refresh runs), a tiny spinner appears
+// next to the timestamp — the subtle "we're checking for fresher data" affordance
+// (S2), never a skeleton over real data.
+export function DataTimestamp({ asOf, revalidating = false }: { asOf: string | null; revalidating?: boolean }) {
   return (
-    <span className="text-[11px] text-ink-faint">
+    <span className="inline-flex items-center gap-1.5 text-[11px] text-ink-faint">
+      {revalidating && (
+        <span
+          className="inline-block h-2.5 w-2.5 animate-spin rounded-full border border-current border-t-transparent opacity-60"
+          role="status"
+          aria-label="Refreshing"
+        />
+      )}
       Data as of {asOf ? new Date(asOf).toLocaleString() : "—"}
     </span>
   );

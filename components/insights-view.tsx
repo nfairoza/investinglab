@@ -77,10 +77,13 @@ function InsightRow({ ins }: { ins: StoredInsight }) {
 }
 
 export function InsightsView() {
-  const { data, isLoading } = useSWR<{ insights: StoredInsight[] }>(KEY, fetchJson, { revalidateOnFocus: false });
+  const { data, isLoading } = useSWR<{ insights: StoredInsight[] }>(KEY, fetchJson, { revalidateOnFocus: false, keepPreviousData: true });
   const insights = data?.insights ?? [];
 
-  if (isLoading) return <div className="rounded-2xl glass p-6 text-sm text-ink-faint">Loading your insights…</div>;
+  // Skeleton is FIRST-VISIT-ONLY (S2): show it only when we have no data at all
+  // (never fetched). Once we have any data — even stale/previous — render it and
+  // let the background revalidation update it in place; never skeleton over it.
+  if (!data && isLoading) return <div className="rounded-2xl glass p-6 text-sm text-ink-faint">Loading your insights…</div>;
 
   if (insights.length === 0) {
     return (
