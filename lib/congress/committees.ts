@@ -1,4 +1,5 @@
 import yaml from "js-yaml";
+import legislatorsFallback from "./legislators-fallback.json";
 
 // =============================================================================
 // Live congressional committee rosters from the @unitedstates open-data project.
@@ -51,12 +52,40 @@ async function fetchText(path: string): Promise<string> {
   return r2.text();
 }
 
+// Checked-in snapshot (scripts/refresh-legislators.mjs) used when BOTH remotes
+// are blocked — so committee flags still work on corporate networks / headless
+// cron. Live data always wins; this is only the last resort.
+function buildFromFallback(): RosterCache | null {
+  try {
+    const data = legislatorsFallback as unknown as {
+      byBioguide: Record<string, CommitteeMembership[]>;
+      nameToBioguide: Record<string, string>;
+      partyByBioguide: Record<string, string>;
+    };
+    return {
+      at: Date.now(),
+      byBioguide: new Map(Object.entries(data.byBioguide)),
+      nameToBioguide: new Map(Object.entries(data.nameToBioguide)),
+      partyByBioguide: new Map(Object.entries(data.partyByBioguide)),
+    };
+  } catch {
+    return null;
+  }
+}
+
 async function build(): Promise<RosterCache> {
-  const [committeesRaw, membershipRaw, legislatorsRaw] = await Promise.all([
-    fetchText("/committees-current.yaml"),
-    fetchText("/committee-membership-current.yaml"),
-    fetchText("/legislators-current.yaml"),
-  ]);
+  let committeesRaw: string, membershipRaw: string, legislatorsRaw: string;
+  try {
+    [committeesRaw, membershipRaw, legislatorsRaw] = await Promise.all([
+      fetchText("/committees-current.yaml"),
+      fetchText("/committee-membership-current.yaml"),
+      fetchText("/legislators-current.yaml"),
+    ]);
+  } catch (e) {
+    const fallback = buildFromFallback();
+    if (fallback) return fallback;
+    throw e;
+  }
 
   const committees = yaml.load(committeesRaw) as any[];
   const membership = yaml.load(membershipRaw) as Record<string, any[]>;

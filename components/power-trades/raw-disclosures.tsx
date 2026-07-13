@@ -7,11 +7,13 @@ import { Search, ExternalLink, FileText } from "lucide-react";
 import { fetchJson } from "@/lib/fetch-json";
 import { ErrorState } from "../data-state";
 import { SinceMove, type TradeDecayFields } from "./trade-decay";
+import { committeeChipLabel } from "@/lib/power-trades/committee-jurisdictions";
 
 interface Trade extends TradeDecayFields {
   id: string; source: string; source_url: string | null; person_name: string; person_role: string | null;
   relationship: string | null; ticker: string | null; asset_name: string | null; transaction_type: string | null;
   transaction_date: string | null; disclosure_date: string | null; amount_label: string | null; chamber_or_branch: string | null;
+  committee_overlap?: boolean; committee?: string | null; committee_level?: string | null;
 }
 
 const TYPE_CLS: Record<string, string> = {
@@ -22,7 +24,8 @@ const TYPE_CLS: Record<string, string> = {
 export function RawDisclosures() {
   const [q, setQ] = useState("");
   const [windowKey, setWindowKey] = useState("90d");
-  const qs = new URLSearchParams({ q, window: windowKey, limit: "300" }).toString();
+  const [committeeOnly, setCommitteeOnly] = useState(false);
+  const qs = new URLSearchParams({ q, window: windowKey, limit: "300", ...(committeeOnly ? { committeeOverlap: "1" } : {}) }).toString();
   const { data, error, isLoading, mutate } = useSWR<{ rows: Trade[] }>(`/api/power-trades/trades?${qs}`, fetchJson, { revalidateOnFocus: false, keepPreviousData: true });
   const rows = data?.rows ?? [];
 
@@ -41,6 +44,10 @@ export function RawDisclosures() {
               {w}
             </button>
           ))}
+          <button onClick={() => setCommitteeOnly((v) => !v)} title="Only congressional trades where the ticker's sector is in the member's committee jurisdiction"
+            className={`ml-1 rounded-md border px-2.5 py-1 text-xs font-medium ${committeeOnly ? "border-amber-500/50 bg-amber-500/10 text-amber-300" : "border-hairline text-ink-dim hover:bg-surface"}`}>
+            ⚖ Committee overlap
+          </button>
         </div>
       </div>
 
@@ -82,6 +89,11 @@ export function RawDisclosures() {
                   </td>
                   <td className="px-3 py-2">
                     <span className={`rounded-md border px-1.5 py-0.5 text-[10px] ${TYPE_CLS[t.transaction_type ?? ""] ?? "border-hairline text-ink-dim"}`}>{t.transaction_type ?? "unknown"}</span>
+                    {t.committee_overlap && t.committee && (
+                      <span className="mt-1 block rounded border border-amber-500/40 px-1 py-0.5 text-[9px] text-amber-300" title={`Traded ticker's sector is in this member's committee jurisdiction${t.committee_level === "secondary" ? " (broad/macro)" : ""}`}>
+                        ⚖ {committeeChipLabel(t.committee)}
+                      </span>
+                    )}
                   </td>
                   <td className="px-3 py-2 text-xs text-ink-dim">{t.amount_label ?? "—"}</td>
                   <td className="px-3 py-2 text-[11px] text-ink-faint">{t.transaction_date ?? "—"}</td>
