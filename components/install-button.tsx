@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Download, X } from "lucide-react";
+import { isAppShell } from "@/lib/native";
 
 // Captures the browser's PWA install prompt and exposes an "Install app" button.
 // On Chrome/Edge/Android the native prompt fires; on iOS Safari there's no
@@ -15,9 +16,9 @@ export function InstallButton() {
   const [isIos, setIsIos] = useState(false);
 
   useEffect(() => {
-    // Already running as an installed app? hide the button.
-    const standalone = window.matchMedia("(display-mode: standalone)").matches || (window.navigator as any).standalone === true;
-    if (standalone) { setInstalled(true); return; }
+    // Already running as an installed PWA or inside the native shell? hide the
+    // button — there's nothing to install (isAppShell covers both).
+    if (isAppShell()) { setInstalled(true); return; }
 
     setIsIos(/iphone|ipad|ipod/i.test(window.navigator.userAgent) && !/crios|fxios/i.test(window.navigator.userAgent));
 
