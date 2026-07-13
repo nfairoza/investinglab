@@ -30,6 +30,7 @@ brokerage" instead of surfacing the error.)
    - `0034_lookthrough_exposure.sql` — ETF-E3: per-user look-through exposure cache (nightly `lookthrough-build` job + on-holdings-change invalidation)
    - `0035_alert_deliveries.sql` — ALERTDEL: adds `alerts.critical` + `alert_deliveries` ledger (push/seen/email outcomes) for layered notification delivery + the `alert-escalate` missed-alert email cron
    - `0036_power_trade_returns.sql` — PT1: per-trade cached returns (lag + since-trade/since-disclosure move) filled by the nightly `pt-returns` cron; the Power Trades UI reads this table, never computes on pageview
+   - `0037_power_track_records.sql` — PT3: per-person excess-vs-SPY track record over disclosed buys (windows 30/90/180d), filled by the nightly `pt-track-records` cron; person page + directory read this table
 2. **Set new env vars** in Vercel (and locally in `.env.local`):
    - `BILLING_ENABLED` / `NEXT_PUBLIC_BILLING_ENABLED` — (optional) set to `"1"` to
      turn on plan gating (ETF look-through = Premium, etc. — see docs/BILLING.md).

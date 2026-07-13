@@ -6,6 +6,7 @@ import { X, ExternalLink } from "lucide-react";
 import { fetchJson } from "@/lib/fetch-json";
 import { LagLine, SinceMove, type TradeDecayFields } from "./trade-decay";
 import { PersonActivityCharts } from "./person-activity-charts";
+import { TrackRecordCard } from "./track-record-card";
 
 // Inline detail panel for a person in the directory. Reads the SAME local APIs
 // (trades + influence) filtered by name — no navigation, no page reload.
@@ -37,6 +38,9 @@ export function PersonDetail({ name, onClose }: { name: string; onClose: () => v
         <div className="text-sm font-semibold text-ink">{name}</div>
         <button onClick={onClose} aria-label="Close" className="rounded-md p-1 text-ink-faint hover:bg-surface hover:text-ink"><X size={15} /></button>
       </div>
+
+      {/* PT3: does following this person's disclosed buys work? */}
+      <TrackRecordCard name={name} />
 
       {/* Trades */}
       <div className="mt-3">

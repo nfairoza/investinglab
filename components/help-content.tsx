@@ -72,6 +72,37 @@ export function HelpContent() {
         </div>
       </div>
 
+      {/* PT3 — the method behind Power Trades track records + flags. Linked from
+          the person Track Record card ("Method"). */}
+      <div id="pt-method" className="scroll-mt-20 rounded-xl glass p-5">
+        <h2 className="text-lg font-semibold text-ink">Power Trades — how the numbers are computed</h2>
+        <div className="mt-3 space-y-3 text-sm text-ink-dim">
+          <p>
+            <span className="text-ink">Signal decay.</span> Each trade shows its disclosure lag
+            (trade date → the up-to-45-day-later filing date) and the price move since both the
+            trade date and the disclosure date — the return a follower could actually have captured.
+          </p>
+          <p>
+            <span className="text-ink">Track record.</span> For each person we measure whether their
+            <em> disclosed buys</em> (trailing 24 months, options excluded) beat simply buying the
+            S&amp;P 500 — the excess return vs SPY at +30/+90/+180 days, measured from the
+            <em> disclosure</em> date, equal-weighted. With fewer than 8 realized trades we show
+            &ldquo;insufficient history&rdquo; instead of a percentage — small samples are noise.
+          </p>
+          <p>
+            <span className="text-ink">Committee overlap &amp; insider clusters.</span> A congressional
+            trade is flagged when the ticker&apos;s sector falls in a committee the member sits on
+            (context, not an accusation). An insider &ldquo;cluster&rdquo; is 3+ distinct insiders making
+            open-market purchases of the same company within 30 days.
+          </p>
+          <p className="text-[11px] text-ink-faint">
+            Everything is computed by deterministic code from free/public sources (congressional
+            PTRs, SEC Form 4, OGE, committee rosters) — no paid data, no AI-invented figures. Bands
+            stay bands. Past excess return does not predict future return.
+          </p>
+        </div>
+      </div>
+
       <div className="flex items-center gap-2 text-[11px] text-ink-faint">
         <Shield size={12} /> Research and education only — not financial advice.
       </div>

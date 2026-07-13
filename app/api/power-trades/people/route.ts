@@ -49,6 +49,7 @@ function synthRow(p: KnownPerson) {
     oge_url: ogeUrl,
     latest_disclosure_date: null,
     trade_count_30d: 0, trade_count_90d: 0, trade_count_1y: 0, trade_count_all: 0,
+    track_excess_90d: null, track_n_90d: 0,
     in_current_feed: false,
     empty_reason: emptyReason(p),
     is_known_seed: true,
@@ -78,10 +79,33 @@ export async function GET(req: NextRequest) {
   const { data, error } = await query;
   if (error) return NextResponse.json({ rows: [], error: error.message }, { status: 500 });
 
+  // PT3: batch-fetch each person's 90d track record so the directory can show +
+  // sort by it. One query keyed by the ids on this page; absent → null (sorts last).
+  const ids = (data ?? []).map((r: any) => r.id).filter(Boolean);
+  const trackByPerson = new Map<string, { excess: number | null; n: number }>();
+  if (ids.length > 0) {
+    const { data: trs } = await sb
+      .from("power_track_records")
+      .select("person_id,mean_excess_pct,n")
+      .eq("window_days", 90)
+      .in("person_id", ids);
+    for (const t of trs ?? []) trackByPerson.set(String((t as any).person_id), { excess: (t as any).mean_excess_pct, n: (t as any).n ?? 0 });
+  }
+
   const dbRows = (data ?? []).map((r: {
-    canonical_name: string; identifiers?: { ogeUrl?: string | null } | null; trade_count_all?: number | null;
+    id: string; canonical_name: string; identifiers?: { ogeUrl?: string | null } | null; trade_count_all?: number | null;
     [key: string]: unknown;
-  }) => ({ ...r, oge_url: r.identifiers?.ogeUrl ?? null, in_current_feed: (r.trade_count_all ?? 0) > 0, is_known_seed: false }));
+  }) => {
+    const tr = trackByPerson.get(String(r.id));
+    return {
+      ...r,
+      oge_url: r.identifiers?.ogeUrl ?? null,
+      in_current_feed: (r.trade_count_all ?? 0) > 0,
+      is_known_seed: false,
+      track_excess_90d: tr?.excess ?? null,
+      track_n_90d: tr?.n ?? 0,
+    };
+  });
   const dbNames = new Set(dbRows.map((r) => String(r.canonical_name).toLowerCase()));
 
   // Seed people to merge in: search matches when querying, else the whole roster

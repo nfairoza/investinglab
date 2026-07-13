@@ -15,6 +15,7 @@ interface Person {
   trade_count_30d: number; trade_count_90d: number; trade_count_1y: number; trade_count_all: number;
   in_current_feed?: boolean; empty_reason?: string | null; source_enabled?: boolean;
   covered_by_source?: string | null; is_known_seed?: boolean; oge_url?: string | null;
+  track_excess_90d?: number | null; track_n_90d?: number;
 }
 
 const CATS = ["all", "congress", "executive", "corporate_insider", "lobbyist", "donor", "celebrity", "other"];
@@ -24,8 +25,19 @@ export function PeopleDirectory() {
   const [category, setCategory] = useState("all");
   const [selected, setSelected] = useState<string | null>(null);
   const qs = new URLSearchParams({ q, category, limit: "150" }).toString();
+  const [sortByTrack, setSortByTrack] = useState(false);
   const { data, error, isLoading, mutate } = useSWR<{ rows: Person[] }>(`/api/power-trades/people?${qs}`, fetchJson, { revalidateOnFocus: false, keepPreviousData: true });
-  const rows = data?.rows ?? [];
+  const rows0 = data?.rows ?? [];
+  // Default order is by volume (server); optionally sort by 90d track record
+  // (people with a computed record first, best excess on top; then the rest).
+  const MIN_N = 8;
+  const rows = sortByTrack
+    ? [...rows0].sort((a, b) => {
+        const av = (a.track_n_90d ?? 0) >= MIN_N && a.track_excess_90d != null ? a.track_excess_90d : -Infinity;
+        const bv = (b.track_n_90d ?? 0) >= MIN_N && b.track_excess_90d != null ? b.track_excess_90d : -Infinity;
+        return bv - av;
+      })
+    : rows0;
 
   return (
     <div className="space-y-4">
@@ -69,6 +81,11 @@ export function PeopleDirectory() {
                 <th className="px-3 py-2 text-right">90d</th>
                 <th className="px-3 py-2 text-right">1y</th>
                 <th className="px-3 py-2 text-right">All</th>
+                <th className="px-3 py-2 text-right">
+                  <button onClick={() => setSortByTrack((v) => !v)} className={`hover:text-ink ${sortByTrack ? "text-brand-300" : ""}`} title="90d excess vs SPY on disclosed buys">
+                    Track 90d {sortByTrack ? "▾" : "⇅"}
+                  </button>
+                </th>
                 <th className="px-3 py-2">Latest</th>
               </tr>
             </thead>
@@ -102,6 +119,11 @@ export function PeopleDirectory() {
                   <td className="px-3 py-2 text-right text-ink-dim">{p.trade_count_90d}</td>
                   <td className="px-3 py-2 text-right text-ink-dim">{p.trade_count_1y}</td>
                   <td className="px-3 py-2 text-right font-medium text-ink">{p.trade_count_all}</td>
+                  <td className="px-3 py-2 text-right text-xs">
+                    {(p.track_n_90d ?? 0) >= 8 && p.track_excess_90d != null
+                      ? <span className={p.track_excess_90d > 0 ? "text-emerald-300" : p.track_excess_90d < 0 ? "text-rose-300" : "text-ink-dim"}>{p.track_excess_90d > 0 ? "+" : ""}{p.track_excess_90d.toFixed(1)}%</span>
+                      : <span className="text-ink-faint" title="fewer than 8 realized trades">—</span>}
+                  </td>
                   <td className="px-3 py-2 text-[11px] text-ink-faint">{p.latest_disclosure_date ?? "—"}</td>
                 </tr>
                 );
