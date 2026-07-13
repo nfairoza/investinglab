@@ -5,13 +5,14 @@ import Link from "next/link";
 import { X, ExternalLink } from "lucide-react";
 import { fetchJson } from "@/lib/fetch-json";
 import { LagLine, SinceMove, type TradeDecayFields } from "./trade-decay";
+import { PersonActivityCharts } from "./person-activity-charts";
 
 // Inline detail panel for a person in the directory. Reads the SAME local APIs
 // (trades + influence) filtered by name — no navigation, no page reload.
 interface Trade extends TradeDecayFields {
   id: string; source: string; source_url: string | null; ticker: string | null; asset_name: string | null;
   transaction_type: string | null; transaction_date: string | null; disclosure_date: string | null;
-  amount_label: string | null; chamber_or_branch: string | null;
+  amount_label: string | null; amount_max: number | null; person_name: string | null; chamber_or_branch: string | null;
 }
 interface Influence {
   id: string; source: string; record_type: string; source_url: string;
@@ -61,6 +62,8 @@ export function PersonDetail({ name, onClose }: { name: string; onClose: () => v
             </table>
           </div>
         )}
+        {/* PT2: this person's buy/sell markers on each ticker they traded. */}
+        {trades.length > 0 && <PersonActivityCharts trades={trades} />}
       </div>
 
       {/* Influence context */}

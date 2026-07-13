@@ -3,11 +3,13 @@
 import { useState } from "react";
 import useSWR from "swr";
 import {
-  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Dot,
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Dot, ReferenceDot,
 } from "recharts";
 import { DataBadge, DataTimestamp } from "@/components/data-state";
 import type { DataResult, PriceHistory, Quote } from "@/lib/providers/types";
 import { useChartTheme, tooltipStyle } from "./chart-theme";
+import { placeMarkers, bandRadius, type ChartMarker } from "@/components/power-trades/chart-markers";
+import { fmtPct } from "@/components/power-trades/trade-decay";
 
 async function getHistory(url: string): Promise<DataResult<PriceHistory>> {
   const r = await fetch(url);
@@ -27,7 +29,9 @@ const RANGES = [
   { key: "5Y", days: 100000 },
 ] as const;
 
-export function PriceChart({ symbol }: { symbol: string }) {
+// PT2: optional buy/sell trade markers overlaid on the daily line. Passed in
+// by the Power-activity wrapper; undefined on the plain research chart.
+export function PriceChart({ symbol, markers }: { symbol: string; markers?: ChartMarker[] }) {
   const [range, setRange] = useState<string>("3M");
   const ct = useChartTheme();
   const isIntraday = range === "1D";
@@ -70,6 +74,9 @@ export function PriceChart({ symbol }: { symbol: string }) {
   const stroke = up ? ct.positive : ct.negative;
 
   const chartable = points.length > 1;
+  // Markers align to the visible daily window; hidden on 1D intraday (trade
+  // dates are days/weeks back, off an intraday axis).
+  const placedMarkers = !isIntraday && markers && markers.length > 0 ? placeMarkers(markers, points) : [];
 
   return (
     <div className="card-hover rounded-xl glass p-4">
@@ -149,6 +156,18 @@ export function PriceChart({ symbol }: { symbol: string }) {
                   ? <Dot key="last" cx={p.cx} cy={p.cy} r={3.5} fill={stroke} stroke="var(--bg)" strokeWidth={2} />
                   : (null as any))}
                 activeDot={{ r: 4, fill: stroke, stroke: "var(--bg)", strokeWidth: 2 }} />
+              {/* PT2: buy (▲ emerald) / sell (▼ rose) markers, radius ~ amount band.
+                  A ≥24px transparent hit-circle sits under each for mobile taps. */}
+              {placedMarkers.map((m, i) => {
+                const color = m.kind === "buy" ? ct.positive : ct.negative;
+                const r = bandRadius(m.band);
+                const tip = `${m.person} · ${m.kind.toUpperCase()}${m.amountLabel ? ` ${m.amountLabel}` : ""}${m.lagDays != null ? ` · ${m.lagDays}d lag` : ""}${m.sinceTradePct != null ? ` · ${fmtPct(m.sinceTradePct)} since` : ""}`;
+                return (
+                  <ReferenceDot key={`mk-${i}`} x={m.x} y={m.y} r={r} fill={color} stroke="var(--bg)" strokeWidth={1.5} ifOverflow="extendDomain" isFront>
+                    <title>{tip}</title>
+                  </ReferenceDot>
+                );
+              })}
             </AreaChart>
           </ResponsiveContainer></div>
         </div>

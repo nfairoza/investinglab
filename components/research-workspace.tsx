@@ -6,7 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { ScoreCard } from "./score-card";
 import { ResearchPanel } from "./research-panel";
 import { PriceHistoryChart } from "./charts/PriceHistoryChart";
-import { PriceChart } from "./charts/PriceChart";
+import { PowerActivityChart } from "./power-trades/power-activity-chart";
 import { CompanyProfileCard } from "./company-profile-card";
 import { AnalystPanel } from "./analyst-panel";
 import { DcfCard } from "./dcf-card";
@@ -71,7 +71,7 @@ export function ResearchWorkspace({ initial = "AMD" }: { initial?: string }) {
             <DcfCard symbol={symbol} />
           </div>
           <ScoreCard symbol={symbol} />
-          <PriceChart symbol={symbol} />
+          <PowerActivityChart symbol={symbol} />
           <PriceHistoryChart symbol={symbol} />
           <InsiderFeed symbol={symbol} />
           <ResearchPanel symbol={symbol} />
