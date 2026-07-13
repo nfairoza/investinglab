@@ -7,6 +7,7 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { Landmark, ChevronDown, Receipt, PieChart as PieIcon, Scale, ArrowRight, RefreshCw, Repeat, PiggyBank, Stethoscope } from "lucide-react";
 import { GradientStat } from "./dashboard-extras";
 import { MoneyInsights } from "./money-insights";
+import { SafeToSpendHero } from "./money/safe-to-spend-hero";
 import { ConnectEmptyState } from "./connect-empty-state";
 import { fetchJson } from "@/lib/fetch-json";
 import { Card } from "./ui/primitives";
@@ -76,6 +77,10 @@ export function MoneyDashboard() {
 
   return (
     <div className="space-y-5">
+      {/* MV1: Safe-to-Spend hero — the decision-first daily number (MV5 finishes
+          the full reorder; this leads the page). */}
+      <SafeToSpendHero />
+
       {/* Top: connected accounts + balances */}
       <div className="space-y-2">
         <div className="flex items-center justify-between">

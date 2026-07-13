@@ -1,6 +1,7 @@
 import { serviceClient } from "@/lib/service-client";
 import { createNotification } from "@/lib/notifications";
 import { detectRecurring, type RecurringTxn } from "./detect";
+import { nextExpectedFor } from "@/lib/money/safe-to-spend";
 
 // =============================================================================
 // F6 nightly recompute. Cross-user, service-role. For each user with
@@ -44,7 +45,10 @@ export async function runRecurring(nowMs = Date.now()): Promise<RecurringRunResu
         const status = prior?.status === "dismissed" ? "dismissed" : "active";
         await db.from("recurring_charges").upsert({
           user_id: userId, merchant: c.merchant, cadence: c.cadence, avg_amount: c.avgAmount,
-          last_amount: c.lastAmount, last_seen: c.lastSeen, status, updated_at: new Date(nowMs).toISOString(),
+          last_amount: c.lastAmount, last_seen: c.lastSeen,
+          // MV1: predicted next occurrence (last_seen + cadence) for Safe-to-Spend.
+          next_expected: c.lastSeen ? nextExpectedFor(c.lastSeen, c.cadence) : null,
+          status, updated_at: new Date(nowMs).toISOString(),
         }, { onConflict: "user_id,merchant" });
 
         if (status === "dismissed") continue;

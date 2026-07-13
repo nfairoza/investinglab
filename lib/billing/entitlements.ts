@@ -11,13 +11,19 @@ export type Plan = "free" | "premium" | "pro";
 export type Feature =
   | "etf_lookthrough"   // ETF look-through toggle + insight (Premium)
   | "pt_flow_views"     // Power Trades flow views (Premium)
-  | "pt_cluster_alerts"; // Real-time insider-cluster alerts (Pro)
+  | "pt_cluster_alerts" // Real-time insider-cluster alerts (Pro)
+  | "safe_to_spend"     // Money V2 Safe-to-Spend hero (Premium)
+  | "money_targets"     // Money V2 category targets (Premium)
+  | "money_goals";      // Money V2 savings goals (Premium)
 
 // The minimum plan each feature requires.
 const FEATURE_MIN_PLAN: Record<Feature, Plan> = {
   etf_lookthrough: "premium",
   pt_flow_views: "premium",
   pt_cluster_alerts: "pro",
+  safe_to_spend: "premium",
+  money_targets: "premium",
+  money_goals: "premium",
 };
 
 const PLAN_RANK: Record<Plan, number> = { free: 0, premium: 1, pro: 2 };
