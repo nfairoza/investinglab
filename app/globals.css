@@ -422,6 +422,21 @@ a, button, input, select, textarea {
 .content-in { animation: contentIn var(--dur-base) var(--ease-out) both; }
 @keyframes contentIn { from { opacity: 0; } to { opacity: 1; } }
 
+/* SMOOTH S3 — View Transitions API crossfade between pages (progressive
+   enhancement; only fires where document.startViewTransition exists, driven by
+   components/view-transitions.tsx). A 150ms opacity crossfade replaces the
+   white-flash remount. The default VT slide/scale is disabled — a pure fade reads
+   as "smooth" without fighting the page's own entrance animation. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: var(--dur-fast);
+  animation-timing-function: var(--ease-out);
+}
+::view-transition-old(root) { animation-name: vtFadeOut; }
+::view-transition-new(root) { animation-name: vtFadeIn; }
+@keyframes vtFadeOut { to { opacity: 0; } }
+@keyframes vtFadeIn { from { opacity: 0; } }
+
 /* MO3.7 Positive/negative tick flash — a tint layer's opacity blips, then settles
    (no background jump). Add .tick-up / .tick-down for one cycle via a keyed remount
    or toggling the class. */
