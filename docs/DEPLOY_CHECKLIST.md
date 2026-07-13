@@ -26,6 +26,7 @@ brokerage" instead of surfacing the error.)
    - `0030_insight_outcomes.sql` — Insights Engine closure loop / trust ledger
    - `0031_chat_memory.sql` — Rukmani chat memory (C5) + admin audit log (C1)
    - `0032_push_subscriptions.sql` — M1.2 web push subscriptions
+   - `0033_ai_usage_feature.sql` — AIEFF4: per-feature AI cost attribution (adds `feature` label to ai_usage + backfills from `task`)
 2. **Set new env vars** in Vercel (and locally in `.env.local`):
    - `SECRETS_ENCRYPTION_KEY` — 32-byte base64 (`openssl rand -base64 32`).
      Required for P1 encryption; without it, keys/tokens fall back to plaintext.

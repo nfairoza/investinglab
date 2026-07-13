@@ -104,7 +104,7 @@ Return JSON exactly:
 async function narrate(result: AdvisorResult): Promise<{ narration: any; model: string | null }> {
   if (!resolveApiKey() && !geminiKey()) return { narration: null, model: null };
   try {
-    const { text, model } = await routeText({ task: "chat-analysis", system: SYSTEM, user: buildPrompt(result), maxTokens: 1800 });
+    const { text, model } = await routeText({ task: "chat-analysis", feature: "advisor", system: SYSTEM, user: buildPrompt(result), maxTokens: 1800 });
     const cleaned = text.replace(/```json|```/g, "").trim();
     const start = cleaned.indexOf("{"); const end = cleaned.lastIndexOf("}");
     const narration = JSON.parse(start !== -1 && end !== -1 ? cleaned.slice(start, end + 1) : cleaned);

@@ -127,7 +127,7 @@ export async function POST(req: NextRequest) {
         } catch (e) {
           emitText(controller, "\n\n" + aiErrorMessage(clientCtx.isAdmin ?? false, e instanceof Error ? e.message : "chat failed"));
         } finally {
-          void logAiUsage({ task: "chat-analysis", provider: "claude", model: plan.claudeModel, inputTokens: inTok, outputTokens: outTok, latencyMs: 0, ok: true, userId: session?.userId ?? null, estimated: false });
+          void logAiUsage({ task: "chat-analysis", feature: "chat", provider: "claude", model: plan.claudeModel, inputTokens: inTok, outputTokens: outTok, latencyMs: 0, ok: true, userId: session?.userId ?? null, estimated: false });
           controller.close();
         }
       },
@@ -168,7 +168,7 @@ export async function POST(req: NextRequest) {
           }
         }
       } finally {
-        void logAiUsage({ task: "chat-analysis", provider: "gemini", model: plan.geminiModel, inputTokens: approxTokens(system + recent.map((m) => m.content).join("\n")), outputTokens: approxTokens(outText), latencyMs: 0, ok: true, userId: session?.userId ?? null, estimated: true });
+        void logAiUsage({ task: "chat-analysis", feature: "chat", provider: "gemini", model: plan.geminiModel, inputTokens: approxTokens(system + recent.map((m) => m.content).join("\n")), outputTokens: approxTokens(outText), latencyMs: 0, ok: true, userId: session?.userId ?? null, estimated: true });
         controller.close();
       }
     },

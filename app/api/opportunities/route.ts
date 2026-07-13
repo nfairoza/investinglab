@@ -109,6 +109,7 @@ async function generate(cashInfo: { total: number; bank: number; investment: num
   To deploy more than this, you must first TRIM/SELL holdings to raise cash, and say so.`;
   const { text, provider, model } = await routeText({
     task: "deep-analysis",
+    feature: "opportunities",
     system: SYSTEM,
     user: buildPrompt(cashLines, holdings, watchlist, congressBlock),
     maxTokens: 4096,

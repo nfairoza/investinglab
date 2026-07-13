@@ -268,7 +268,7 @@ export async function POST(req: NextRequest) {
 
   async function getText(): Promise<{ text: string; ai: "claude" | "gemini"; usedModel: string }> {
     // Smart router: deep-analysis -> Opus 4.8 leads, Gemini Pro fallback.
-    const r = await routeText({ task: "deep-analysis", system: SYSTEM, user: prompt, maxTokens: 8000, webSearch: true });
+    const r = await routeText({ task: "deep-analysis", feature: "doctor", system: SYSTEM, user: prompt, maxTokens: 8000, webSearch: true });
     return { text: r.text, ai: r.provider, usedModel: r.model };
   }
 
@@ -280,6 +280,7 @@ export async function POST(req: NextRequest) {
     // Route as "structured" (Gemini Pro leads — best at clean JSON), no web search.
     const r = await routeText({
       task: "structured",
+      feature: "doctor",
       system: "You repair malformed JSON. Output strict, valid, complete JSON only.",
       user: repairPrompt,
       maxTokens: 8000,

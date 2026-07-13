@@ -113,7 +113,7 @@ export async function rankPresets(force = false): Promise<RankingResult> {
     const catalog = PRESETS.map((p) => `${p.key} | ${p.label} | ${p.category} | ${p.blurb}`).join("\n");
     const system = "You are a markets analyst choosing which stock-screener presets are most relevant TODAY for a general investing audience, given current market conditions. Favor presets that fit what is working now, keep a balanced mix, and put broadly useful presets near the top and niche/speculative ones lower. Respond ONLY with JSON.";
     const user = `Current market snapshot (live screen counts):\n${marketNote}\n\nAvailable presets (key | label | category | blurb):\n${catalog}\n\nReturn JSON: { "rankedKeys": ["key1","key2", ... all keys, best first], "rationale": "one sentence on why these are emphasized today" }. Use ONLY keys from the list. Include every key exactly once.`;
-    const res = await routeText({ task: "structured", system, user, maxTokens: 2000 });
+    const res = await routeText({ task: "structured", feature: "screener-ranking", system, user, maxTokens: 2000 });
     const parsed = parseLooseJson(res.text) as { rankedKeys?: string[]; rationale?: string };
     const valid = (parsed.rankedKeys ?? []).filter((k) => PRESET_KEYS.includes(k));
     if (valid.length >= Math.floor(PRESET_KEYS.length / 2)) {

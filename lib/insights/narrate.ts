@@ -87,6 +87,7 @@ export async function narrate(insight: StructuredInsight | StoredInsight): Promi
   try {
     const res = await routeText({
       task: "light",
+      feature: "insights-narration",
       system: SYSTEM,
       user: `Template headline: ${tmpl.headline}\nTemplate body: ${tmpl.body}\nRewrite both, keeping every {placeholder}. Reply as: HEADLINE: ...\\nBODY: ...`,
       maxTokens: 200,

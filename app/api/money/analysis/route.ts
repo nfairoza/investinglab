@@ -64,7 +64,7 @@ async function generate(ctx: NonNullable<Awaited<ReturnType<typeof getUserClient
     return { analysis: null, advisorMeta: { liquidCash: advisor.liquidCash }, model: null, generatedAt: new Date().toISOString() };
   }
   try {
-    const { text, model } = await routeText({ task: "chat-analysis", system: SYSTEM, user: buildPrompt(advisor, insights), maxTokens: 1500 });
+    const { text, model } = await routeText({ task: "chat-analysis", feature: "money-analysis", system: SYSTEM, user: buildPrompt(advisor, insights), maxTokens: 1500 });
     const cleaned = text.replace(/```json|```/g, "").trim();
     const start = cleaned.indexOf("{"); const end = cleaned.lastIndexOf("}");
     const analysis = JSON.parse(start !== -1 && end !== -1 ? cleaned.slice(start, end + 1) : cleaned);

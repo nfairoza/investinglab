@@ -112,7 +112,7 @@ Produce JSON with this exact shape:
 Return ONLY the JSON.`;
 
   // Smart router with web search: deep-analysis -> Opus leads, Gemini fallback.
-  const { text } = await routeText({ task: "deep-analysis", system: SYSTEM, user, maxTokens: 4096, webSearch: true });
+  const { text } = await routeText({ task: "deep-analysis", feature: "research", system: SYSTEM, user, maxTokens: 4096, webSearch: true });
   const s = text.indexOf("{");
   const e = text.lastIndexOf("}");
   return JSON.parse(text.slice(s, e + 1)) as Partial<ResearchReport>;
@@ -190,6 +190,7 @@ DCF: ${JSON.stringify(dcf.data ?? "unavailable")}`;
       // web search, Gemini Pro fallback.
       const { text: raw, provider: prov, model: usedModel } = await routeText({
         task: "deep-analysis",
+        feature: "research",
         system: SYSTEM,
         user: buildUserPrompt(symbol, JSON.stringify(quote.data), JSON.stringify(fin.data ?? null)) + "\n\n" + extra,
         maxTokens: 4096,

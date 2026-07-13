@@ -117,6 +117,7 @@ export async function routeText(opts: {
   webSearch?: boolean;
   strategy?: Strategy;
   userId?: string | null;   // best-effort attribution for cost tracking (P6.3)
+  feature?: string;         // product surface for per-feature cost attribution (AIEFF4)
 }): Promise<RouteResult> {
   // Load persisted (encrypted) AI + connector keys into memory on a cold
   // serverless instance before resolving which providers are available.
@@ -143,15 +144,15 @@ export async function routeText(opts: {
     try {
       if (provider === "claude") {
         const { text, inputTokens, outputTokens } = await callClaudeModel({ system: opts.system, user: opts.user, model: plan.claudeModel, maxTokens: opts.maxTokens, webSearch: opts.webSearch });
-        void logAiUsage({ task: opts.task, provider: "claude", model, inputTokens, outputTokens, latencyMs: nowMs() - startedAt, ok: true, userId: opts.userId, estimated: false });
+        void logAiUsage({ task: opts.task, feature: opts.feature, provider: "claude", model, inputTokens, outputTokens, latencyMs: nowMs() - startedAt, ok: true, userId: opts.userId, estimated: false });
         return { text, provider: "claude", model: plan.claudeModel, plan };
       } else {
         const text = await callGemini({ system: opts.system, user: opts.user, webSearch: opts.webSearch, model: plan.geminiModel });
-        void logAiUsage({ task: opts.task, provider: "gemini", model, inputTokens: promptTokens, outputTokens: approxTokens(text), latencyMs: nowMs() - startedAt, ok: true, userId: opts.userId, estimated: true });
+        void logAiUsage({ task: opts.task, feature: opts.feature, provider: "gemini", model, inputTokens: promptTokens, outputTokens: approxTokens(text), latencyMs: nowMs() - startedAt, ok: true, userId: opts.userId, estimated: true });
         return { text, provider: "gemini", model: plan.geminiModel, plan };
       }
     } catch (e) {
-      void logAiUsage({ task: opts.task, provider, model, inputTokens: promptTokens, outputTokens: 0, latencyMs: nowMs() - startedAt, ok: false, userId: opts.userId, estimated: true });
+      void logAiUsage({ task: opts.task, feature: opts.feature, provider, model, inputTokens: promptTokens, outputTokens: 0, latencyMs: nowMs() - startedAt, ok: false, userId: opts.userId, estimated: true });
       lastErr = e;
       // Only fall through to the other provider on a network/connectivity error
       // (an auth/4xx error would just fail again and waste a call). On the last

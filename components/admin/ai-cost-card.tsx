@@ -6,8 +6,8 @@ import { fetchJson } from "@/lib/fetch-json";
 import { ErrorState } from "../data-state";
 import { Skeleton, Card } from "../ui/primitives";
 
-interface ProviderStat { calls: number; costUsd: number }
-interface Bucket { calls: number; costUsd: number; byProvider: Record<string, ProviderStat> }
+interface Stat { calls: number; costUsd: number }
+interface Bucket { calls: number; costUsd: number; byProvider: Record<string, Stat>; byFeature?: Record<string, Stat> }
 interface Usage { day: Bucket; week: Bucket }
 
 const usd = (n: number) => `$${n.toFixed(2)}`;
@@ -42,6 +42,22 @@ export function AiCostCard() {
                       {prov}: {s.calls} · {usd(s.costUsd)}
                     </span>
                   ))}
+                </div>
+              )}
+              {/* Per-feature spend (AIEFF4) — mirrors the /connectors per-feature FMP
+                  strip so a token leak in one surface shows as a line item. */}
+              {b.byFeature && Object.entries(b.byFeature).length > 0 && (
+                <div className="mt-2 border-t border-hairline pt-2">
+                  <div className="mb-1 text-[10px] uppercase tracking-wide text-ink-faint">By feature</div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {Object.entries(b.byFeature)
+                      .sort((a, c) => c[1].costUsd - a[1].costUsd || c[1].calls - a[1].calls)
+                      .map(([feat, s]) => (
+                        <span key={feat} className="rounded-md border border-hairline px-2 py-0.5 text-[11px] text-ink-dim">
+                          {feat}: {s.calls} · {usd(s.costUsd)}
+                        </span>
+                      ))}
+                  </div>
                 </div>
               )}
             </div>

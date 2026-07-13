@@ -54,7 +54,7 @@ async function aiEnrich(
   try {
     // Smart router: thesis + estimated options read is deep analysis -> Opus
     // leads, Gemini fallback, with web search.
-    const { text, provider, model } = await routeText({ task: "deep-analysis", system, user, maxTokens: 3000, webSearch: true });
+    const { text, provider, model } = await routeText({ task: "deep-analysis", feature: "congress-alpha", system, user, maxTokens: 3000, webSearch: true });
     const cleaned = text.replace(/```json|```/g, "").trim();
     const start = cleaned.indexOf("[");
     const end = cleaned.lastIndexOf("]");

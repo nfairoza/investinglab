@@ -5,6 +5,11 @@ import { serviceClient } from "@/lib/service-client";
 
 export interface AiUsageEntry {
   task: string;
+  // Product surface that originated the call (chat, research, enrich, advisor,
+  // insights-narration, congress-alpha, watchlist-recs, predict, doctor,
+  // opportunities, strategy, money-analysis, alerts-suggest). Lets the admin
+  // dashboard attribute spend per feature instead of only per router `task`.
+  feature?: string | null;
   provider: "claude" | "gemini";
   model: string;
   inputTokens: number | null;
@@ -43,6 +48,7 @@ export async function logAiUsage(e: AiUsageEntry): Promise<void> {
     if (!db) return;
     await db.from("ai_usage").insert({
       task: e.task,
+      feature: e.feature ?? e.task,
       provider: e.provider,
       model: e.model,
       input_tokens: e.inputTokens,

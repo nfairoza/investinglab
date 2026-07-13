@@ -83,6 +83,7 @@ export async function POST() {
   try {
     const { text, provider, model } = await routeText({
       task: "light", // short suggestion list — no deep reasoning needed; cheap/fast model
+      feature: "alerts-suggest",
       system: SYSTEM,
       user: buildPrompt(holdingSyms, watchlist),
       maxTokens: 3072,

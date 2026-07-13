@@ -160,6 +160,7 @@ export async function POST(req: NextRequest) {
     // Smart router: deep-analysis -> Opus 4.8 leads, Gemini Pro fallback.
     const { text, provider, model: usedModel } = await routeText({
       task: "deep-analysis",
+      feature: "predict",
       system: SYSTEM,
       user: prompt,
       maxTokens: 4096,
