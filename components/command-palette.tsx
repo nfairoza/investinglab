@@ -6,6 +6,7 @@ import useSWR from "swr";
 import { Search, CornerDownLeft } from "lucide-react";
 import type { SymbolMatch } from "@/app/api/search/route";
 import { OVERVIEW, SECTIONS, ADMIN_SECTION, SECONDARY_PAGES, SETUP_PAGES } from "@/lib/nav";
+import { prefetchHref, prefetchSymbol } from "@/lib/use-prefetch";
 
 interface PageEntry { label: string; href: string; group: string; keywords?: string }
 
@@ -134,7 +135,7 @@ export function CommandPalette() {
           {options.map((o, i) => (
             <li key={o.key}>
               <button
-                onMouseEnter={() => setActive(i)}
+                onMouseEnter={() => { setActive(i); if (o.type === "symbol") prefetchSymbol(o.primary); else prefetchHref(o.href); }}
                 onClick={() => go(o.href)}
                 className={`flex w-full items-center justify-between gap-3 px-4 py-2.5 text-left text-sm transition-colors ${
                   i === active ? "bg-accent-soft text-ink" : "text-ink-dim hover:bg-surface"

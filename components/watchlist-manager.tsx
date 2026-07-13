@@ -9,6 +9,7 @@ import { Sparkline } from "./charts/Sparkline";
 import { ArtImage } from "./ui/art-image";
 import type { DataResult, Quote } from "@/lib/providers/types";
 import type { WatchItem } from "@/lib/db";
+import { prefetchSymbol } from "@/lib/use-prefetch";
 
 async function fetchJson<T>(url: string): Promise<T> {
   const r = await fetch(url);
@@ -325,6 +326,7 @@ export function WatchlistManager({ listId }: { listId?: string } = {}) {
                       {/* Actions */}
                       <div className="flex shrink-0 items-center justify-end gap-0.5 sm:w-32" onClick={(e) => e.stopPropagation()}>
                         <a href={`/research?symbol=${w.symbol}`} title={`Research ${w.symbol}`}
+                          onPointerEnter={() => prefetchSymbol(w.symbol)}
                           className="rounded p-1 text-ink-faint hover:bg-surface hover:text-brand-300"><ExternalLink size={14} /></a>
                         <button onClick={() => analyze(w.id, Boolean(w.analyzedAt))} disabled={busy} title={w.analyzedAt ? "Re-analyze (force fresh AI analysis)" : "Run AI analysis"}
                           className="ml-1 inline-flex items-center gap-1 rounded-md border border-brand-500/50 bg-brand-500/10 px-2 py-1 text-[11px] font-medium text-brand-300 hover:bg-brand-500/20 disabled:opacity-70">

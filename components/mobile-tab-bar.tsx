@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import clsx from "clsx";
 import { MOBILE_TABS } from "@/lib/nav";
+import { prefetchHref } from "@/lib/use-prefetch";
 
 // Bottom tab bar (phones only): the 5 primary IA destinations —
 // Home · Portfolio · Research · Power · Money. Sourced from lib/nav MOBILE_TABS
@@ -28,6 +29,8 @@ export function MobileTabBar() {
           <Link
             key={t.href}
             href={t.href}
+            onPointerEnter={() => prefetchHref(t.href)}
+            onTouchStart={() => prefetchHref(t.href)}
             className={clsx(
               "flex min-h-[44px] flex-1 flex-col items-center justify-center gap-0.5 py-2 text-[10px] font-medium transition-colors",
               active ? "text-ink" : "text-ink-faint",

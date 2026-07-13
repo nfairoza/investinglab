@@ -12,6 +12,7 @@ import { TopSearch } from "./top-search";
 import { useAlertsBadge } from "./use-alerts-badge";
 import { useSidebarCollapsed } from "./use-sidebar";
 import { OVERVIEW, SECTIONS, isPathActive } from "@/lib/nav";
+import { usePrefetch } from "@/lib/use-prefetch";
 
 // Desktop sidebar nav, driven by the four-section IA in lib/nav.ts:
 // Overview · Invest (flagship) · Money · Insights. Admin tools live in the
@@ -35,34 +36,43 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
         <div key={group.label || `g${gi}`}>
           {group.label && <div className="px-3 pb-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-ink-faint">{group.label}</div>}
           <div className="space-y-0.5">
-            {items.map(({ href, label, icon: Icon }) => {
-              const active = isPathActive(path ?? "/", href);
-              return (
-                <Link
-                  key={href}
-                  href={href}
-                  onClick={onNavigate}
-                  className={clsx(
-                    "group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-all duration-200",
-                    active ? "font-semibold" : "text-ink-dim hover:text-ink hover:translate-x-0.5",
-                  )}
-                  style={active ? { background: "var(--nav-active)", color: "var(--nav-active-fg)", boxShadow: "var(--nav-active-glow)" } : undefined}
-                >
-                  <span className="relative">
-                    <Icon size={16} className={clsx("transition-transform duration-200 group-hover:scale-110", !active && "text-ink-faint")} style={active ? { color: "var(--nav-active-fg)" } : undefined} />
-                    {href === "/alerts" && alertsNew && (
-                      <span className="absolute -right-1 -top-0.5 h-2 w-2 rounded-full bg-rose-500" />
-                    )}
-                  </span>
-                  {label}
-                </Link>
-              );
-            })}
+            {items.map(({ href, label, icon: Icon }) => (
+              <NavLink key={href} href={href} label={label} Icon={Icon}
+                active={isPathActive(path ?? "/", href)} alertsNew={alertsNew} onNavigate={onNavigate} />
+            ))}
           </div>
         </div>
         );
       })}
     </nav>
+  );
+}
+
+// A single nav row. Split out so it can call the usePrefetch hook (warms the
+// destination's cache-backed keys on hover/touch → zero-skeleton navigation).
+function NavLink({ href, label, Icon, active, alertsNew, onNavigate }: {
+  href: string; label: string; Icon: typeof Search; active: boolean; alertsNew: boolean; onNavigate?: () => void;
+}) {
+  const prefetch = usePrefetch(href);
+  return (
+    <Link
+      href={href}
+      onClick={onNavigate}
+      {...prefetch}
+      className={clsx(
+        "group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-all duration-200",
+        active ? "font-semibold" : "text-ink-dim hover:text-ink hover:translate-x-0.5",
+      )}
+      style={active ? { background: "var(--nav-active)", color: "var(--nav-active-fg)", boxShadow: "var(--nav-active-glow)" } : undefined}
+    >
+      <span className="relative">
+        <Icon size={16} className={clsx("transition-transform duration-200 group-hover:scale-110", !active && "text-ink-faint")} style={active ? { color: "var(--nav-active-fg)" } : undefined} />
+        {href === "/alerts" && alertsNew && (
+          <span className="absolute -right-1 -top-0.5 h-2 w-2 rounded-full bg-rose-500" />
+        )}
+      </span>
+      {label}
+    </Link>
   );
 }
 

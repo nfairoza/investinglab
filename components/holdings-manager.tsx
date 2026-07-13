@@ -11,6 +11,7 @@ import { useIsAdmin } from "./use-is-admin";
 import { Sparkline } from "./charts/Sparkline";
 import type { DataResult, Quote } from "@/lib/providers/types";
 import type { Holding } from "@/lib/db";
+import { prefetchSymbol } from "@/lib/use-prefetch";
 
 // Human label for a holding's source: "Manual", "E*TRADE", or the (already
 // shortened) institution label. Used as quiet ink-faint text — no filled pill.
@@ -591,7 +592,7 @@ export function HoldingsManager() {
                     <React.Fragment key={`grp-${g.symbol}`}>
                       <tr className="cursor-pointer hover:bg-surface" onClick={() => toggleExpand(g.symbol)} aria-expanded={open}>
                         <td className="px-3 py-2 font-medium">
-                          <Link href={`/holdings/${g.symbol}`} onClick={(e) => e.stopPropagation()} className="text-brand-400 hover:underline">{g.symbol}</Link>
+                          <Link href={`/holdings/${g.symbol}`} onClick={(e) => e.stopPropagation()} onPointerEnter={() => prefetchSymbol(g.symbol)} className="text-brand-400 hover:underline">{g.symbol}</Link>
                           <span className="ml-1.5 rounded bg-surface-raised px-1 text-[9px] text-ink-faint">{g.rows.length} accounts</span>
                         </td>
                         <td className="px-3 py-2">
@@ -663,7 +664,7 @@ export function HoldingsManager() {
               return (
               <div key={`${r.institution}:${r.symbol}`} className="flex items-center gap-3 py-2 text-sm">
                 <div className="min-w-0 flex-1">
-                  <Link href={`/research?symbol=${r.symbol}`} className="font-mono font-semibold text-brand-300 hover:underline">{r.symbol}</Link>
+                  <Link href={`/research?symbol=${r.symbol}`} onPointerEnter={() => prefetchSymbol(r.symbol)} className="font-mono font-semibold text-brand-300 hover:underline">{r.symbol}</Link>
                   <span className="ml-2 truncate text-xs text-ink-faint">{r.name ?? ""} · {r.institution}</span>
                   <div className="text-[11px] text-ink-faint">
                     {r.unvestedShares != null ? `${r.unvestedShares.toLocaleString(undefined, { maximumFractionDigits: 2 })} sh` : ""}

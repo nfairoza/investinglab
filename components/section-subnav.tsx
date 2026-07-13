@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import clsx from "clsx";
 import { sectionForPath, isPathActive } from "@/lib/nav";
+import { prefetchHref } from "@/lib/use-prefetch";
 
 // Sub-navigation for the active section (Invest gets the richest one). Shown
 // under the top bar; horizontally scrollable on phones so every sub-area is one
@@ -21,6 +22,8 @@ export function SectionSubnav() {
           const active = isPathActive(path, href);
           return (
             <Link key={href} href={href}
+              onPointerEnter={() => prefetchHref(href)}
+              onTouchStart={() => prefetchHref(href)}
               className={clsx(
                 "flex shrink-0 items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
                 active ? "tab-active" : "text-ink-dim hover:bg-surface hover:text-ink",
