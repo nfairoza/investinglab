@@ -1,7 +1,7 @@
 import {
   LayoutDashboard, Wallet, Eye, NotebookPen, Search, Grid3x3, Trophy,
   Stethoscope, TrendingUp, Landmark, Receipt, PieChart, Sparkles, Bell,
-  Plug, Coins, HeartPulse, ShieldAlert, AlertTriangle, Filter, Scale, HelpCircle, Lightbulb, Repeat, type LucideIcon,
+  Plug, Coins, HeartPulse, ShieldAlert, AlertTriangle, Filter, Scale, HelpCircle, Lightbulb, Repeat, Target, type LucideIcon,
 } from "lucide-react";
 
 // =============================================================================
@@ -72,6 +72,7 @@ export const SECTIONS: NavSection[] = [
       { href: "/accounts", label: "Accounts", icon: Landmark },
       { href: "/transactions", label: "Transactions", icon: Receipt },
       { href: "/spending", label: "Spending", icon: PieChart },
+      { href: "/goals", label: "Goals", icon: Target },
       { href: "/recurring", label: "Recurring", icon: Repeat },
       { href: "/insights", label: "Insights", icon: Lightbulb },
       { href: "/networth", label: "Net worth", icon: Scale },
@@ -109,7 +110,7 @@ export const MOBILE_TABS: MobileTab[] = [
   { href: "/holdings", label: "Portfolio", icon: Wallet, match: ["/holdings", "/watchlist", "/income", "/portfolio-doctor", "/journal"] },
   { href: "/research", label: "Research", icon: Search, match: ["/research", "/screeners", "/rankings", "/map", "/predictions"] },
   { href: "/power-trades", label: "Power", icon: Landmark, match: ["/power-trades"] },
-  { href: "/money", label: "Money", icon: Coins, match: ["/money", "/accounts", "/transactions", "/spending", "/recurring", "/insights", "/networth", "/accounts-doctor"] },
+  { href: "/money", label: "Money", icon: Coins, match: ["/money", "/accounts", "/transactions", "/spending", "/goals", "/recurring", "/insights", "/networth", "/accounts-doctor"] },
 ];
 
 // Flat list of every user-facing page (primary sections + secondary + setup),

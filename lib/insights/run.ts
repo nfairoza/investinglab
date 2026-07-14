@@ -4,6 +4,8 @@ import { buildLedger } from "./ledger/build";
 import { generateInsights, dedupe } from "./generators";
 import { detectConcentration, detectLookthroughConcentration, type PricedHolding } from "./generators/concentration";
 import { detectTargetPace, detectTargetMonthResult, type TargetInput } from "./generators/targets";
+import { detectGoalDrift, type GoalRow } from "./generators/goals";
+import { trailingFundingRate } from "@/lib/money/goals";
 import { detectClosures, type PriorOpenInsight } from "./closure";
 import { loadLedgerInputs, writeLedger, writeInsights, loadPriorInsights } from "./persist";
 
@@ -68,6 +70,22 @@ export async function runInsightsBuild(opts: { sliceSize?: number; nowMs?: numbe
         }
         fresh.push(...detectTargetPace(ledger, targets, new Date(nowMs)));
         fresh.push(...detectTargetMonthResult(ledger, targets, {}, new Date(nowMs)));
+      }
+
+      // MV3: goal-drift. Project each active goal on the trailing 3-month savings
+      // flow; fire when a dated goal is materially late with a concrete lever.
+      const { data: goalRows } = await db.from("goals").select("id, name, target_amount, target_date, linked_kind, account_id").eq("user_id", userId).eq("status", "active");
+      if (goalRows && goalRows.length) {
+        const funding = trailingFundingRate(ledger.months.map((m) => m.savingsFlow), 3);
+        const savingsBalance = ledger.balances.filter((b) => b.isLiquid).reduce((s, b) => s + (b.current || 0), 0);
+        const goals: GoalRow[] = goalRows.map((g: any) => {
+          const investmentLinked = g.linked_kind === "account";
+          const currentAmount = investmentLinked && g.account_id
+            ? (ledger.balances.find((b) => b.accountId === g.account_id)?.current ?? 0)
+            : Math.min(savingsBalance, Number(g.target_amount));
+          return { id: String(g.id), name: String(g.name), targetAmount: Number(g.target_amount), targetDate: g.target_date ?? null, currentAmount };
+        });
+        fresh.push(...detectGoalDrift(goals, funding, new Date(nowMs).toISOString().slice(0, 10)));
       }
 
       // F8: concentration insight from holdings (cost-basis value as a call-free

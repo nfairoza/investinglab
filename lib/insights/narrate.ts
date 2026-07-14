@@ -59,6 +59,8 @@ export function templateFor(kind: string): { headline: string; body: string } {
       return { headline: "{category} is running past your target", body: "You're on track to spend about {projected} on {category} this month — roughly {over} over your {target} target. Worth a look if it wasn't planned." };
     case "target_month_result":
       return { headline: "{category} last month vs your target", body: "You spent {spent} against your {target} target for {category} — a difference of {delta}. Small, steady wins add up." };
+    case "goal_drift":
+      return { headline: "{name} is drifting off pace", body: "At your recent saving rate, {name} is tracking about {monthsLate} months past your target date. Adding {extra} a month would put it back on schedule — only if it feels doable." };
     default:
       return { headline: "A money note for you", body: "There's something worth a look in your accounts." };
   }
