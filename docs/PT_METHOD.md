@@ -84,6 +84,21 @@ issuer** within a rolling **30-day** window. Multiple independent insiders buyin
 is the most robust insider signal in the research literature; still, treat it as
 one input, not a recommendation.
 
+## PT6 — Flow views & portfolio overlap
+
+**Flow** aggregates the last 90 days of congressional buys/sells into net buying
+by sector (a heatmap) and the top net-bought / net-sold tickers, filterable by
+chamber and party. Because disclosed amounts are **bands**, aggregate net flow is
+weighted by the **band midpoint** — the only consistent way to sum ranges. This
+midpoint is **internal weighting only**; every trade row in the app still shows
+the disclosed band, never a fabricated midpoint. Built by a cron into a cache;
+each view carries its `asOf`.
+
+**Portfolio overlap** ("people you follow traded stocks you own") is computed per
+user from your own follows × holdings × recent trades — all local, no market
+data. It also arrives as a governed `power_overlap` insight so it flows into the
+Home cards and weekly digest under the standard frequency cap.
+
 ## What we deliberately do NOT do
 
 - No paid data (no Quiver, no 13F institutional feed) — all of the above is from

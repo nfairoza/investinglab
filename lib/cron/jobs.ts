@@ -13,6 +13,7 @@ import { runPtTrackRecords } from "@/lib/power-trades/track-run";
 import { runPtCommitteeFlags } from "@/lib/power-trades/flags-run";
 import { runInsiderClusters } from "@/lib/power-trades/clusters-run";
 import { runRatesRefresh } from "@/lib/money/rates";
+import { runPtFlow } from "@/lib/power-trades/flow-run";
 
 // The job registry. Each job owns its cadence; the dispatcher (/api/cron/tick)
 // runs whatever is due on each tick, so ANY external trigger interval works.
@@ -151,6 +152,15 @@ export const JOBS: CronJob[] = [
     id: "insider-cluster",
     everyMinutes: 24 * 60,
     run: async () => { const r = await runInsiderClusters(); return { ok: true, note: `${r.clusters} clusters / ${r.buys} buys, ${r.notified} notified` }; },
+  },
+  {
+    // PT6: flow build. Aggregate the last 90 days of congressional trades into
+    // net-buying-by-sector + top net-bought/sold tickers and cache in server_cache.
+    // The API filters (chamber/party) + aggregates on read from the cached raw set.
+    // Global; refreshed a few times a day (disclosures are daily-ish).
+    id: "pt-flow",
+    everyMinutes: 6 * 60,
+    run: async () => { const r = await runPtFlow(); return { ok: r.ok, note: r.note }; },
   },
   {
     // F1: after Power Trades data refreshes, notify followers of new filings from

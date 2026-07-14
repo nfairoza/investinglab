@@ -2,20 +2,22 @@
 
 import { useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { Landmark, Users, FileText, Layers, ShieldCheck, Coins, Star, Boxes } from "lucide-react";
+import { Landmark, Users, FileText, Layers, ShieldCheck, Coins, Star, Boxes, Activity } from "lucide-react";
 import { CongressAlphaFeed } from "@/components/congress-alpha-feed";
 import { PeopleDirectory } from "./people-directory";
 import { FollowingTab } from "./following-tab";
 import { RawDisclosures } from "./raw-disclosures";
 import { ClustersTab } from "./clusters-tab";
+import { FlowTab } from "./flow-tab";
+import { OverlapCard } from "./overlap-card";
 import { InfluenceContext } from "./influence-context";
 import { SourceCoverage } from "./source-coverage";
 import { SourceDiagnostics } from "./source-diagnostics";
 import { useIsAdmin } from "@/components/use-is-admin";
 
-type Tab = "alpha" | "people" | "following" | "raw" | "clusters" | "influence" | "coverage" | "diagnostics";
+type Tab = "alpha" | "people" | "following" | "raw" | "clusters" | "flow" | "influence" | "coverage" | "diagnostics";
 
-const TAB_KEYS: Tab[] = ["alpha", "people", "following", "raw", "clusters", "influence", "coverage", "diagnostics"];
+const TAB_KEYS: Tab[] = ["alpha", "people", "following", "raw", "clusters", "flow", "influence", "coverage", "diagnostics"];
 
 export function PowerTradesTabs() {
   const isAdmin = useIsAdmin();
@@ -30,6 +32,7 @@ export function PowerTradesTabs() {
     { key: "following", label: "Following", icon: Star },
     { key: "raw", label: "Raw Disclosures", icon: FileText },
     { key: "clusters", label: "Clusters", icon: Boxes },
+    { key: "flow", label: "Flow", icon: Activity },
     { key: "influence", label: "Influence Context", icon: Coins },
     { key: "coverage", label: "Source Coverage", icon: Layers },
     { key: "diagnostics", label: "Source Diagnostics", icon: ShieldCheck, adminOnly: true },
@@ -48,11 +51,16 @@ export function PowerTradesTabs() {
         ))}
       </div>
 
+      {/* PT6: portfolio overlap — self-hides when there's no follows ∩ holdings ∩
+          recent-trades. Always at the top so a match is never buried in a tab. */}
+      <OverlapCard />
+
       {tab === "alpha" && <CongressAlphaFeed />}
       {tab === "people" && <PeopleDirectory />}
       {tab === "following" && <FollowingTab />}
       {tab === "raw" && <RawDisclosures />}
       {tab === "clusters" && <ClustersTab />}
+      {tab === "flow" && <FlowTab />}
       {tab === "influence" && <InfluenceContext />}
       {tab === "coverage" && <SourceCoverage />}
       {tab === "diagnostics" && isAdmin && <SourceDiagnostics />}

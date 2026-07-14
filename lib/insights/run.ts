@@ -7,6 +7,8 @@ import { detectTargetPace, detectTargetMonthResult, type TargetInput } from "./g
 import { detectGoalDrift, type GoalRow } from "./generators/goals";
 import { trailingFundingRate } from "@/lib/money/goals";
 import { readCachedRate } from "@/lib/money/rates";
+import { detectPowerOverlap } from "./generators/power-overlap";
+import type { OverlapHolding, OverlapTrade } from "@/lib/power-trades/overlap";
 import { detectClosures, type PriorOpenInsight } from "./closure";
 import { loadLedgerInputs, writeLedger, writeInsights, loadPriorInsights } from "./persist";
 
@@ -92,6 +94,29 @@ export async function runInsightsBuild(opts: { sliceSize?: number; nowMs?: numbe
           return { id: String(g.id), name: String(g.name), targetAmount: Number(g.target_amount), targetDate: g.target_date ?? null, currentAmount };
         });
         fresh.push(...detectGoalDrift(goals, funding, new Date(nowMs).toISOString().slice(0, 10)));
+      }
+
+      // PT6: power-overlap. Someone this user follows traded a stock they hold.
+      // follows + holdings are per-user; recent followed-person trades come from
+      // the shared power_trade_records. All local — no API cost.
+      const { data: followRows } = await db.from("follows").select("person_name").eq("user_id", userId);
+      const followedNames = (followRows ?? []).map((r: any) => String(r.person_name)).filter(Boolean);
+      if (followedNames.length) {
+        const { data: ovHoldRows } = await db.from("holdings").select("symbol, shares, avg_cost").eq("user_id", userId);
+        const holdings: OverlapHolding[] = (ovHoldRows ?? [])
+          .map((h: any) => ({ symbol: String(h.symbol).toUpperCase(), value: (Number(h.shares) || 0) * (Number(h.avg_cost) || 0) }))
+          .filter((h: OverlapHolding) => h.value > 0);
+        if (holdings.length) {
+          const since = new Date(nowMs - 60 * 86_400_000).toISOString().slice(0, 10);
+          const { data: ptRows } = await db.from("power_trade_records")
+            .select("person_name, ticker, transaction_type, amount_label, disclosure_date")
+            .in("transaction_type", ["buy", "sell"]).not("ticker", "is", null).gte("disclosure_date", since).limit(5_000);
+          const recentTrades: OverlapTrade[] = (ptRows ?? []).map((t: any) => ({
+            personName: String(t.person_name), ticker: String(t.ticker), type: t.transaction_type,
+            amountLabel: t.amount_label ?? null, disclosureDate: t.disclosure_date ?? null,
+          }));
+          fresh.push(...detectPowerOverlap(followedNames, holdings, recentTrades));
+        }
       }
 
       // F8: concentration insight from holdings (cost-basis value as a call-free
