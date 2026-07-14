@@ -34,6 +34,7 @@ brokerage" instead of surfacing the error.)
    - `0038_power_trade_flags.sql` — PT4: per-trade committee-jurisdiction flag (ticker sector in the member's committee jurisdiction), filled by the nightly `pt-committee-flags` cron; the "⚖ Committee overlap" chip + filter read this table
    - `0039_insider_clusters.sql` — PT5: detected insider clusters (3+ insiders buying the same issuer within 30d, Form 4 code P), filled by the nightly `insider-cluster` cron; the Clusters tab reads this table + notifies holders/watchers
    - `0040_money_v2.sql` — Money V2: `recurring_charges.next_expected` (MV1 Safe-to-Spend), `money_prefs` (buffer), `category_targets` (MV2), `goals` (MV3). The recurring cron backfills `next_expected`; Safe-to-Spend reads it live
+   - MV4 live-rate grounding adds NO migration — the `rates-refresh` cron caches the FMP treasury rate in `server_cache` (24h) with its asOf; idle-cash/debt-arbitrage insights read it and degrade to generic phrasing if the FMP plan doesn't include `treasury-rates`
 2. **Set new env vars** in Vercel (and locally in `.env.local`):
    - `BILLING_ENABLED` / `NEXT_PUBLIC_BILLING_ENABLED` — (optional) set to `"1"` to
      turn on plan gating (ETF look-through = Premium, etc. — see docs/BILLING.md).

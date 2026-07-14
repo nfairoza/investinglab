@@ -822,6 +822,30 @@ function numOrNull(v: unknown): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+// ── Treasury rates (MV4 — live-rate grounding) ────────────────────────────────
+// A short-treasury / money-market proxy yield for the "money left on the table"
+// insights. FMP's `treasury-rates` is plan-tiered, so it reuses the ETF probe-
+// and-remember runner (24h memo on a 4xx). We surface the shortest available
+// tenor (1-month → 3-month → 1-year) as the cash-equivalent rate, with its date.
+export interface TreasuryRate { ratePct: number; tenor: string; asOf: string | null }
+
+export function getTreasuryRates(): Promise<DataResult<TreasuryRate>> {
+  return etfFetch<TreasuryRate>("treasury-rates", `treasury-rates`, (raw) => {
+    const row = Array.isArray(raw) ? raw[0] : raw; // newest-first
+    if (!row) return null;
+    // Prefer the shortest tenor present (closest to a money-market/HYSA proxy).
+    const candidates: { tenor: string; v: number | null }[] = [
+      { tenor: "1-month", v: numOrNull(row.month1) },
+      { tenor: "3-month", v: numOrNull(row.month3) },
+      { tenor: "6-month", v: numOrNull(row.month6) },
+      { tenor: "1-year", v: numOrNull(row.year1) },
+    ];
+    const hit = candidates.find((c) => c.v != null && c.v > 0);
+    if (!hit) return null;
+    return { ratePct: hit.v!, tenor: hit.tenor, asOf: row.date ?? null };
+  });
+}
+
 // ── Stock screener ───────────────────────────────────────────────────────────
 // Uses FMP's STABLE company-screener endpoint (verified against FMP docs). Maps
 // our ScreenerFilters to FMP's *MoreThan/*LowerThan query params. Reuses the

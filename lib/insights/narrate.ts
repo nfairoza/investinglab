@@ -21,12 +21,14 @@ export function assertNoNumerals(text: string): boolean {
 // Deterministic, number-free templates per kind. These ALWAYS pass the validator
 // (they contain no digits) and are the fallback when the LLM misbehaves or is
 // unavailable — the product never blocks on the AI.
-export function templateFor(kind: string): { headline: string; body: string } {
+export function templateFor(kind: string, slots: Record<string, number | string> = {}): { headline: string; body: string } {
   switch (kind) {
     case "pace_anomaly":
       return { headline: "Spending is running high in {category}", body: "You're on track to spend about {projected} on {category} this month — roughly {overPct}% above your usual {baseline}. Worth a look if it wasn't planned." };
     case "debt_vs_cash":
-      return { headline: "Idle cash could knock down your {card} balance", body: "You have {idle} sitting beyond your buffer while {card} charges {apr}%. Moving {payable} to it would save about {guaranteedAnnual} a year, guaranteed." };
+      return slots.cashRatePct != null
+        ? { headline: "Idle cash could knock down your {card} balance", body: "Your cash earns about {cashRatePct}% (as of {rateAsOf}) while {card} charges {apr}% — a {spreadPct}% gap. Moving {payable} to the card would save about {guaranteedAnnual} a year, guaranteed." }
+        : { headline: "Idle cash could knock down your {card} balance", body: "You have {idle} sitting beyond your buffer while {card} charges {apr}%. Moving {payable} to it would save about {guaranteedAnnual} a year, guaranteed." };
     case "interest_bleed":
       return { headline: "Card interest is adding up", body: "At current balances your cards are on pace to cost about {projectedAnnual} in interest this year, at a blended {weightedApr}%. Even a partial paydown trims it." };
     case "positive_spend_down":
@@ -40,7 +42,9 @@ export function templateFor(kind: string): { headline: string; body: string } {
     case "lookthrough-sector":
       return { headline: "You're more concentrated in {sector} than it looks", body: "{sector} is {directPct}% of your portfolio directly, but about {ltPct}% once your ETFs are counted through to what they hold. Just context on your real exposure." };
     case "idle_cash":
-      return { headline: "You have cash sitting idle", body: "About {idle} is beyond your safety buffer. Some people keep spare cash in a high-yield savings account or short-term treasuries — options worth comparing, your call." };
+      return slots.ratePct != null
+        ? { headline: "You have cash sitting idle", body: "About {idle} is beyond your safety buffer, earning close to nothing while short-term treasuries pay around {ratePct}% (as of {rateAsOf}) — roughly {annualIfMoved} a year left on the table. A high-yield savings account or treasuries are options worth comparing, your call." }
+        : { headline: "You have cash sitting idle", body: "About {idle} is beyond your safety buffer. Some people keep spare cash in a high-yield savings account or short-term treasuries — options worth comparing, your call." };
     case "utilization":
       return { headline: "Your credit utilization is climbing", body: "You're using about {totalUtil}% of your available credit. Keeping it lower can help your credit profile — worth a look, especially on {worstCard}." };
     case "low_buffer":
@@ -93,7 +97,8 @@ const SYSTEM = [
 // Narrate one insight. Returns headline+body with slots still as placeholders,
 // so the caller fills them AFTER validation (the model never sees the numbers).
 export async function narrate(insight: StructuredInsight | StoredInsight): Promise<{ headline: string; body: string }> {
-  const tmpl = templateFor(insight.kind);
+  const slots = ("headlineSlots" in insight ? insight.headlineSlots : insight.slots) ?? {};
+  const tmpl = templateFor(insight.kind, slots);
   try {
     const res = await routeText({
       task: "light",

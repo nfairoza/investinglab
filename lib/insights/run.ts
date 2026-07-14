@@ -6,6 +6,7 @@ import { detectConcentration, detectLookthroughConcentration, type PricedHolding
 import { detectTargetPace, detectTargetMonthResult, type TargetInput } from "./generators/targets";
 import { detectGoalDrift, type GoalRow } from "./generators/goals";
 import { trailingFundingRate } from "@/lib/money/goals";
+import { readCachedRate } from "@/lib/money/rates";
 import { detectClosures, type PriorOpenInsight } from "./closure";
 import { loadLedgerInputs, writeLedger, writeInsights, loadPriorInsights } from "./persist";
 
@@ -47,6 +48,11 @@ export async function runInsightsBuild(opts: { sliceSize?: number; nowMs?: numbe
   const slice = users.slice(start, start + sliceSize);
   const wrapped = start + sliceSize >= users.length;
 
+  // MV4: the cached live cash rate (global, read once for the whole tick). Null
+  // when unavailable → generators degrade to the previous generic phrasing.
+  const cachedRate = await readCachedRate();
+  const liveRate = cachedRate ? { ratePct: cachedRate.ratePct, asOf: cachedRate.asOf } : null;
+
   let ledgersBuilt = 0, insightsCreated = 0;
   for (const userId of slice) {
     try {
@@ -56,7 +62,7 @@ export async function runInsightsBuild(opts: { sliceSize?: number; nowMs?: numbe
       await writeLedger(db, userId, ledger);
       ledgersBuilt++;
 
-      const fresh = generateInsights(ledger);
+      const fresh = generateInsights(ledger, liveRate);
 
       // MV2: category targets. Targeted categories get target-based pace insights
       // (and a monthly result); we suppress the generic baseline pace_anomaly for

@@ -45,19 +45,26 @@ export function detectPaceAnomaly(l: Ledger): StructuredInsight[] {
   return out.sort((a, b) => (b.impactPerYear ?? 0) - (a.impactPerYear ?? 0)).slice(0, 2);
 }
 
+// A dated live rate the caller (nightly run) may pass to ground the "money left
+// on the table" generators. Optional — absent → the previous generic framing.
+export interface LiveRate { ratePct: number; asOf: string | null }
+
 // 2) Debt-vs-cash arbitrage — idle cash sitting while a high-APR balance accrues.
-export function detectArbitrage(l: Ledger): StructuredInsight[] {
+export function detectArbitrage(l: Ledger, rate?: LiveRate | null): StructuredInsight[] {
   const f = debtVsCashArbitrage(l);
   const v = f.value;
   if (!v.topCard || v.payable < 250 || v.topApr < 8 || v.guaranteedAnnual < 50) return [];
+  // MV4: when we have a live cash rate, cite the SPREAD (card APR − cash rate) —
+  // the real cost of not paying down while cash earns only the cash rate.
+  const spreadSlots: Record<string, number | string> = rate ? { cashRatePct: +rate.ratePct.toFixed(2), spreadPct: +(v.topApr - rate.ratePct).toFixed(2), rateAsOf: rate.asOf ?? "" } : {};
   return [{
     kind: "debt_vs_cash",
     subject: v.topCard,
     severity: 2,
-    headlineSlots: { card: v.topCard, apr: v.topApr, payable: v.payable, guaranteedAnnual: v.guaranteedAnnual, idle: v.idle },
+    headlineSlots: { card: v.topCard, apr: v.topApr, payable: v.payable, guaranteedAnnual: v.guaranteedAnnual, idle: v.idle, ...spreadSlots },
     impactPerYear: v.guaranteedAnnual,
-    evidence: [f.evidence],
-    factsUsed: [f.formulaId],
+    evidence: [f.evidence, ...(rate ? [{ kind: "inputs" as const, inputs: { cashRatePct: rate.ratePct, cardApr: v.topApr, asOf: rate.asOf ?? "n/a" }, note: `Cash earns ~${rate.ratePct}% (as of ${rate.asOf ?? "recent"}); the card charges ${v.topApr}%.` }] : [])],
+    factsUsed: [f.formulaId, ...(rate ? ["rates.v1"] : [])],
     action: { label: "Review accounts", deeplink: "/accounts" },
     cooldownDays: 21,
     page: "accounts",
@@ -132,19 +139,24 @@ export function detectPositive(l: Ledger): StructuredInsight[] {
 
 // 5) Idle cash / cash drag — meaningful liquid cash beyond the buffer, framed
 //    as OPTION math (educational). Never directive; no return promises.
-export function detectIdleCash(l: Ledger): StructuredInsight[] {
+export function detectIdleCash(l: Ledger, rate?: LiveRate | null): StructuredInsight[] {
   const f = idleCash(l);
   const v = f.value;
   // Non-trivial: at least $2,000 idle beyond the buffer.
   if (v.idle < 2000) return [];
+  // MV4: with a live rate, quantify the annual cost of idle cash at ~0% vs the
+  // available yield — impactPerYear becomes real (was null under the no-return
+  // assumption). Rate always carries its asOf.
+  const annualIfMoved = rate ? +(v.idle * (rate.ratePct / 100)).toFixed(2) : null;
+  const rateSlots: Record<string, number | string> = rate ? { ratePct: +rate.ratePct.toFixed(2), annualIfMoved: annualIfMoved!, rateAsOf: rate.asOf ?? "" } : {};
   return [{
     kind: "idle_cash",
     subject: "cash",
     severity: 1,
-    headlineSlots: { idle: v.idle, targetBuffer: v.targetBuffer, liquid: v.liquid },
-    impactPerYear: null, // option framing — no assumed return
-    evidence: [f.evidence],
-    factsUsed: [f.formulaId],
+    headlineSlots: { idle: v.idle, targetBuffer: v.targetBuffer, liquid: v.liquid, ...rateSlots },
+    impactPerYear: annualIfMoved, // real $/yr when a rate is available; else null (option framing)
+    evidence: [f.evidence, ...(rate ? [{ kind: "inputs" as const, inputs: { idle: v.idle, ratePct: rate.ratePct, annualIfMoved: annualIfMoved!, asOf: rate.asOf ?? "n/a" }, note: `${v.idle} idle at ~0% vs ${rate.ratePct}% available (as of ${rate.asOf ?? "recent"}) = ${annualIfMoved}/yr.` }] : [])],
+    factsUsed: [f.formulaId, ...(rate ? ["rates.v1"] : [])],
     action: { label: "See accounts", deeplink: "/accounts" },
     cooldownDays: 30,
     page: "accounts",
@@ -239,13 +251,13 @@ export function detectCategoryTrend(l: Ledger): StructuredInsight[] {
 
 // Run all generators over a ledger. (Concentration + new-recurring insights are
 // added by the nightly job, which has holdings + recurring data.)
-export function generateInsights(l: Ledger): StructuredInsight[] {
+export function generateInsights(l: Ledger, rate?: LiveRate | null): StructuredInsight[] {
   return [
     ...detectPaceAnomaly(l),
-    ...detectArbitrage(l),
+    ...detectArbitrage(l, rate),
     ...detectInterestBleed(l),
     ...detectPositive(l),
-    ...detectIdleCash(l),
+    ...detectIdleCash(l, rate),
     ...detectUtilization(l),
     ...detectLowBuffer(l),
     ...detectSavingsCapacity(l),

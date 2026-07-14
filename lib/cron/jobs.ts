@@ -12,6 +12,7 @@ import { runPtReturns } from "@/lib/power-trades/returns-run";
 import { runPtTrackRecords } from "@/lib/power-trades/track-run";
 import { runPtCommitteeFlags } from "@/lib/power-trades/flags-run";
 import { runInsiderClusters } from "@/lib/power-trades/clusters-run";
+import { runRatesRefresh } from "@/lib/money/rates";
 
 // The job registry. Each job owns its cadence; the dispatcher (/api/cron/tick)
 // runs whatever is due on each tick, so ANY external trigger interval works.
@@ -96,6 +97,16 @@ export const JOBS: CronJob[] = [
     id: "lookthrough-build",
     everyMinutes: 24 * 60,
     run: async () => { const r = await runLookthroughBuild({ sliceSize: 25 }); return { ok: true, note: `${r.computed} computed / ${r.users} users${r.wrapped ? " (full pass)" : ""}` }; },
+  },
+  {
+    // MV4: refresh the short-treasury / money-market proxy yield once a day into
+    // server_cache (with its asOf). The idle-cash + debt-arbitrage generators read
+    // the cached rate to ground "money left on the table" in a real, dated number;
+    // a fetch failure leaves the prior cache (never blocks an insight). Global,
+    // no market gate.
+    id: "rates-refresh",
+    everyMinutes: 12 * 60,
+    run: async () => { const r = await runRatesRefresh(); return { ok: r.ok, note: r.note }; },
   },
   {
     // C6: refresh the global daily market brief so Rukmani's get_market_brief
