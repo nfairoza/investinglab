@@ -118,6 +118,19 @@ export function AlertsManager() {
     await fetch(`/api/alerts?id=${id}`, { method: "DELETE" });
     mutate();
   }
+  // Clear one alert from the "recently triggered" feed (keeps the alert itself).
+  async function clearTrigger(id: string) {
+    mutate((cur) => (cur ?? []).map((a) => (a.id === id ? { ...a, lastTriggeredAt: undefined, lastValue: undefined } : a)), { revalidate: false });
+    await fetch("/api/alerts", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, clearTrigger: true }) });
+    mutate();
+  }
+  async function clearAllTriggers() {
+    const ids = triggered.map((a) => a.id);
+    if (!ids.length) return;
+    mutate((cur) => (cur ?? []).map((a) => (ids.includes(a.id) ? { ...a, lastTriggeredAt: undefined, lastValue: undefined } : a)), { revalidate: false });
+    await Promise.all(ids.map((id) => fetch("/api/alerts", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, clearTrigger: true }) }).catch(() => {})));
+    mutate();
+  }
 
   // ── AI-suggested alerts ───────────────────────────────────────────────────────
   interface Suggestion {
@@ -492,14 +505,21 @@ export function AlertsManager() {
       {/* Triggered feed */}
       {triggered.length > 0 && (
         <div>
-          <h2 className="mb-2 text-sm font-medium text-ink-dim">Recently triggered</h2>
+          <div className="mb-2 flex items-center justify-between">
+            <h2 className="text-sm font-medium text-ink-dim">Recently triggered</h2>
+            <button onClick={clearAllTriggers} className="text-[11px] text-ink-faint hover:text-ink">Clear all</button>
+          </div>
           <div className="space-y-2">
             {triggered.slice(0, 12).map((a) => (
-              <div key={`fired-${a.id}`} className="flex items-center gap-3 rounded-lg border border-hairline bg-surface px-3 py-2 text-sm">
+              <div key={`fired-${a.id}`} className="group flex items-center gap-3 rounded-lg border border-hairline bg-surface px-3 py-2 text-sm">
                 <BellRing size={14} className="shrink-0 text-accent" />
                 <span className="font-semibold text-brand-300">{a.symbol}</span>
                 <span className="min-w-0 flex-1 truncate text-ink-dim">{describeAlert(a)} — hit {formatTriggerValue(a, a.lastValue ?? 0)}</span>
                 <span className="shrink-0 text-[11px] text-ink-faint">{new Date(a.lastTriggeredAt!).toLocaleString()}</span>
+                <button onClick={() => clearTrigger(a.id)} aria-label="Clear" title="Clear from feed"
+                  className="shrink-0 rounded p-1 text-ink-faint opacity-0 transition-opacity hover:bg-surface-raised hover:text-ink group-hover:opacity-100">
+                  <X size={13} />
+                </button>
               </div>
             ))}
           </div>

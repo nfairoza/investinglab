@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { resolveApiKey } from "@/lib/ai/anthropic";
 import { streamGemini, geminiKey } from "@/lib/ai/gemini";
 import { planRoute } from "@/lib/ai/router";
+import { classifyIntent } from "@/lib/ai/intent";
+import { noteProviderResult } from "@/lib/ai/health";
 import { logAiUsage, approxTokens } from "@/lib/ai/usage";
 import { getUserClient } from "@/lib/supabase-data";
 import { guardAiRate } from "@/lib/rate-limit";
@@ -79,7 +81,17 @@ export async function POST(req: NextRequest) {
   const recent = messages.slice(-12);
   const lastUser = [...recent].reverse().find((m) => m.role === "user");
   const hasImage = Boolean(lastUser?.images?.length);
-  const plan = planRoute("chat-analysis"); // tool-use always uses the analysis tier
+
+  // AIOPT A1: classify each turn instead of always paying the analysis tier.
+  // A casual/navigation/teaching question ("when does the market open") routes to
+  // the cheap/fast model; only data-backed reasoning escalates to Claude. Images
+  // always need the vision-capable analysis tier.
+  const intent = hasImage ? { intent: "chat-analysis" as const, confident: true, reason: "image → analysis/vision" }
+    : classifyIntent(lastUser?.content ?? "");
+  void logAiUsage({ task: "light", feature: "intent", provider: "gemini", model: "heuristic", inputTokens: 0, outputTokens: 0, latencyMs: 0, ok: true, userId: session?.userId ?? null, estimated: true });
+  const plan = planRoute(intent.intent);
+  // Claude leads (with the agentic tool loop) only for the analysis tier; casual
+  // turns take the cheaper Gemini path. Fall back to whichever key exists.
   const claudeLeads = plan.primary === "claude" && Boolean(key);
 
   const toolCtx: ToolContext | null = session ? { supabase: session.supabase, userId: session.userId, isAdmin: session.isAdmin } : null;
@@ -96,13 +108,13 @@ export async function POST(req: NextRequest) {
     const stream = new ReadableStream({
       async start(controller) {
         const convo: any[] = toAnthropicMessages(recent);
-        let inTok = 0, outTok = 0;
+        let inTok = 0, outTok = 0, emittedAny = false;
         try {
           for (let iter = 0; iter < MAX_TOOL_ITERS; iter++) {
             const { textDeltas, toolUses, usage, stopReason } = await streamClaudeTurn({
               key: key!, model: plan.claudeModel, system, messages: convo,
               tools: [...tools, { type: "web_search_20250305", name: "web_search", max_uses: 3 } as any],
-              onText: (t) => emitText(controller, t),
+              onText: (t) => { emittedAny = true; emitText(controller, t); },
             });
             inTok += usage.input; outTok += usage.output;
 
@@ -124,10 +136,29 @@ export async function POST(req: NextRequest) {
             if (!results.length) break;
             convo.push({ role: "user", content: results });
           }
-        } catch (e) {
-          emitText(controller, "\n\n" + aiErrorMessage(clientCtx.isAdmin ?? false, e instanceof Error ? e.message : "chat failed"));
-        } finally {
+          void noteProviderResult("claude", true);
           void logAiUsage({ task: "chat-analysis", feature: "chat", provider: "claude", model: plan.claudeModel, inputTokens: inTok, outputTokens: outTok, latencyMs: 0, ok: true, userId: session?.userId ?? null, estimated: false });
+        } catch (e) {
+          // AIOPT A6: Claude failed (credit/rate-limit/outage). Record health, then
+          // — if nothing was streamed yet and Gemini is available — FAIL OVER to
+          // Gemini instead of dead-ending on a raw provider error. Only when both
+          // are unavailable do we surface a clean, masked message.
+          const detail = e instanceof Error ? e.message : "chat failed";
+          void noteProviderResult("claude", false, detail);
+          void logAiUsage({ task: "chat-analysis", feature: "chat", provider: "claude", model: plan.claudeModel, inputTokens: inTok, outputTokens: 0, latencyMs: 0, ok: false, userId: session?.userId ?? null, estimated: true });
+          if (!emittedAny && geminiKey()) {
+            try {
+              await streamGeminiInto(controller, emitText, { system, messages: recent, model: plan.geminiModel });
+              void noteProviderResult("gemini", true);
+              void logAiUsage({ task: "chat-analysis", feature: "chat", provider: "gemini", model: plan.geminiModel, inputTokens: approxTokens(system), outputTokens: 0, latencyMs: 0, ok: true, userId: session?.userId ?? null, estimated: true });
+            } catch (g) {
+              void noteProviderResult("gemini", false, g instanceof Error ? g.message : "gemini failed");
+              emitText(controller, aiErrorMessage(clientCtx.isAdmin ?? false, detail));
+            }
+          } else if (!emittedAny) {
+            emitText(controller, aiErrorMessage(clientCtx.isAdmin ?? false, detail));
+          }
+        } finally {
           controller.close();
         }
       },
@@ -135,45 +166,101 @@ export async function POST(req: NextRequest) {
     return new Response(stream, { headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", Connection: "keep-alive", "x-ai-model": plan.claudeModel } });
   }
 
-  // ── Gemini fallback: no tool loop (keeps the fallback simple + robust); streams
-  // the answer with the money/market context the tools would have provided folded
-  // into the system prompt is out of scope here, so it answers from the page
-  // context + web grounding. This path only runs when Claude is unavailable. ──
+  // ── Gemini path (primary for casual turns, or fallback when Claude is absent).
+  // No tool loop (kept simple + robust); answers from page context + web grounding.
+  // On a Gemini error here, fall over to Claude if its key exists — never surface
+  // a raw provider body. ──
   const gem = await streamGemini({ system, messages: recent, webSearch: true, model: plan.geminiModel });
   if (!gem.ok || !gem.body) {
     const detail = await gem.text().catch(() => "");
-    return NextResponse.json({ error: "ai_error", message: aiErrorMessage(clientCtx.isAdmin ?? false, `Gemini error ${gem.status}: ${detail.slice(0, 200)}`) }, { status: 502 });
+    void noteProviderResult("gemini", false, `HTTP ${gem.status}: ${detail.slice(0, 120)}`);
+    // AIOPT A6: Gemini failed → try Claude before surfacing anything.
+    if (key) {
+      const out = new ReadableStream({
+        async start(controller) {
+          try {
+            await streamClaudeSimpleInto(controller, emitText, { key, model: plan.claudeModel, system, messages: recent });
+            void noteProviderResult("claude", true);
+          } catch (e) {
+            void noteProviderResult("claude", false, e instanceof Error ? e.message : "claude failed");
+            emitText(controller, aiErrorMessage(clientCtx.isAdmin ?? false, `Gemini ${gem.status}; Claude also failed`));
+          } finally { controller.close(); }
+        },
+      });
+      return new Response(out, { headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", Connection: "keep-alive", "x-ai-model": plan.claudeModel } });
+    }
+    return NextResponse.json({ error: "ai_unavailable", message: aiErrorMessage(clientCtx.isAdmin ?? false, `Gemini error ${gem.status}: ${detail.slice(0, 200)}`) }, { status: 502 });
   }
-  const reader = gem.body.getReader();
-  const decoder = new TextDecoder();
   const out = new ReadableStream({
     async start(controller) {
-      let buf = "", outText = "";
+      let outText = "";
       try {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          buf += decoder.decode(value, { stream: true });
-          const lines = buf.split("\n"); buf = lines.pop() ?? "";
-          for (const line of lines) {
-            const s = line.trim();
-            if (!s.startsWith("data:")) continue;
-            const json = s.slice(5).trim();
-            if (!json || json === "[DONE]") continue;
-            try {
-              const obj = JSON.parse(json);
-              const t = obj?.candidates?.[0]?.content?.parts?.map((p: any) => p.text ?? "").join("") ?? "";
-              if (t) { outText += t; emitText(controller, t); }
-            } catch { /* skip partial */ }
-          }
-        }
+        outText = await pumpGeminiStream(gem.body!, (t) => emitText(controller, t));
+        void noteProviderResult("gemini", true);
       } finally {
-        void logAiUsage({ task: "chat-analysis", feature: "chat", provider: "gemini", model: plan.geminiModel, inputTokens: approxTokens(system + recent.map((m) => m.content).join("\n")), outputTokens: approxTokens(outText), latencyMs: 0, ok: true, userId: session?.userId ?? null, estimated: true });
+        void logAiUsage({ task: intent.intent, feature: "chat", provider: "gemini", model: plan.geminiModel, inputTokens: approxTokens(system + recent.map((m) => m.content).join("\n")), outputTokens: approxTokens(outText), latencyMs: 0, ok: true, userId: session?.userId ?? null, estimated: true });
         controller.close();
       }
     },
   });
   return new Response(out, { headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", Connection: "keep-alive", "x-ai-model": plan.geminiModel } });
+}
+
+// Pump a Gemini SSE body, emitting text deltas; returns the full text.
+async function pumpGeminiStream(body: ReadableStream<Uint8Array>, onText: (t: string) => void): Promise<string> {
+  const reader = body.getReader();
+  const decoder = new TextDecoder();
+  let buf = "", outText = "";
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += decoder.decode(value, { stream: true });
+    const lines = buf.split("\n"); buf = lines.pop() ?? "";
+    for (const line of lines) {
+      const s = line.trim();
+      if (!s.startsWith("data:")) continue;
+      const json = s.slice(5).trim();
+      if (!json || json === "[DONE]") continue;
+      try {
+        const obj = JSON.parse(json);
+        const t = obj?.candidates?.[0]?.content?.parts?.map((p: any) => p.text ?? "").join("") ?? "";
+        if (t) { outText += t; onText(t); }
+      } catch { /* skip partial */ }
+    }
+  }
+  return outText;
+}
+
+// AIOPT A6 failover helper: stream a Gemini answer into an existing controller
+// (used when Claude fails mid-loop). Throws on a non-OK Gemini response.
+async function streamGeminiInto(
+  controller: ReadableStreamDefaultController,
+  emit: (c: ReadableStreamDefaultController, t: string) => void,
+  opts: { system: string; messages: ChatMessage[]; model: string },
+): Promise<void> {
+  const gem = await streamGemini({ system: opts.system, messages: opts.messages, webSearch: true, model: opts.model });
+  if (!gem.ok || !gem.body) throw new Error(`Gemini HTTP ${gem.status}`);
+  await pumpGeminiStream(gem.body, (t) => emit(controller, t));
+}
+
+// AIOPT A6 failover helper: a non-tool Claude answer into an existing controller
+// (used when the Gemini-primary path fails). Throws on a non-OK response.
+async function streamClaudeSimpleInto(
+  controller: ReadableStreamDefaultController,
+  emit: (c: ReadableStreamDefaultController, t: string) => void,
+  opts: { key: string; model: string; system: string; messages: ChatMessage[] },
+): Promise<void> {
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: { "content-type": "application/json", "x-api-key": opts.key, "anthropic-version": "2023-06-01" },
+    body: JSON.stringify({ model: opts.model, max_tokens: 1200, system: opts.system, messages: toAnthropicMessages(opts.messages) }),
+    cache: "no-store",
+    signal: AbortSignal.timeout(40_000),
+  });
+  if (!res.ok) throw new Error(`Anthropic HTTP ${res.status}`);
+  const json = (await res.json()) as { content?: Array<{ type: string; text?: string }> };
+  const text = (json.content ?? []).filter((b) => b.type === "text" && b.text).map((b) => b.text as string).join("\n");
+  if (text) emit(controller, text);
 }
 
 // ── One streaming Claude turn: streams text deltas out via onText, collects any

@@ -143,6 +143,7 @@ export async function PATCH(req: NextRequest) {
     critical: z.boolean().optional(),
     expiresAt: z.string().nullable().optional(),
     trigger: z.object({ value: z.number(), at: z.string().optional() }).optional(),
+    clearTrigger: z.boolean().optional(),  // clear one alert from the "recently triggered" feed
   }));
   if (!parsed.ok) return parsed.response;
   const body = parsed.data;
@@ -160,7 +161,12 @@ export async function PATCH(req: NextRequest) {
     if (t <= Date.now()) return NextResponse.json({ error: "expiresAt must be in the future" }, { status: 400 });
     patch.expires_at = new Date(t).toISOString();
   }
-  if (body.trigger && typeof body.trigger.value === "number") {
+  if (body.clearTrigger) {
+    // Remove this alert from the "recently triggered" feed (leaves the alert
+    // itself intact so it can fire again).
+    patch.last_triggered_at = null;
+    patch.last_value = null;
+  } else if (body.trigger && typeof body.trigger.value === "number") {
     patch.last_triggered_at = body.trigger.at ?? new Date().toISOString();
     patch.last_value = body.trigger.value;
     // Read current count to increment (no atomic increment via PostgREST here).
