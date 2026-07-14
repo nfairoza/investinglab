@@ -8,6 +8,8 @@ import { Landmark, ChevronDown, Receipt, PieChart as PieIcon, Scale, ArrowRight,
 import { GradientStat } from "./dashboard-extras";
 import { MoneyInsights } from "./money-insights";
 import { SafeToSpendHero } from "./money/safe-to-spend-hero";
+import { CategoryTargets } from "./money/category-targets";
+import { GoalHomeCard } from "./money/goal-home-card";
 import { ConnectEmptyState } from "./connect-empty-state";
 import { fetchJson } from "@/lib/fetch-json";
 import { Card } from "./ui/primitives";
@@ -77,11 +79,34 @@ export function MoneyDashboard() {
 
   return (
     <div className="space-y-5">
-      {/* MV1: Safe-to-Spend hero — the decision-first daily number (MV5 finishes
-          the full reorder; this leads the page). */}
+      {/* MV5 — decisions first, history as drill-down.
+          Safe-to-Spend hero + cash-flow calendar → targets → nearest goal →
+          insight strip → KPI row → (accounts, spending, bills, doctor below). */}
+
+      {/* 1. Safe-to-Spend hero (includes the 30-day cash-flow calendar strip). */}
       <SafeToSpendHero />
 
-      {/* Top: connected accounts + balances */}
+      {/* 2. Category targets progress row (opt-in; self-hides when none). */}
+      <CategoryTargets />
+
+      {/* 3. Nearest-dated savings goal (self-hides when none). */}
+      <GoalHomeCard />
+
+      {/* 4. Deterministic spending insights (bill changes, trends, anomalies). */}
+      <MoneyInsights />
+
+      {/* 5. KPI row — income / spend / saved / runway this month. */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <GradientStat label="Income" tone="emerald" value={money(spend.income)} sub="this month" />
+        <GradientStat label="Spent" tone="rose" value={money(spend.expense)} sub="this month" />
+        <GradientStat label="Saved" tone={spend.net >= 0 ? "emerald" : "rose"}
+          value={money(spend.net)} sub={savingsRate != null ? `${savingsRate}% savings rate` : "this month"} />
+        <GradientStat label="Cash runway" tone="violet"
+          value={runway != null ? `${runway.toFixed(1)} mo` : "—"}
+          sub={runway != null ? "of expenses in cash" : "link a bank"} />
+      </div>
+
+      {/* Connected accounts + balances (history / drill-down). */}
       <div className="space-y-2">
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-semibold text-ink">Your accounts</h2>
@@ -96,17 +121,6 @@ export function MoneyDashboard() {
           <Stat label="Liabilities" value={money(nw?.totalLiabilities ?? 0)} />
         </div>
         {items.map((it) => it.accounts.length > 0 && <InstitutionCard key={it.itemId} item={it} />)}
-      </div>
-
-      {/* This month at a glance — same gradient-stat language as the Invest dashboard */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <GradientStat label="Income" tone="emerald" value={money(spend.income)} sub="this month" />
-        <GradientStat label="Spent" tone="rose" value={money(spend.expense)} sub="this month" />
-        <GradientStat label="Saved" tone={spend.net >= 0 ? "emerald" : "rose"}
-          value={money(spend.net)} sub={savingsRate != null ? `${savingsRate}% savings rate` : "this month"} />
-        <GradientStat label="Cash runway" tone="violet"
-          value={runway != null ? `${runway.toFixed(1)} mo` : "—"}
-          sub={runway != null ? "of expenses in cash" : "link a bank"} />
       </div>
 
       {/* Spending by category */}
@@ -178,10 +192,6 @@ export function MoneyDashboard() {
           </Card>
         )}
       </div>
-
-      {/* Deterministic spending insights: bill changes, variable-bill trends,
-          and category anomalies (tap any to ask Rukmani). */}
-      <MoneyInsights />
 
       {/* Accounts Doctor entry — full checkup lives on its own page */}
       <Link href="/accounts-doctor" className="card-hover flex items-center gap-3 rounded-2xl glass p-5">
