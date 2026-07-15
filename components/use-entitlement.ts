@@ -14,7 +14,9 @@ export function useEntitlement(feature: Feature): boolean {
     { revalidateOnFocus: false },
   );
   // Default to entitled until /api/me resolves, so gated UI doesn't flash-hide on
-  // load. isEntitled itself returns true for everyone when billing is off.
+  // load. The API's billingEnabled is now the DB-backed master switch (not env),
+  // so honor it directly: while billing is off, everyone is entitled.
   if (!data) return true;
+  if (data.billingEnabled === false) return true;
   return isEntitled(feature, data.plan ?? "free", Boolean(data.isAdmin));
 }

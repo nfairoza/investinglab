@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { CountryCode, Products } from "plaid";
 import { getPlaid, plaidConfigured, plaidCapReached } from "@/lib/plaid";
 import { getUserClient } from "@/lib/supabase-data";
+import { requirePlan } from "@/lib/billing/plan";
 
 export const dynamic = "force-dynamic";
 
@@ -10,6 +11,10 @@ export const dynamic = "force-dynamic";
 export async function POST() {
   const ctx = await getUserClient();
   if (!ctx) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  // BILL B2 — the free tier excludes Plaid entirely (linked banks are the marginal
+  // cost). Gate server-side; 402 the UI maps to an upsell. Billing-off/admin pass.
+  const gate = await requirePlan("plaid_link");
+  if (gate) return gate;
   if (!plaidConfigured()) {
     return NextResponse.json({ error: "Plaid is not configured." }, { status: 400 });
   }

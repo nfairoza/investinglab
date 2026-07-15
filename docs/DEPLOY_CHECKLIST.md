@@ -37,10 +37,22 @@ brokerage" instead of surfacing the error.)
    - MV4 live-rate grounding adds NO migration — the `rates-refresh` cron caches the FMP treasury rate in `server_cache` (24h) with its asOf; idle-cash/debt-arbitrage insights read it and degrade to generic phrasing if the FMP plan doesn't include `treasury-rates`
    - PT6 flow views + overlap add NO migration — the `pt-flow` cron caches congressional flow aggregates in `server_cache`; the overlap card + `power_overlap` insight compute at read time from local follows/holdings/trades. Flow views are `pt_flow_views`-gated (Premium; billing-off ships to all)
    - `0041_ai_usage_cache.sql` — AIOPT A2: adds `ai_usage.cached_input_tokens` so the admin cost dashboard shows the prompt-cache hit-rate (chat sends `cache_control` on its static system+tools blocks; cached input bills ~10% of base). Nullable; no backfill
+   - `0042_billing.sql` — BILL: `subscriptions` (per-user, webhook-written), `billing_events` (webhook idempotency ledger), `app_config` (billing master switch + trial-reconcile flag). Card-free trial tracked in `subscriptions.trial_started_at`
 2. **Set new env vars** in Vercel (and locally in `.env.local`):
-   - `BILLING_ENABLED` / `NEXT_PUBLIC_BILLING_ENABLED` — (optional) set to `"1"` to
-     turn on plan gating (ETF look-through = Premium, etc. — see docs/BILLING.md).
-     ABSENT/not-"1" = billing off = every gated feature ships to all users.
+   - **Stripe (BILL)** — `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`,
+     `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`, and the price ids
+     `STRIPE_PRICE_PREMIUM_MONTHLY` / `STRIPE_PRICE_PREMIUM_YEARLY` (+ `_PRO_` when
+     Pro ships). Optional `TRIAL_DAYS` (default 30). **Launch order**: (1) swap in
+     LIVE keys + register the prod webhook endpoint (`/api/billing/webhook`) in the
+     Stripe dashboard, (2) verify with one real $1 test purchase + refund, (3) flip
+     the admin **/admin → Billing** master switch ON (runs the one-time trial
+     reconcile). Enable **Stripe Tax** + **email receipts** in the dashboard — we
+     build neither. The master switch is DB-backed (`app_config.billing_enabled`),
+     admin-toggleable at runtime; the env `BILLING_ENABLED`/`NEXT_PUBLIC_BILLING_ENABLED`
+     still force it ON when set.
+   - `BILLING_ENABLED` / `NEXT_PUBLIC_BILLING_ENABLED` — (optional) env force-on for
+     plan gating. ABSENT + DB switch off = billing off = every gated feature ships
+     to all users (the beta default). See docs/BILLING.md.
    - `SECRETS_ENCRYPTION_KEY` — 32-byte base64 (`openssl rand -base64 32`).
      Required for P1 encryption; without it, keys/tokens fall back to plaintext.
    - `RESEND_API_KEY` — (F2) Resend key for the weekly digest email. Optional:

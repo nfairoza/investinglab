@@ -18,6 +18,7 @@ import { PullToRefresh } from "./pull-to-refresh";
 import { SidebarReopen } from "./sidebar-reopen";
 import { ThemeGuard } from "./theme-guard";
 import { DemoBanner } from "./demo-banner";
+import { TrialBanner } from "./billing/trial-banner";
 import { MarketStatusChip } from "./market-status-chip";
 import { OfflineBanner } from "./offline-banner";
 import { AlertsBell } from "./alerts-bell";
@@ -72,6 +73,8 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
           <SectionSubnav />
           {/* pb on mobile leaves room for the fixed bottom tab bar. */}
           <main className="flex-1 px-5 py-6 pb-24 md:px-10 md:py-8 md:pb-8">
+            {/* BILL B2.5 — trial countdown (final 5 days) + grace-period banner. */}
+            <TrialBanner />
             <PullToRefresh>
               <SwipeSections><PageTransition>{children}</PageTransition></SwipeSections>
             </PullToRefresh>

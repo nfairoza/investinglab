@@ -14,7 +14,8 @@ export type Feature =
   | "pt_cluster_alerts" // Real-time insider-cluster alerts (Pro)
   | "safe_to_spend"     // Money V2 Safe-to-Spend hero (Premium)
   | "money_targets"     // Money V2 category targets (Premium)
-  | "money_goals";      // Money V2 savings goals (Premium)
+  | "money_goals"       // Money V2 savings goals (Premium)
+  | "plaid_link";       // Linking a bank via Plaid — free tier excludes it (Premium)
 
 // The minimum plan each feature requires.
 const FEATURE_MIN_PLAN: Record<Feature, Plan> = {
@@ -24,6 +25,7 @@ const FEATURE_MIN_PLAN: Record<Feature, Plan> = {
   safe_to_spend: "premium",
   money_targets: "premium",
   money_goals: "premium",
+  plaid_link: "premium",
 };
 
 const PLAN_RANK: Record<Plan, number> = { free: 0, premium: 1, pro: 2 };

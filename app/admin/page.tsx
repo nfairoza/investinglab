@@ -3,6 +3,7 @@ import { AlertTriangle, Plug, BellRing } from "lucide-react";
 import { AiCostCard } from "@/components/admin/ai-cost-card";
 import { NavTimingCard } from "@/components/admin/nav-timing-card";
 import { AiHealthBanner } from "@/components/admin/ai-health-banner";
+import { BillingToggle } from "@/components/admin/billing-toggle";
 
 export const metadata = { title: "Admin Portal" };
 
@@ -11,6 +12,8 @@ export default function AdminHome() {
     <div className="space-y-4">
       {/* AIOPT A6 — provider-health banner (warns when a configured provider fails >1h). */}
       <AiHealthBanner />
+      {/* BILL B0 — billing master switch. */}
+      <BillingToggle />
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
       <Link href="/admin/errors" className="card-hover rounded-2xl glass p-5">
         <div className="flex items-center gap-2 text-sm font-semibold text-ink"><AlertTriangle size={16} className="text-amber-400" /> Error log</div>
