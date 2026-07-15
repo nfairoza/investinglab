@@ -1,6 +1,7 @@
 import { createClient } from "@/utils/supabase/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { isDemoRequest, makeDemoContext } from "@/lib/demo/session";
+import { normalizePlan, type Plan } from "@/lib/billing/entitlements";
 
 // Resolve the authenticated user + a request-scoped Supabase client for API
 // routes. Returns null when there's no session, so callers can 401. NEVER trust
@@ -10,12 +11,12 @@ import { isDemoRequest, makeDemoContext } from "@/lib/demo/session";
 // fake client (no real user, no DB). This is the single choke-point every
 // user-scoped route flows through, so the real logic runs against sample data
 // and writes no-op — the real database is never touched.
-export async function getUserClient(): Promise<{ supabase: SupabaseClient; userId: string; isAdmin: boolean } | null> {
-  if (isDemoRequest()) return makeDemoContext();
+export async function getUserClient(): Promise<{ supabase: SupabaseClient; userId: string; isAdmin: boolean; plan: Plan } | null> {
+  if (isDemoRequest()) return { ...makeDemoContext(), plan: "premium" as Plan };
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return null;
-  return { supabase, userId: user.id, isAdmin: isAdminUser(user) };
+  return { supabase, userId: user.id, isAdmin: isAdminUser(user), plan: normalizePlan(user.app_metadata?.plan) };
 }
 
 // A user is admin iff app_metadata.role === "admin" (set in the Supabase

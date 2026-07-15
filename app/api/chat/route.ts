@@ -9,6 +9,7 @@ import { getUserClient } from "@/lib/supabase-data";
 import { guardAiRate } from "@/lib/rate-limit";
 import { toolSchemasFor, executeTool, type ToolContext } from "@/lib/chat/tools";
 import { buildChatSystem, type ChatContext } from "@/lib/chat/system";
+import { prepareHistory } from "@/lib/chat/history";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60; // the tool loop can take several model round-trips
@@ -78,7 +79,11 @@ export async function POST(req: NextRequest) {
 
   const memory = session ? await readMemory(session.supabase) : [];
   const system = buildChatSystem(clientCtx, memory);
-  const recent = messages.slice(-12);
+  // AIOPT A3: history discipline — sliding window + tool-result stubs + per-plan
+  // token cap, instead of blindly resending the last 12 turns. Plan defaults to
+  // premium (billing-off ships full access); the cap only bites on very long
+  // conversations. The system block is cached (A2) so we never trim it.
+  const recent = prepareHistory(messages as any, session?.plan ?? "premium", approxTokens(system)) as ChatMessage[];
   const lastUser = [...recent].reverse().find((m) => m.role === "user");
   const hasImage = Boolean(lastUser?.images?.length);
 

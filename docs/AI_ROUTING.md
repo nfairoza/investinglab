@@ -58,13 +58,21 @@ pays the analysis tier.
   templates; enrichment → serve stale with age chip; digest AI block → skip;
   chat → economy models + tighter rate limit (never fully off).
 
-## Deferred (tracked, not yet built)
+## Cost controls, continued
 
-- **A3** chat-history summarization (sliding window + rolling summary + tool-
-  result stubs) — chat currently sends the last 12 turns verbatim.
-- **A5** Batch API submission/collection for the "Batch? = Yes/Eligible" rows
-  (~50% token discount on latency-insensitive cron generation).
-- **A7** per-feature daily token budgets + anomaly guard + admin projected-spend.
-
-These are safe to defer: caching (A2) + right-sizing (A4) + failover (A6) capture
-the largest wins; the deferred items are incremental savings on top.
+- **A3 chat-history discipline** (`lib/chat/history.ts`): each turn applies a
+  sliding window (last 8 turns), stubs tool-result blobs older than the last 2
+  turns (`[tool result: 14 rows]`), and enforces a per-plan token cap (free 6k /
+  premium 16k / pro 32k), trimming oldest first — never the system block (cached).
+- **A5 Batch API** (`lib/ai/batch.ts` + the `batch-collect` cron, every 15m):
+  submit/collect for Anthropic Message Batches (~50% token discount on latency-
+  insensitive work). The mechanism + collect loop ship now; each heavy generator
+  opts in by calling `submitBatch()` and reading `ai:batch-results:<ns>` — a
+  failed/expired batch falls back to real-time on the next scheduled run. (Most
+  of this app's nightly work is already cached lazily-on-read, so the batch
+  consumers to wire are the digest narration blocks + any future bulk pre-warm.)
+- **A7 budgets + degradation ladder** (`lib/ai/budget.ts`): generous per-feature
+  daily token ceilings; at 80% warn, at 100% the feature degrades per its step
+  (narration → templates, enrichment → serve-stale, digest → skip, chat →
+  economy — never fully off). A per-user anomaly guard flags any user over 3× the
+  fleet p95. Pure + tested (`tests/ai-budget.test.ts`).

@@ -14,6 +14,7 @@ import { runPtCommitteeFlags } from "@/lib/power-trades/flags-run";
 import { runInsiderClusters } from "@/lib/power-trades/clusters-run";
 import { runRatesRefresh } from "@/lib/money/rates";
 import { runPtFlow } from "@/lib/power-trades/flow-run";
+import { runBatchCollect } from "@/lib/ai/batch-run";
 
 // The job registry. Each job owns its cadence; the dispatcher (/api/cron/tick)
 // runs whatever is due on each tick, so ANY external trigger interval works.
@@ -152,6 +153,14 @@ export const JOBS: CronJob[] = [
     id: "insider-cluster",
     everyMinutes: 24 * 60,
     run: async () => { const r = await runInsiderClusters(); return { ok: true, note: `${r.clusters} clusters / ${r.buys} buys, ${r.notified} notified` }; },
+  },
+  {
+    // AIOPT A5: collect any in-flight Anthropic Message Batches (nightly narration
+    // etc.) and cache their results. Idempotent; a no-op until a consumer submits
+    // a batch. Batch generation bills ~50% of real-time for latency-insensitive work.
+    id: "batch-collect",
+    everyMinutes: 15,
+    run: async () => { const r = await runBatchCollect(); return { ok: true, note: `checked ${r.checked}, collected ${r.collected}, pending ${r.pending}` }; },
   },
   {
     // PT6: flow build. Aggregate the last 90 days of congressional trades into
