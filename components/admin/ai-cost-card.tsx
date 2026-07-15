@@ -8,7 +8,7 @@ import { Skeleton, Card } from "../ui/primitives";
 
 interface Stat { calls: number; costUsd: number }
 interface Bucket { calls: number; costUsd: number; byProvider: Record<string, Stat>; byFeature?: Record<string, Stat> }
-interface Usage { day: Bucket; week: Bucket }
+interface Usage { day: Bucket; week: Bucket; cacheHitRate?: { day: number; week: number } }
 
 const usd = (n: number) => `$${n.toFixed(2)}`;
 
@@ -28,13 +28,16 @@ export function AiCostCard() {
         <p className="text-sm text-ink-dim">No usage recorded yet.</p>
       ) : (
         <div className="space-y-3">
-          {([["Last 24h", data.day], ["Last 7 days", data.week]] as const).map(([label, b]) => (
+          {([["Last 24h", data.day, data.cacheHitRate?.day], ["Last 7 days", data.week, data.cacheHitRate?.week]] as const).map(([label, b, hit]) => (
             <div key={label} className="rounded-xl border border-hairline bg-surface p-3">
               <div className="flex items-baseline justify-between">
                 <span className="text-xs uppercase tracking-wide text-ink-faint">{label}</span>
                 <span className="font-mono text-lg font-semibold text-ink">{usd(b.costUsd)}</span>
               </div>
-              <div className="mt-0.5 text-[11px] text-ink-faint">{b.calls} call{b.calls !== 1 ? "s" : ""}</div>
+              <div className="mt-0.5 flex items-center gap-2 text-[11px] text-ink-faint">
+                <span>{b.calls} call{b.calls !== 1 ? "s" : ""}</span>
+                {hit != null && hit > 0 && <span className="text-emerald-400">· {hit}% prompt-cache hit</span>}
+              </div>
               {Object.entries(b.byProvider).length > 0 && (
                 <div className="mt-2 flex flex-wrap gap-2">
                   {Object.entries(b.byProvider).map(([prov, s]) => (

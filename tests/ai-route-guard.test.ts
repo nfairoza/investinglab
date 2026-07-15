@@ -108,6 +108,42 @@ describe("AI route guard", () => {
     }
   });
 
+  // AIOPT A8 — every routeText call passes an explicit `task` (no reliance on a
+  // default tier). Scans lib/ + app/ for routeText( invocations and asserts each
+  // call's argument object literal contains `task:`. Catches a new call site that
+  // forgets to classify its work and silently pays the wrong tier.
+  it("every routeText call passes an explicit task", () => {
+    const dirs = [join(ROOT, "lib"), join(ROOT, "app")];
+    const offenders: string[] = [];
+    const walkTs = (dir: string): string[] => {
+      const out: string[] = [];
+      for (const name of readdirSync(dir)) {
+        const full = join(dir, name);
+        if (statSync(full).isDirectory()) out.push(...walkTs(full));
+        else if (name.endsWith(".ts") || name.endsWith(".tsx")) out.push(full);
+      }
+      return out;
+    };
+    for (const full of [...walkTs(dirs[0]), ...walkTs(dirs[1])]) {
+      const src = readFileSync(full, "utf8");
+      // For each routeText( occurrence, grab the following ~400 chars and require
+      // a `task:` key before the call's likely close. Cheap + good enough.
+      let idx = src.indexOf("routeText(");
+      while (idx !== -1) {
+        const window = src.slice(idx, idx + 400);
+        // Skip the definition/import lines (they don't pass args).
+        if (!/function routeText|import|export/.test(src.slice(Math.max(0, idx - 30), idx)) && !/\btask\s*:/.test(window)) {
+          offenders.push(relKey(full));
+        }
+        idx = src.indexOf("routeText(", idx + 1);
+      }
+    }
+    if (offenders.length) {
+      throw new Error(`routeText call(s) missing an explicit task: (AIOPT A8):\n${offenders.map((o) => `  - ${o}`).join("\n")}`);
+    }
+    expect(offenders).toEqual([]);
+  });
+
   // The guard must actually FAIL on an unguarded route — prove the logic isn't
   // vacuously passing. We synthesize a route source in memory and run the same
   // checks against it (no file written).

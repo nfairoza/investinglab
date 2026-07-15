@@ -30,15 +30,17 @@ export function RevenueEarningsChart({ symbol, financials }: { symbol: string; f
   const data = financials !== undefined ? financials : fetched;
   const quarters = data?.data?.quarters ?? [];
 
-  const rows = quarters.map((q) => ({
-    period: q.period,
-    Revenue: q.revenue,
-    "Net income": q.netIncome,
-  }));
+  // Only rows with an actual value are plottable. FMP can return quarter periods
+  // with null revenue/income on some plans — those must NOT render as empty bars.
+  const rows = quarters
+    .filter((q) => q.revenue != null || q.netIncome != null)
+    .map((q) => ({ period: q.period, Revenue: q.revenue, "Net income": q.netIncome }));
 
-  // No company financials (e.g. ETFs/funds) — hide the card entirely. Rukmani
-  // can explain why in chat if asked; we don't clutter the page with a notice.
-  if (!isLoading && !rows.length) return null;
+  // Nothing at all (e.g. ETFs/funds) — hide the card entirely.
+  if (!isLoading && quarters.length === 0) return null;
+  // Loaded, but no plottable values (plan-tiered / partial data) — show an honest
+  // notice instead of a blank chart.
+  const loadedButEmpty = Boolean(data) && !isLoading && rows.length === 0;
 
   return (
     <div className="card-hover rounded-xl glass p-4">
@@ -52,6 +54,11 @@ export function RevenueEarningsChart({ symbol, financials }: { symbol: string; f
 
       {isLoading && !data && <div className="mt-4 h-48 animate-pulse rounded bg-surface-raised" />}
 
+      {loadedButEmpty && (
+        <p className="mt-4 rounded-lg border border-hairline bg-surface px-3 py-6 text-center text-xs text-ink-faint">
+          Quarterly financials aren&apos;t available for {symbol} on the current data plan.
+        </p>
+      )}
 
       {rows.length > 0 && (
         <div className="mt-4 aspect-[2/1] max-h-64 w-full">

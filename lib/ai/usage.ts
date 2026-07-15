@@ -14,6 +14,10 @@ export interface AiUsageEntry {
   model: string;
   inputTokens: number | null;
   outputTokens: number | null;
+  // AIOPT A2: cached (prompt-cache read) input tokens — billed ~10% of base.
+  // Lets the admin dashboard show cache hit-rate per feature. Optional; absent =
+  // no caching on that call.
+  cachedInputTokens?: number | null;
   latencyMs: number;
   ok: boolean;
   userId?: string | null;
@@ -53,6 +57,7 @@ export async function logAiUsage(e: AiUsageEntry): Promise<void> {
       model: e.model,
       input_tokens: e.inputTokens,
       output_tokens: e.outputTokens,
+      cached_input_tokens: e.cachedInputTokens ?? null,
       latency_ms: e.latencyMs,
       ok: e.ok,
       user_id: e.userId ?? null,

@@ -108,7 +108,7 @@ export async function POST(req: NextRequest) {
     const stream = new ReadableStream({
       async start(controller) {
         const convo: any[] = toAnthropicMessages(recent);
-        let inTok = 0, outTok = 0, emittedAny = false;
+        let inTok = 0, outTok = 0, cachedTok = 0, emittedAny = false;
         try {
           for (let iter = 0; iter < MAX_TOOL_ITERS; iter++) {
             const { textDeltas, toolUses, usage, stopReason } = await streamClaudeTurn({
@@ -116,7 +116,7 @@ export async function POST(req: NextRequest) {
               tools: [...tools, { type: "web_search_20250305", name: "web_search", max_uses: 3 } as any],
               onText: (t) => { emittedAny = true; emitText(controller, t); },
             });
-            inTok += usage.input; outTok += usage.output;
+            inTok += usage.input; outTok += usage.output; cachedTok += usage.cacheRead;
 
             if (stopReason !== "tool_use" || toolUses.length === 0) break; // final answer streamed
 
@@ -137,7 +137,7 @@ export async function POST(req: NextRequest) {
             convo.push({ role: "user", content: results });
           }
           void noteProviderResult("claude", true);
-          void logAiUsage({ task: "chat-analysis", feature: "chat", provider: "claude", model: plan.claudeModel, inputTokens: inTok, outputTokens: outTok, latencyMs: 0, ok: true, userId: session?.userId ?? null, estimated: false });
+          void logAiUsage({ task: "chat-analysis", feature: "chat", provider: "claude", model: plan.claudeModel, inputTokens: inTok, outputTokens: outTok, cachedInputTokens: cachedTok, latencyMs: 0, ok: true, userId: session?.userId ?? null, estimated: false });
         } catch (e) {
           // AIOPT A6: Claude failed (credit/rate-limit/outage). Record health, then
           // — if nothing was streamed yet and Gemini is available — FAIL OVER to
@@ -269,11 +269,20 @@ interface ToolUseCall { id: string; name: string; input: any }
 async function streamClaudeTurn(opts: {
   key: string; model: string; system: string; messages: any[]; tools: any[];
   onText: (t: string) => void;
-}): Promise<{ textDeltas: string; toolUses: ToolUseCall[]; usage: { input: number; output: number }; stopReason: string }> {
+}): Promise<{ textDeltas: string; toolUses: ToolUseCall[]; usage: { input: number; output: number; cacheRead: number; cacheWrite: number }; stopReason: string }> {
+  // AIOPT A2: prompt caching. The system prompt + tool definitions are static per
+  // route and re-sent every turn; a cache_control breakpoint on the last static
+  // block bills subsequent hits at ~10% of base. System first, tools next (both
+  // static); the volatile messages come last in the request, which is already the
+  // cacheable ordering. Cached input tokens are logged from message_start.usage.
+  const systemBlocks = [{ type: "text", text: opts.system, cache_control: { type: "ephemeral" } }];
+  const cachedTools = opts.tools.length
+    ? opts.tools.map((t, i) => (i === opts.tools.length - 1 ? { ...t, cache_control: { type: "ephemeral" } } : t))
+    : opts.tools;
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: { "content-type": "application/json", "x-api-key": opts.key, "anthropic-version": "2023-06-01" },
-    body: JSON.stringify({ model: opts.model, max_tokens: 1500, stream: true, system: opts.system, messages: opts.messages, tools: opts.tools }),
+    body: JSON.stringify({ model: opts.model, max_tokens: 1500, stream: true, system: systemBlocks, messages: opts.messages, tools: cachedTools }),
   });
   if (!res.ok || !res.body) {
     const detail = await res.text().catch(() => "");
@@ -283,7 +292,7 @@ async function streamClaudeTurn(opts: {
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
   let buf = "", textDeltas = "", stopReason = "end_turn";
-  const usage = { input: 0, output: 0 };
+  const usage = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
   // Track content blocks by index to assemble tool_use input JSON.
   const blocks = new Map<number, { type: string; id?: string; name?: string; json: string }>();
 
@@ -299,7 +308,13 @@ async function streamClaudeTurn(opts: {
       if (!json || json === "[DONE]") continue;
       let ev: any; try { ev = JSON.parse(json); } catch { continue; }
       switch (ev.type) {
-        case "message_start": usage.input += ev.message?.usage?.input_tokens ?? 0; break;
+        case "message_start": {
+          const u = ev.message?.usage ?? {};
+          usage.input += u.input_tokens ?? 0;
+          usage.cacheRead += u.cache_read_input_tokens ?? 0;   // billed ~10% of base (A2)
+          usage.cacheWrite += u.cache_creation_input_tokens ?? 0;
+          break;
+        }
         case "content_block_start":
           blocks.set(ev.index, { type: ev.content_block?.type, id: ev.content_block?.id, name: ev.content_block?.name, json: "" });
           break;

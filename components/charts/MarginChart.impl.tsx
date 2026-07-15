@@ -30,9 +30,10 @@ export function MarginChart({ symbol, financials }: { symbol: string; financials
       "Operating margin %": q.operatingMarginPct != null ? +q.operatingMarginPct.toFixed(1) : null,
     }));
 
-  // No margins (e.g. ETFs/funds) — hide the card entirely. Rukmani can explain
-  // why if a user asks.
-  if (!isLoading && !rows.length) return null;
+  // Nothing at all (e.g. ETFs/funds) — hide the card entirely.
+  if (!isLoading && quarters.length === 0) return null;
+  // Loaded, but no plottable margins (plan-tiered / partial) — honest notice.
+  const loadedButEmpty = Boolean(data) && !isLoading && rows.length === 0;
 
   return (
     <div className="card-hover rounded-xl glass p-4">
@@ -46,6 +47,11 @@ export function MarginChart({ symbol, financials }: { symbol: string; financials
 
       {isLoading && !data && <div className="mt-4 h-48 animate-pulse rounded bg-surface-raised" />}
 
+      {loadedButEmpty && (
+        <p className="mt-4 rounded-lg border border-hairline bg-surface px-3 py-6 text-center text-xs text-ink-faint">
+          Margin history isn&apos;t available for {symbol} on the current data plan.
+        </p>
+      )}
 
       {rows.length > 0 && (
         <div className="mt-4 aspect-[2/1] max-h-64 w-full">

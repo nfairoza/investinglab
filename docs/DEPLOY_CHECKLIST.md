@@ -36,6 +36,7 @@ brokerage" instead of surfacing the error.)
    - `0040_money_v2.sql` — Money V2: `recurring_charges.next_expected` (MV1 Safe-to-Spend), `money_prefs` (buffer), `category_targets` (MV2), `goals` (MV3). The recurring cron backfills `next_expected`; Safe-to-Spend reads it live
    - MV4 live-rate grounding adds NO migration — the `rates-refresh` cron caches the FMP treasury rate in `server_cache` (24h) with its asOf; idle-cash/debt-arbitrage insights read it and degrade to generic phrasing if the FMP plan doesn't include `treasury-rates`
    - PT6 flow views + overlap add NO migration — the `pt-flow` cron caches congressional flow aggregates in `server_cache`; the overlap card + `power_overlap` insight compute at read time from local follows/holdings/trades. Flow views are `pt_flow_views`-gated (Premium; billing-off ships to all)
+   - `0041_ai_usage_cache.sql` — AIOPT A2: adds `ai_usage.cached_input_tokens` so the admin cost dashboard shows the prompt-cache hit-rate (chat sends `cache_control` on its static system+tools blocks; cached input bills ~10% of base). Nullable; no backfill
 2. **Set new env vars** in Vercel (and locally in `.env.local`):
    - `BILLING_ENABLED` / `NEXT_PUBLIC_BILLING_ENABLED` — (optional) set to `"1"` to
      turn on plan gating (ETF look-through = Premium, etc. — see docs/BILLING.md).
