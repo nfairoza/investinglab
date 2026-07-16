@@ -10,6 +10,31 @@ import {
   rankWithFeedback, isKindMuted, recordNotForMe, recordSurfaced, surfacedIdsToday,
   type InsightFeedback, type SurfacedLedger,
 } from "@/lib/insights/feedback";
+import { readBackfillStatus } from "@/lib/insights/backfill";
+import { diagnoseState, type InsightsDiagnosis } from "@/lib/insights/diagnose";
+
+async function diagnose(supabase: SupabaseClient, userId: string, hasInsights: boolean): Promise<InsightsDiagnosis> {
+  const backfill = await readBackfillStatus(userId).catch(() => null);
+
+  // Ledger span: how many months has the pipeline actually built?
+  const { data: monthRows } = await supabase.from("ledger_month").select("month").eq("user_id", userId).order("month", { ascending: true });
+  const monthsOfData = (monthRows ?? []).length;
+
+  // Earliest → latest transaction span in weeks (independent of whether the
+  // ledger has been built — this is what tells us "not yet processed" apart from
+  // "genuinely too little history").
+  const [{ data: firstTxn }, { data: lastTxn }] = await Promise.all([
+    supabase.from("plaid_transactions").select("date").eq("user_id", userId).eq("removed", false).order("date", { ascending: true }).limit(1).maybeSingle(),
+    supabase.from("plaid_transactions").select("date").eq("user_id", userId).eq("removed", false).order("date", { ascending: false }).limit(1).maybeSingle(),
+  ]);
+  const hasTxns = Boolean(firstTxn?.date);
+  const weeksOfData = firstTxn?.date && lastTxn?.date
+    ? Math.max(0, Math.round((Date.parse(lastTxn.date) - Date.parse(firstTxn.date)) / (7 * 86_400_000)))
+    : 0;
+
+  const bf = backfill ? { state: backfill.state, monthsOfData: backfill.monthsOfData, transactions: backfill.transactions } : null;
+  return diagnoseState({ hasInsights, hasTxns, monthsOfData, weeksOfData, backfillState: backfill?.state ?? null, backfill: bf });
+}
 
 async function readInsightPrefs(supabase: SupabaseClient): Promise<{ feedback: InsightFeedback; surfaced: SurfacedLedger | null; prefs: Record<string, unknown> }> {
   const { data } = await supabase.from("user_prefs").select("prefs").maybeSingle();
@@ -86,7 +111,12 @@ export async function GET(req: NextRequest) {
     return { ...ins, headline: fillSlots(headline, ins.slots), body: fillSlots(body, ins.slots) };
   }));
 
-  return NextResponse.json({ insights: withText });
+  // The Home/active feed self-hides when empty and doesn't need the diagnosis.
+  // The full page feed carries the diagnosis so the UI can show the right empty
+  // state ('analyzing' vs 'too little' vs 'error') instead of a generic message.
+  const diagnosis = activeOnly ? undefined : await diagnose(ctx.supabase, ctx.userId, withText.length > 0);
+
+  return NextResponse.json({ insights: withText, diagnosis });
 }
 
 // PATCH — update one insight's status (seen/done/dismissed/muted). Dismiss/mute

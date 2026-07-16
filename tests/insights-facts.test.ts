@@ -53,6 +53,26 @@ describe("pace", () => {
     expect(f.value.overPct).toBeGreaterThan(100);
     expect(f.formulaId).toBe("pace.v1");
     expect(f.evidence.note).toMatch(/day 10 of 30/);
+    // Q7 baseline honesty: full 3-month window, not limited, stated in evidence.
+    expect(f.value.baselineMonths).toBe(3);
+    expect(f.value.limited).toBe(false);
+    expect(f.evidence.note).toMatch(/3-month average/);
+  });
+
+  it("Q7: with only ONE prior month, states the actual window + flags limited history", () => {
+    const inputs: LedgerInputs = {
+      txns: [
+        txn({ transactionId: "dine-mar", amount: 200, date: "2026-03-15", merchant: "Chipotle" }), // sole prior month
+        txn({ transactionId: "dine-apr", amount: 150, date: "2026-04-10", merchant: "Chipotle" }),
+      ],
+      overrides: [], balances: [], cards: [], netWorthHistory: [],
+    };
+    const l = buildLedger(inputs, Date.UTC(2026, 3, 10));
+    const f = pace(l, "Food & Dining", Date.UTC(2026, 3, 10));
+    expect(f.value.baseline).toBe(200);         // baseline still computed from 1 month
+    expect(f.value.baselineMonths).toBe(1);
+    expect(f.value.limited).toBe(true);
+    expect(f.evidence.note).toMatch(/1-month average \(limited history so far\)/);
   });
 });
 

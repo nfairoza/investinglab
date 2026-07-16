@@ -15,7 +15,13 @@ export function detectFlowShift(l: Ledger, now = new Date()): StructuredInsight[
 
   // Trailing 3 completed months before the current one.
   const prior = l.months.filter((m) => m.month < curMonth).slice(-3).filter((m) => m.income >= MIN_INCOME);
-  if (prior.length < 2) return []; // need a stable baseline
+  // Baseline honesty (Q7): fire even with only 1–2 prior months, but flag it as
+  // "based on limited history" so the caveat rides along instead of the insight
+  // staying silent until 3 full months exist. Zero prior months = truly nothing
+  // to compare against, so we still return nothing.
+  if (prior.length < 1) return [];
+  const limitedHistory = prior.length < 3;
+  const baselineWindow = prior.length; // how many months the baseline averages over
 
   // Baseline share per category = avg(category spend / income) over prior months.
   const baselineShare = new Map<string, number>();
@@ -35,14 +41,17 @@ export function detectFlowShift(l: Ledger, now = new Date()): StructuredInsight[
     const thisPct = Math.round(thisShare * 100);
     const usualPct = Math.round(usual * 100);
     if (thisPct === usualPct) continue;
+    const windowNote = `Baseline is the average over the prior ${baselineWindow} month${baselineWindow === 1 ? "" : "s"}${limitedHistory ? " (limited history so far)" : ""}.`;
     out.push({
       kind: "flow_shift",
       subject: c,
-      severity: Math.abs(deltaPts) >= 6 ? 2 : 1,
+      // Limited-history shifts are noisier, so cap severity at 1 until we have a
+      // stable 3-month baseline (avoids over-alarming on a single prior month).
+      severity: limitedHistory ? 1 : (Math.abs(deltaPts) >= 6 ? 2 : 1),
       positive: deltaPts < 0, // taking a SMALLER slice of income is good
-      headlineSlots: { category: c, thisPct, usualPct },
+      headlineSlots: { category: c, thisPct, usualPct, ...(limitedHistory ? { limitedHistory: 1 } : {}) },
       impactPerYear: null,
-      evidence: [{ kind: "inputs", inputs: { category: c, thisMonthShare: thisPct, baselineShare: usualPct, income: Math.round(cur.income) }, note: `${c} was ${thisPct}% of income this month vs a usual ${usualPct}%.` }],
+      evidence: [{ kind: "inputs", inputs: { category: c, thisMonthShare: thisPct, baselineShare: usualPct, income: Math.round(cur.income), baselineMonths: baselineWindow }, note: `${c} was ${thisPct}% of income this month vs a usual ${usualPct}%. ${windowNote}` }],
       factsUsed: ["flowShift.v1"],
       action: { label: "See the cash-flow", deeplink: "/spending" },
       cooldownDays: 21,

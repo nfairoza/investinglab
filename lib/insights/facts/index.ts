@@ -36,7 +36,9 @@ export interface PaceValue {
   category: string;
   mtd: number;            // spent so far this month
   projected: number;      // projected full-month at current pace
-  baseline: number;       // trailing 3-month average for this category
+  baseline: number;       // trailing up-to-3-month average for this category
+  baselineMonths: number; // ACTUAL months the baseline averages over (1–3)
+  limited: boolean;       // true when < 3 months of baseline (limited history)
   overPct: number;        // projected vs baseline, signed %
 }
 
@@ -50,15 +52,20 @@ export function pace(l: Ledger, category: string, now: number = Date.parse(l.asO
   const mtd = current?.byCategory[category] ?? 0;
   const projected = frac > 0 ? mtd / frac : mtd;
   const last3 = prior.slice(-3).map((m) => m.byCategory[category] ?? 0);
-  const baseline = last3.length ? last3.reduce((s, v) => s + v, 0) / last3.length : 0;
+  const baselineMonths = last3.length; // actual window — may be 1–3, not always 3
+  const baseline = baselineMonths ? last3.reduce((s, v) => s + v, 0) / baselineMonths : 0;
   const overPct = baseline > 0 ? ((projected - baseline) / baseline) * 100 : (projected > 0 ? 100 : 0);
+  const limited = baselineMonths < 3;
 
+  // Baseline honesty (Q7): state the ACTUAL window (1–3 months), not a fixed
+  // "3-month", and flag limited history so the caveat can surface.
+  const windowLabel = `${baselineMonths}-month average${limited ? " (limited history so far)" : ""}`;
   const evidence: EvidenceRef = {
     kind: "inputs",
-    inputs: { category, monthToDate: round(mtd), dayOfMonth: dom, daysInMonth: dim, baseline3mo: round(baseline) },
-    note: `Based on ${round(mtd)} spent on ${category} through day ${dom} of ${dim}, vs a 3-month average of ${round(baseline)}.`,
+    inputs: { category, monthToDate: round(mtd), dayOfMonth: dom, daysInMonth: dim, baseline: round(baseline), baselineMonths },
+    note: `Based on ${round(mtd)} spent on ${category} through day ${dom} of ${dim}, vs a ${windowLabel} of ${round(baseline)}.`,
   };
-  return { value: { category, mtd: round(mtd), projected: round(projected), baseline: round(baseline), overPct: +overPct.toFixed(1) }, formulaId: "pace.v1", evidence, asOf: asOf(l) };
+  return { value: { category, mtd: round(mtd), projected: round(projected), baseline: round(baseline), baselineMonths, limited, overPct: +overPct.toFixed(1) }, formulaId: "pace.v1", evidence, asOf: asOf(l) };
 }
 
 // ── categoryTrend: direction + magnitude of a category vs baseline ──

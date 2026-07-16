@@ -72,10 +72,13 @@ export function extractCards(payloads: unknown[]): CardLiability[] {
 // Load everything buildLedger needs for one user. `db` may be a service-role or
 // user-scoped client; queries are filtered by userId explicitly so the same code
 // works for both (service role sees all rows, so we MUST scope by user).
-export async function loadLedgerInputs(db: SupabaseClient, userId: string): Promise<LedgerInputs> {
-  // ~13 months of transactions (full trailing year + current partial month).
+export async function loadLedgerInputs(db: SupabaseClient, userId: string, monthsBack = 13): Promise<LedgerInputs> {
+  // Trailing window of transactions. Default ~13 months (full year + current
+  // partial month) for the nightly build; the one-time historical backfill passes
+  // a wider window (~25 months) so ledger_month is built for EVERY month Plaid
+  // gave us, not just the recent year.
   const since = new Date();
-  since.setMonth(since.getMonth() - 13);
+  since.setMonth(since.getMonth() - monthsBack);
   const [{ data: txnRows }, { data: ovRows }, { data: nwRows }] = await Promise.all([
     db.from("plaid_transactions")
       .select("transaction_id, account_id, date, name, merchant, amount, plaid_category, plaid_detailed, pending, removed")

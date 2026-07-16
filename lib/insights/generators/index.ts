@@ -31,8 +31,11 @@ export function detectPaceAnomaly(l: Ledger): StructuredInsight[] {
     out.push({
       kind: "pace_anomaly",
       subject: cat,
-      severity: v.overPct >= 60 ? 2 : 1,
-      headlineSlots: { category: cat, projected: v.projected, baseline: v.baseline, overPct: Math.round(v.overPct), extra },
+      // Limited history (1–2 baseline months) is noisier — cap at severity 1 and
+      // carry a limitedHistory slot so the UI/narrator can add "based on limited
+      // history" instead of the insight staying silent until 3 months exist.
+      severity: v.limited ? 1 : (v.overPct >= 60 ? 2 : 1),
+      headlineSlots: { category: cat, projected: v.projected, baseline: v.baseline, baselineMonths: v.baselineMonths, overPct: Math.round(v.overPct), extra, ...(v.limited ? { limitedHistory: 1 } : {}) },
       impactPerYear: +(extra * 12).toFixed(2),
       evidence: [f.evidence],
       factsUsed: [f.formulaId],

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { CountryCode } from "plaid";
 import { getPlaid, plaidConfigured, plaidCapReached, recordPlaidItemCreated, plaidTokenWrite } from "@/lib/plaid";
 import { getUserClient } from "@/lib/supabase-data";
+import { runBackfill } from "@/lib/insights/backfill";
 
 export const dynamic = "force-dynamic";
 
@@ -76,6 +77,15 @@ export async function POST(req: NextRequest) {
 
     // Record in the app-wide audit so the cap counts Items ever created.
     await recordPlaidItemCreated(ctx.userId, itemId).catch(() => {});
+
+    // Q7: kick off the one-time historical backfill (full ~24mo pull + immediate
+    // ledger_month build + insight generation) so the user sees their first
+    // insights within minutes. Fire-and-forget — the response returns right away;
+    // the /insights page polls the backfill status and shows "Analyzing N months
+    // of history…". runBackfill marks status "running" first thing, so even if
+    // this serverless invocation is torn down after the response, the UI reflects
+    // the in-progress state and a manual POST /api/plaid/backfill can resume it.
+    void runBackfill(ctx.userId).catch(() => {});
 
     return NextResponse.json({ ok: true, institution: institutionName, accounts: accounts.length });
   } catch (e) {

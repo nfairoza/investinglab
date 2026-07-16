@@ -2,13 +2,26 @@
 
 import { useState } from "react";
 import useSWR from "swr";
-import { Lightbulb, ChevronDown, X, ThumbsUp, Sparkles } from "lucide-react";
+import { Lightbulb, ChevronDown, X, ThumbsUp, Sparkles, Clock, AlertTriangle } from "lucide-react";
 import { fetchJson } from "@/lib/fetch-json";
 import { ArtImage } from "./ui/art-image";
+import { AmbientLoader } from "./ambient-loader";
 import { optimisticUpdate } from "@/lib/optimistic";
 import type { StoredInsight, EvidenceRef } from "@/lib/insights/types";
 
 const KEY = "/api/insights";
+
+// Mirror of the API's InsightsDiagnosis (Q7). Distinguishes 'analyzing now' from
+// 'genuinely too little history' from 'pipeline error' so the empty state never
+// blames little history when the real state is "not yet processed".
+type InsightsState = "ready" | "analyzing" | "too_little" | "error" | "empty";
+interface Diagnosis {
+  state: InsightsState;
+  monthsOfData: number;
+  weeksOfData: number;
+  backfill: { state: string; monthsOfData: number; transactions: number } | null;
+}
+interface InsightsResp { insights: StoredInsight[]; diagnosis?: Diagnosis }
 
 // Severity → soft tint (neutral / amber / soft-red). Positive insights always
 // read as a gentle positive regardless of severity.
@@ -67,6 +80,11 @@ function InsightRow({ ins }: { ins: StoredInsight }) {
         <div className="min-w-0 flex-1">
           <div className="text-sm font-semibold text-ink">{ins.headline}</div>
           <div className="mt-0.5 text-sm text-ink-dim">{ins.body}</div>
+          {ins.slots?.limitedHistory ? (
+            <div className="mt-1.5 inline-flex items-center gap-1 rounded-full border border-hairline bg-surface px-2 py-0.5 text-[11px] text-ink-faint">
+              <Clock size={11} /> Based on limited history so far
+            </div>
+          ) : null}
           <div className="mt-2 flex flex-wrap items-center gap-3 text-xs">
             <button onClick={() => setOpen((v) => !v)} className="inline-flex items-center gap-1 text-brand-400 hover:underline">
               Show me why <ChevronDown size={13} className={open ? "rotate-180 transition-transform" : "transition-transform"} />
@@ -83,27 +101,93 @@ function InsightRow({ ins }: { ins: StoredInsight }) {
   );
 }
 
-export function InsightsView() {
-  const { data, isLoading } = useSWR<{ insights: StoredInsight[] }>(KEY, fetchJson, { revalidateOnFocus: false, keepPreviousData: true });
-  const insights = data?.insights ?? [];
+// Centered state card. Wrapping in a full-width flex fixes the layout bug where
+// the card floated in the right half with the left half blank (the card wasn't
+// forced to center within the content column).
+function StateCard({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex w-full justify-center">
+      <div className="w-full max-w-xl rounded-2xl glass p-8 text-center">{children}</div>
+    </div>
+  );
+}
 
-  // Skeleton is FIRST-VISIT-ONLY (S2): show it only when we have no data at all
-  // (never fetched). Once we have any data — even stale/previous — render it and
-  // let the background revalidation update it in place; never skeleton over it.
+export function InsightsView() {
+  const { data, isLoading } = useSWR<InsightsResp>(KEY, fetchJson, {
+    revalidateOnFocus: false,
+    keepPreviousData: true,
+    // While the backfill is analyzing, poll so the first insights appear as soon
+    // as the pipeline finishes (within minutes) without a manual refresh.
+    refreshInterval: (latest) => (latest?.diagnosis?.state === "analyzing" ? 5000 : 0),
+  });
+  const insights = data?.insights ?? [];
+  const diag = data?.diagnosis;
+
+  // Skeleton is FIRST-VISIT-ONLY (S2): show it only when we have no data at all.
   if (!data && isLoading) return <div className="rounded-2xl glass p-6 text-sm text-ink-faint">Loading your insights…</div>;
 
-  if (insights.length === 0) {
+  if (insights.length > 0) {
+    return <div className="space-y-3">{insights.map((ins) => <InsightRow key={ins.id} ins={ins} />)}</div>;
+  }
+
+  // ── Analyzing now — the first-insights moment. Show real progress with the
+  // ambient loader, not an "empty" message. ─────────────────────────────────
+  if (diag?.state === "analyzing") {
+    const months = diag.backfill?.monthsOfData || diag.monthsOfData || 0;
+    const label = months > 0
+      ? `Analyzing ${months} month${months === 1 ? "" : "s"} of history…`
+      : "Pulling in your full transaction history…";
     return (
-      <div className="mx-auto max-w-xl rounded-2xl glass p-8 text-center">
-        <ArtImage name="empty-insights" alt="" className="mx-auto mb-3 h-32 w-auto opacity-95" sizes="480px" />
-        <h2 className="text-lg font-semibold text-ink">No insights yet</h2>
-        <p className="mx-auto mt-1 max-w-md text-sm text-ink-dim">
-          Once your accounts have a little history, Rukmani will surface what&apos;s worth a look —
-          spending that&apos;s running high, cash that could work harder, and wins worth celebrating.
+      <StateCard>
+        <AmbientLoader variant="money" height={200} messages={[label, "Building your monthly cash-flow…", "Looking for what's worth a look…"]} />
+        <p className="mx-auto mt-2 max-w-md text-sm text-ink-dim">
+          We&apos;re reading your full transaction history and building your first insights. This usually takes a couple of minutes — no need to wait here.
         </p>
-      </div>
+      </StateCard>
     );
   }
 
-  return <div className="space-y-3">{insights.map((ins) => <InsightRow key={ins.id} ins={ins} />)}</div>;
+  // ── Pipeline error — honest, not blamed on the data. ──────────────────────
+  if (diag?.state === "error") {
+    return (
+      <StateCard>
+        <AlertTriangle size={28} className="mx-auto mb-3 text-amber-400" />
+        <h2 className="text-lg font-semibold text-ink">We hit a snag building your insights</h2>
+        <p className="mx-auto mt-1 max-w-md text-sm text-ink-dim">
+          Something went wrong while analyzing your history — this is on us, not your accounts. It&apos;ll retry automatically tonight, or you can try again.
+        </p>
+        <button
+          onClick={() => fetch("/api/plaid/backfill", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ force: true }) }).catch(() => {})}
+          className="mt-4 rounded-lg border border-hairline px-4 py-2 text-sm text-ink-dim hover:bg-surface hover:text-ink"
+        >
+          Try again
+        </button>
+      </StateCard>
+    );
+  }
+
+  // ── Genuinely too little history (under ~6 weeks). ────────────────────────
+  if (diag?.state === "too_little") {
+    return (
+      <StateCard>
+        <Clock size={28} className="mx-auto mb-3 text-ink-faint" />
+        <h2 className="text-lg font-semibold text-ink">A little more history and we&apos;re set</h2>
+        <p className="mx-auto mt-1 max-w-md text-sm text-ink-dim">
+          Your accounts have under about six weeks of activity so far. Once there&apos;s a bit more, Rukmani will start surfacing spending that&apos;s running high, cash that could work harder, and wins worth celebrating.
+        </p>
+      </StateCard>
+    );
+  }
+
+  // ── Default empty: processed, enough history, nothing worth flagging (or no
+  // accounts linked yet). ───────────────────────────────────────────────────
+  return (
+    <StateCard>
+      <ArtImage name="empty-insights" alt="" className="mx-auto mb-3 h-32 w-auto opacity-95" sizes="480px" />
+      <h2 className="text-lg font-semibold text-ink">You&apos;re all clear right now</h2>
+      <p className="mx-auto mt-1 max-w-md text-sm text-ink-dim">
+        Nothing needs your attention at the moment. Rukmani keeps watching your money and will surface what&apos;s worth a look — spending that&apos;s running high, cash that could work harder, and wins worth celebrating.
+      </p>
+    </StateCard>
+  );
 }

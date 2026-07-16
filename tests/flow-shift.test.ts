@@ -49,8 +49,33 @@ describe("detectFlowShift", () => {
     expect(s.positive).toBe(true);
   });
 
-  it("needs at least 2 baseline months of income", () => {
+  it("returns nothing with ZERO prior months (nothing to compare against)", () => {
     const l = ledger([month("2026-07", 5000, { "Food & Dining": 900 })]);
     expect(detectFlowShift(l, NOW)).toEqual([]);
+  });
+
+  it("Q7: fires with only ONE prior month, carrying a limited-history qualifier", () => {
+    const l = ledger([
+      month("2026-06", 5000, { "Food & Dining": 450 }), // 9% — sole baseline month
+      month("2026-07", 5000, { "Food & Dining": 700 }), // 14%
+    ]);
+    const fd = detectFlowShift(l, NOW).find((i) => i.subject === "Food & Dining");
+    expect(fd).toBeTruthy();
+    expect(fd!.headlineSlots.limitedHistory).toBe(1);
+    expect(fd!.severity).toBe(1); // capped on limited history
+    // Evidence states the actual baseline window, not a fixed "3-month".
+    expect(fd!.evidence[0].note).toMatch(/prior 1 month \(limited history so far\)/);
+  });
+
+  it("Q7: full 3-month baseline has NO limited-history qualifier", () => {
+    const l = ledger([
+      month("2026-04", 5000, { "Food & Dining": 450 }),
+      month("2026-05", 5000, { "Food & Dining": 450 }),
+      month("2026-06", 5000, { "Food & Dining": 450 }),
+      month("2026-07", 5000, { "Food & Dining": 650 }),
+    ]);
+    const fd = detectFlowShift(l, NOW).find((i) => i.subject === "Food & Dining")!;
+    expect(fd.headlineSlots.limitedHistory).toBeUndefined();
+    expect(fd.evidence[0].note).toMatch(/prior 3 months\./);
   });
 });
