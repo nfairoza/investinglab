@@ -75,7 +75,11 @@ export function buildSankey(
   const clean = txns.filter((t) => !t.isTransfer);
 
   // ---- Income side ----
-  const deposits = clean.filter((t) => t.isIncome && t.amount < 0);
+  // Any non-transfer deposit (negative amount) is money in — matches the Spending
+  // view and ledger_month.income. (isIncome flags the RECURRING subset for stream
+  // attribution below, but ALL deposits count toward total income; gating on
+  // isIncome here zeroed the flow for users without 3+ months of payroll history.)
+  const deposits = clean.filter((t) => t.amount < 0);
   const streamKeys = streams.map((s) => ({ ...s, key: s.matchKey.toLowerCase() }));
   const incomeByStream = new Map<string, { total: number; evidence: EvidenceTxn[] }>();
   let otherIncome = 0; const otherIncomeEv: EvidenceTxn[] = [];

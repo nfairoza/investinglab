@@ -5,7 +5,14 @@ import { useSearchParams } from "next/navigation";
 import useSWR from "swr";
 import Link from "next/link";
 import { Search, SlidersHorizontal, X, Repeat, Sparkles, AlertTriangle } from "lucide-react";
-import { toastError } from "@/lib/toast";
+import { toast, toastError } from "@/lib/toast";
+import { MerchantIcon } from "./money/merchant-icon";
+
+// Friendly date: "Jun 23, 2026" — month name first, never "2026-06-23".
+function fmtDate(iso: string): string {
+  const d = new Date(`${iso}T00:00:00`);
+  return isNaN(d.getTime()) ? iso : d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+}
 import { fetchJson } from "@/lib/fetch-json";
 import { ErrorState } from "./data-state";
 import { ArtImage } from "./ui/art-image";
@@ -30,7 +37,9 @@ type AmountSign = "all" | "expense" | "income";
 interface Insight { recurring: boolean; isNew: boolean; unusual: boolean; typical?: number }
 
 // Derive per-transaction insight flags from the whole transaction set:
-//  • recurring — same merchant seen in ≥2 distinct months
+//  • recurring — a genuine repeating charge: same merchant in ≥3 distinct months
+//    with a roughly monthly cadence (median gap 20–40 days). This is the
+//    subscription/bill signal — NOT "seen twice", which flagged one-off repeats.
 //  • new       — merchant's first-ever appearance is within the last 21 days
 //  • unusual   — an expense ≥2.5× that merchant's median (and ≥ $40 over it)
 function buildInsights(txns: Txn[]): Map<string, Insight> {
@@ -53,7 +62,17 @@ function buildInsights(txns: Txn[]): Map<string, Insight> {
     const m = byMerchant.get(key);
     let recurring = false, isNew = false, unusual = false, typical: number | undefined;
     if (m && t.amount > 0) {
-      recurring = m.months.size >= 2;
+      // Recurring = ≥3 distinct months AND a roughly-monthly median gap between
+      // charges. Catches subscriptions/bills; rejects "bought twice this week".
+      if (m.months.size >= 3) {
+        const sorted = [...m.dates].sort();
+        const gaps: number[] = [];
+        for (let k = 1; k < sorted.length; k++) {
+          gaps.push((Date.parse(sorted[k]) - Date.parse(sorted[k - 1])) / 86_400_000);
+        }
+        const g = gaps.length ? median(gaps) : 0;
+        recurring = g >= 20 && g <= 40;
+      }
       const firstSeen = m.dates.reduce((a, b) => (a < b ? a : b));
       isNew = firstSeen >= cutoffStr && m.dates.length <= 2;
       typical = median(m.amounts);
@@ -151,6 +170,7 @@ export function TransactionsView() {
         if (!r.ok) throw new Error(`recategorize ${r.status}`);
         return undefined;
       }, { optimisticData: apply, rollbackOnError: true, revalidate: true, populateCache: false });
+      if (applyToMerchant) toast(`All ${t.merchant ?? t.name} transactions set to ${newCat}.`, "success");
     } catch { toastError("Couldn't recategorize that transaction — reverted."); }
   }
   async function toggleFlag(t: Txn, field: "isTransfer" | "excluded") {
@@ -165,6 +185,9 @@ export function TransactionsView() {
         if (!r.ok) throw new Error(`flag ${r.status}`);
         return undefined;
       }, { optimisticData: apply, rollbackOnError: true, revalidate: true, populateCache: false });
+      const on = !t[field];
+      if (field === "isTransfer") toast(on ? "Marked as a transfer — excluded from spending & income." : "No longer a transfer — counts again.", "success");
+      else toast(on ? "Excluded from all spending totals." : "Included in spending totals again.", "success");
     } catch { toastError("Couldn't update that transaction — reverted."); }
   }
 
@@ -251,16 +274,19 @@ export function TransactionsView() {
             <div key={t.id} id={`txn-${t.id}`}
               className={`rounded-xl border bg-surface p-3 transition-all duration-500 ${t.excluded ? "opacity-50" : ""} ${isTarget ? "border-brand-500/70 ring-2 ring-brand-500/40 bg-brand-500/[0.06]" : "border-hairline"}`}>
               <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-1.5">
-                    <span className="truncate text-sm font-medium text-ink">{t.merchant ?? t.name}</span>
-                    {ins?.recurring && <Badge cls="border-sky-500/40 bg-sky-500/10 text-sky-300" icon={Repeat}>Recurring</Badge>}
-                    {ins?.isNew && <Badge cls="border-violet-500/40 bg-violet-500/10 text-violet-300" icon={Sparkles}>New</Badge>}
-                    {ins?.unusual && <Badge cls="border-amber-500/40 bg-amber-500/10 text-amber-300" icon={AlertTriangle}>Unusual</Badge>}
-                  </div>
-                  <div className="text-[11px] text-ink-faint">
-                    {t.date}{t.institution ? ` · ${t.institution}` : ""}{t.pending ? " · pending" : ""}
-                    {ins?.unusual && ins.typical ? ` · usually ~${money(ins.typical, t.currency)}` : ""}
+                <div className="flex min-w-0 items-start gap-2.5">
+                  <MerchantIcon logoUrl={(t as any).logoUrl} merchant={t.merchant ?? t.name} category={t.category} />
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <span className="truncate text-sm font-medium text-ink">{t.merchant ?? t.name}</span>
+                      {ins?.recurring && <Badge cls="border-sky-500/40 bg-sky-500/10 text-sky-300" icon={Repeat}>Recurring</Badge>}
+                      {ins?.isNew && <Badge cls="border-violet-500/40 bg-violet-500/10 text-violet-300" icon={Sparkles}>New</Badge>}
+                      {ins?.unusual && <Badge cls="border-amber-500/40 bg-amber-500/10 text-amber-300" icon={AlertTriangle}>Unusual</Badge>}
+                    </div>
+                    <div className="text-[11px] text-ink-faint">
+                      {fmtDate(t.date)}{t.institution ? ` · ${t.institution}` : ""}{t.pending ? " · pending" : ""}
+                      {ins?.unusual && ins.typical ? ` · usually ~${money(ins.typical, t.currency)}` : ""}
+                    </div>
                   </div>
                 </div>
                 <div className={`shrink-0 text-sm font-semibold ${t.amount < 0 ? "text-emerald-400" : "text-ink"}`}>
@@ -277,12 +303,14 @@ export function TransactionsView() {
                   Apply to merchant
                 </button>
                 <button onClick={() => toggleFlag(t, "isTransfer")}
+                  title="Mark as a transfer between your own accounts (e.g. a card payment). Transfers are excluded from spending AND income so money isn't double-counted."
                   className={`rounded-md border px-2 py-1 text-[11px] ${t.isTransfer ? "border-brand-500/40 bg-brand-500/10 text-brand-300" : "border-hairline text-ink-faint hover:text-ink"}`}>
-                  Transfer
+                  {t.isTransfer ? "✓ Transfer" : "Transfer"}
                 </button>
                 <button onClick={() => toggleFlag(t, "excluded")}
+                  title="Exclude this transaction from all spending totals and charts (e.g. a reimbursed expense)."
                   className={`rounded-md border px-2 py-1 text-[11px] ${t.excluded ? "border-amber-500/40 bg-amber-500/10 text-amber-300" : "border-hairline text-ink-faint hover:text-ink"}`}>
-                  {t.excluded ? "Excluded" : "Exclude"}
+                  {t.excluded ? "✓ Excluded" : "Exclude"}
                 </button>
               </div>
             </div>

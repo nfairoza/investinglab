@@ -103,7 +103,7 @@ export function MoneyDashboard() {
           value={money(spend.net)} sub={savingsRate != null ? `${savingsRate}% savings rate` : "this month"} />
         <GradientStat label="Cash runway" tone="violet"
           value={runway != null ? `${runway.toFixed(1)} mo` : "—"}
-          sub={runway != null ? "of expenses in cash" : "link a bank"} />
+          sub={runway != null ? "of expenses in cash" : hasAccounts ? "need a full month of spending" : "link a bank"} />
       </div>
 
       {/* Connected accounts + balances (history / drill-down). */}

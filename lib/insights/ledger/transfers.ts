@@ -39,8 +39,14 @@ function amountsMatch(a: number, b: number, hinted: boolean): boolean {
 }
 
 const CATEGORY_HINT = /TRANSFER_IN|TRANSFER_OUT|CREDIT_CARD_PAYMENT|ACCOUNT_TRANSFER|WIRE/i;
+// Name signals that a txn is a transfer/payment between the user's own accounts.
+// This lets us catch real transfers that lack a Plaid category hint (e.g. a
+// manual "Transfer to savings") WITHOUT pairing coincidental equal-and-opposite
+// amounts (a paycheck landing near an equal rent charge — neither name matches).
+const NAME_HINT = /\b(transfer|xfer|to savings|from savings|from checking|to checking|autopay|auto ?pay|card ?payment|payment (to|received)|pymt|bill ?pay|ach|wire|withdrawal|deposit to)\b/i;
 function isHint(t: LedgerTxn): boolean {
-  return CATEGORY_HINT.test(`${t.plaidCategory ?? ""} ${t.plaidDetailed ?? ""}`);
+  return CATEGORY_HINT.test(`${t.plaidCategory ?? ""} ${t.plaidDetailed ?? ""}`)
+    || NAME_HINT.test(`${t.name ?? ""} ${t.merchant ?? ""}`);
 }
 
 // Detect transfers over a list of the user's transactions. Pure + deterministic:
@@ -76,6 +82,11 @@ export function detectTransfers(txns: LedgerTxn[]): TransferResult {
       const dayGap = Math.abs(parseDate(a.date) - parseDate(b.date)) / DAY_MS;
       if (dayGap > 3) continue;
       const hinted = isHint(a) || isHint(b);
+      // Only pair when a Plaid category HINT backs the transfer. A pure amount
+      // coincidence (e.g. a $1,800 paycheck landing near an $1,800 rent charge)
+      // is NOT a transfer — pairing it silently zeroed real income/spending in the
+      // cash-flow. Hinted pairs (TRANSFER_*/CREDIT_CARD_PAYMENT) are the real ones.
+      if (!hinted) continue;
       if (!amountsMatch(a.amount, b.amount, hinted)) continue;
 
       // Lower score is better: prefer smaller day gap, exact amount, hinted.

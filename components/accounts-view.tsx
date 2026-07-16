@@ -19,6 +19,20 @@ const TYPE_LABEL: Record<string, string> = {
 
 export function AccountsView() {
   const { data, error, isLoading, mutate } = useSWR<Balances>("/api/plaid/accounts", fetchJson, { revalidateOnFocus: false });
+  const [refreshing, setRefreshing] = useState(false);
+  const [refreshedAt, setRefreshedAt] = useState<Date | null>(null);
+
+  // Refresh = force a LIVE Plaid pull (balances snapshot), then re-read. Gives the
+  // button real feedback: spinner while syncing + a "just now" timestamp after.
+  async function refresh() {
+    if (refreshing) return;
+    setRefreshing(true);
+    try {
+      await fetch("/api/plaid/refresh", { method: "POST" }).catch(() => {});
+      await mutate();
+      setRefreshedAt(new Date());
+    } finally { setRefreshing(false); }
+  }
 
   // Money → banking accounts only (cash, credit, loans). Brokerage/investment
   // accounts are shown in the Invest section, not here.
@@ -42,9 +56,13 @@ export function AccountsView() {
           <Stat label="Assets" value={money(assets)} />
           <Stat label="Debts" value={money(debts)} />
         </div>
-        <button onClick={() => mutate()} className="inline-flex items-center gap-1.5 rounded-lg border border-hairline px-3 py-1.5 text-sm text-ink-dim hover:bg-surface hover:text-ink">
-          <RefreshCw size={14} /> Refresh
-        </button>
+        <div className="flex items-center gap-2">
+          {refreshedAt && !refreshing && <span className="text-[11px] text-ink-faint">Updated {refreshedAt.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</span>}
+          <button onClick={refresh} disabled={refreshing}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-hairline px-3 py-1.5 text-sm text-ink-dim hover:bg-surface hover:text-ink disabled:opacity-60">
+            <RefreshCw size={14} className={refreshing ? "animate-spin" : ""} /> {refreshing ? "Refreshing…" : "Refresh"}
+          </button>
+        </div>
       </div>
 
       {error && <ErrorState error={error} onRetry={() => mutate()} />}
