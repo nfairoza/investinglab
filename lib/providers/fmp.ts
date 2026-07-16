@@ -671,9 +671,12 @@ export const fmpProvider: MarketDataProvider = {
       if (!d) return unavailable(NAME, "No DCF data for " + symbol);
       const dcfVal = d.dcf ?? null;
       const price = d["Stock Price"] ?? d.price ?? null;
+      // Price-perspective: (price − dcf) / dcf. Positive = price trades ABOVE the
+      // modeled fair value (potentially overvalued). Prior code used (dcf − price)
+      // / price, which inverted the sign and painted overvalued names green.
       const upDownPct =
-        dcfVal != null && price != null && price > 0
-          ? ((dcfVal - price) / price) * 100
+        dcfVal != null && price != null && dcfVal > 0 && price > 0
+          ? ((price - dcfVal) / dcfVal) * 100
           : null;
       return live(NAME, { symbol, dcf: dcfVal, price, upDownPct });
     } catch (e) {

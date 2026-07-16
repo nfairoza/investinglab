@@ -175,7 +175,7 @@ export interface DcfValue {
   symbol: string;
   dcf: number | null; // intrinsic value per share
   price: number | null; // current price for easy comparison
-  upDownPct: number | null; // how far above/below intrinsic value current price is
+  upDownPct: number | null; // (price − dcf)/dcf %; + = price above fair value (rich), − = below (cheap)
 }
 
 // ----- Stock screener (Robinhood-style discovery) --------------------------

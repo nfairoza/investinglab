@@ -3,7 +3,7 @@ import { GLOSSARY } from "@/lib/glossary";
 export const metadata = { title: "Glossary" };
 
 export default function GlossaryPage() {
-  const entries = Object.values(GLOSSARY).sort((a, b) => a.term.localeCompare(b.term));
+  const entries = Object.entries(GLOSSARY).sort((a, b) => a[1].term.localeCompare(b[1].term));
   return (
     <div className="mx-auto max-w-3xl">
       <h1 className="font-display text-3xl font-semibold text-ink">Glossary</h1>
@@ -11,8 +11,8 @@ export default function GlossaryPage() {
         Every term the app uses, in plain English. These same definitions power the hover tooltips.
       </p>
       <dl className="mt-6 space-y-4">
-        {entries.map((e) => (
-          <div key={e.term} className="rounded-xl glass p-4">
+        {entries.map(([id, e]) => (
+          <div key={e.term} id={id} className="scroll-mt-24 rounded-xl glass p-4">
             <dt className="font-semibold text-ink">{e.term}</dt>
             <dd className="mt-1 text-sm text-ink-dim">{e.short}</dd>
             <dd className="mt-1 text-sm text-ink-dim">

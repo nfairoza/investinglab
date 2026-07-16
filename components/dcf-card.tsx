@@ -1,7 +1,9 @@
 "use client";
 
 import useSWR from "swr";
+import Link from "next/link";
 import { DataBadge } from "./data-state";
+import { dcfVerdict } from "@/lib/valuation/dcf-verdict";
 import type { DataResult, DcfValue } from "@/lib/providers/types";
 
 async function get(url: string): Promise<DataResult<DcfValue>> {
@@ -17,10 +19,10 @@ export function DcfCard({ symbol }: { symbol: string }) {
   );
 
   const d = data?.data;
-  const pct = d?.upDownPct;
-  // positive = stock trades above DCF (expensive vs model), negative = below (cheap vs model)
-  const cheap = pct != null && pct < 0;
-  const expensive = pct != null && pct > 0;
+  // Single source of truth for polarity + the sanity gate. Price > DCF → the
+  // market pays more than the model → overvalued (red); price < DCF → green.
+  // A >60% divergence is treated as an unreliable model, not a real verdict.
+  const verdict = dcfVerdict(d?.dcf, d?.price);
 
   // No DCF (e.g. ETFs/funds have no company cash flows to discount) — hide the
   // card entirely rather than showing an alarming "Unavailable". Rukmani can
@@ -54,20 +56,30 @@ export function DcfCard({ symbol }: { symbol: string }) {
                 {d.price != null ? `$${d.price.toFixed(2)}` : "—"}
               </div>
             </div>
-            {pct != null && (
+            {verdict && !verdict.unreliable && verdict.direction !== "equal" && (
               <div>
                 <div className="text-xs text-ink-faint">vs fair value</div>
-                <div className={`text-xl font-semibold ${cheap ? "text-emerald-400" : expensive ? "text-rose-400" : "text-ink-dim"}`}>
-                  {cheap ? "▼ " : "▲ "}{Math.abs(pct).toFixed(1)}%{" "}
-                  <span className="text-sm font-normal">{cheap ? "below (potentially undervalued)" : "above (potentially overvalued)"}</span>
+                <div className={`text-xl font-semibold ${verdict.undervalued ? "text-emerald-400" : "text-rose-400"}`}>
+                  {verdict.undervalued ? "▼ " : "▲ "}{Math.abs(verdict.pctFromFair).toFixed(1)}%{" "}
+                  <span className="text-sm font-normal">{verdict.undervalued ? "below fair value (potentially undervalued)" : "above fair value (potentially overvalued)"}</span>
                 </div>
               </div>
             )}
           </div>
 
-          <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-xs text-amber-200/80">
-            A DCF is only as good as its assumptions. Use this as one data point alongside valuation multiples, growth rate, and the AI memo — never in isolation.
-          </div>
+          {/* Sanity gate: an extreme divergence between model and market is almost
+              always a broken model, not a real mispricing. Replace the colored
+              verdict with a muted reliability notice — no confident label. */}
+          {verdict?.unreliable ? (
+            <div className="rounded-lg border border-hairline bg-surface p-3 text-xs text-ink-faint">
+              DCF diverges from market price by {verdict.divergencePct.toFixed(0)}% — for high-growth companies this usually means the model&apos;s assumptions break down; treat as unreliable.{" "}
+              <Link href="/glossary#dcf" className="text-brand-400 hover:underline">Why DCF has limits</Link>.
+            </div>
+          ) : (
+            <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-xs text-amber-200/80">
+              A DCF is only as good as its assumptions. Use this as one data point alongside valuation multiples, growth rate, and the AI memo — never in isolation.
+            </div>
+          )}
         </div>
       )}
     </div>
