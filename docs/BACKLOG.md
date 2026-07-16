@@ -9,13 +9,6 @@ Tracked follow-ups. Add new items here rather than leaving TODOs in code.
   before implementing. (The FMP congress + SEC Form 4 + executive + FEC/OpenSecrets
   adapters are all live; Quiver is an additional optional source.)
 
-- **Legacy money-insights consolidation (optional refactor)** — `lib/money/insights.ts`
-  (category anomalies / bill changes / income changes) predates the Insights Engine
-  (`lib/insights/**`) and still backs `/api/money/analysis`, `/api/money/insights`,
-  and `components/money-insights.tsx`. Folding it into the engine is a no-user-facing-
-  change refactor; left as-is to respect zero-feature-loss (the two run in parallel
-  harmlessly). Do it only if a single insight source becomes worth the churn.
-
 ## Blocked on external setup (code ready)
 
 - **CI workflow** — `.github/workflows/ci.yml` is prepared on disk but the current
@@ -23,15 +16,18 @@ Tracked follow-ups. Add new items here rather than leaving TODOs in code.
   has `workflow` scope, or add it via the GitHub UI. It runs
   `typecheck -> lint -> test -> build` on push/PR to `authbranch` and `main`.
 
-- **Digest email delivery (F2)** — the Resend integration is built and degrades to
-  in-app-only. Set `RESEND_API_KEY` (+ optional `DIGEST_FROM`, `NEXT_PUBLIC_APP_URL`)
-  in Vercel to turn on actual email sending.
-
-- **Push notifications (F1/F2)** — in-app notifications ship today. Web push delivery
-  is gated on MOBILE_APP M1.2 landing the `push_subscriptions` table + service worker;
-  wire push into the notification + digest paths when it does.
+- **Web push delivery** — the code is fully wired (M1.2 `push_subscriptions` + SW;
+  ALERTDEL routes alerts through `lib/alerts/delivery.ts` → `lib/push/send.ts`).
+  Only the VAPID keypair env is needed to turn actual push on: set
+  `WEB_PUSH_PUBLIC_KEY` / `WEB_PUSH_PRIVATE_KEY` (`npx web-push generate-vapid-keys`)
+  + optional `WEB_PUSH_SUBJECT`. Without them, push is a graceful no-op (in-app +
+  polling still work).
 
 ## Done (kept for provenance)
+
+- **Digest email delivery (F2)** — DONE. Resend integration built; `RESEND_API_KEY`
+  is now set in Vercel, so digest + missed-alert emails send for real (was
+  in-app-only before the key landed).
 
 - **Research report persistence** — DONE. Memos persist in `shared_research` (shared,
   8am-ET / 12h staleness via `isDailyStale`); GET generates+caches on miss, POST is an
