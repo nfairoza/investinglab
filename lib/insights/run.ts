@@ -4,6 +4,7 @@ import { buildLedger } from "./ledger/build";
 import { generateInsights, dedupe } from "./generators";
 import { detectConcentration, detectLookthroughConcentration, type PricedHolding } from "./generators/concentration";
 import { detectTargetPace, detectTargetMonthResult, type TargetInput } from "./generators/targets";
+import { detectFlowShift } from "./generators/flow-shift";
 import { detectGoalDrift, type GoalRow } from "./generators/goals";
 import { trailingFundingRate } from "@/lib/money/goals";
 import { readCachedRate } from "@/lib/money/rates";
@@ -65,6 +66,10 @@ export async function runInsightsBuild(opts: { sliceSize?: number; nowMs?: numbe
       ledgersBuilt++;
 
       const fresh = generateInsights(ledger, liveRate);
+
+      // Flow-shift: a category's share of income moved materially vs the trailing
+      // 3-month mix (pairs with the cash-flow Sankey). Pure over the ledger.
+      fresh.push(...detectFlowShift(ledger, new Date(nowMs)));
 
       // MV2: category targets. Targeted categories get target-based pace insights
       // (and a monthly result); we suppress the generic baseline pace_anomaly for

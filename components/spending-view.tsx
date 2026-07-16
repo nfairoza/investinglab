@@ -7,6 +7,8 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { fetchJson } from "@/lib/fetch-json";
 import { ErrorState } from "./data-state";
 import { CategoryTargets } from "./money/category-targets";
+import { CashflowSankey } from "./money/cashflow-sankey";
+import { PieChart as PieIcon, Waves, Table as TableIcon } from "lucide-react";
 
 interface Txn {
   id: string; date: string; name: string; merchant: string | null;
@@ -51,6 +53,7 @@ export function SpendingView() {
   const [preset, setPreset] = useState<PresetKey>("thisMonth");
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
+  const [view, setView] = useState<"chart" | "sankey" | "table">("chart");
   const { data, error, isLoading, mutate } = useSWR<{ transactions: Txn[]; configured?: boolean }>(
     "/api/plaid/transactions", fetchJson, { revalidateOnFocus: false },
   );
@@ -128,54 +131,90 @@ export function SpendingView() {
       {/* MV2: opt-in category targets — progress rings + pace + suggestion flow. */}
       <CategoryTargets />
 
-      {/* By category donut + list */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      {/* View-mode toggle: existing chart | cash-flow Sankey | table. */}
+      <div className="flex items-center gap-1.5">
+        {([["chart", "Chart", PieIcon], ["sankey", "Flow", Waves], ["table", "Table", TableIcon]] as const).map(([key, label, Icon]) => (
+          <button key={key} onClick={() => setView(key)}
+            className={`inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium ${view === key ? "tab-active" : "border-hairline text-ink-dim hover:bg-surface"}`}>
+            <Icon size={13} /> {label}
+          </button>
+        ))}
+      </div>
+
+      {view === "sankey" ? (
+        <CashflowSankey from={range.from} to={range.to} />
+      ) : view === "table" ? (
         <div className="rounded-2xl glass p-5">
           <div className="text-sm font-semibold text-ink">Spending by category</div>
-          {stats.cats.length === 0 ? (
-            <p className="mt-3 text-sm text-ink-faint">No expenses in this period.</p>
-          ) : (
-            <div className="mt-2 h-56">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie data={stats.cats} dataKey="value" nameKey="name" innerRadius={55} outerRadius={85} paddingAngle={2}>
-                    {stats.cats.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} stroke="var(--bg)" />)}
-                  </Pie>
-                  <Tooltip formatter={(v: number) => money(v)} contentStyle={{ background: "var(--tooltip-bg)", border: "1px solid var(--hairline-strong)", borderRadius: 10, fontSize: 12, color: "var(--text)" }} />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
+          {stats.cats.length === 0 ? <p className="mt-3 text-sm text-ink-faint">No expenses in this period.</p> : (
+            <table className="mt-3 w-full text-sm">
+              <thead className="text-[11px] uppercase tracking-wide text-ink-faint">
+                <tr><th className="pb-2 text-left">Category</th><th className="pb-2 text-right">Amount</th><th className="pb-2 text-right">Share</th></tr>
+              </thead>
+              <tbody className="divide-y divide-white/5">
+                {stats.cats.map((c, i) => (
+                  <tr key={c.name} className="text-ink-dim">
+                    <td className="py-1.5"><span className="mr-2 inline-block h-2.5 w-2.5 rounded-sm align-middle" style={{ background: COLORS[i % COLORS.length] }} />{c.name}</td>
+                    <td className="py-1.5 text-right font-medium text-ink">{money(c.value)}</td>
+                    <td className="py-1.5 text-right text-ink-faint">{stats.expenses > 0 ? Math.round((c.value / stats.expenses) * 100) : 0}%</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           )}
         </div>
+      ) : (
+        <>
+          {/* By category donut + list (existing chart view) */}
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <div className="rounded-2xl glass p-5">
+              <div className="text-sm font-semibold text-ink">Spending by category</div>
+              {stats.cats.length === 0 ? (
+                <p className="mt-3 text-sm text-ink-faint">No expenses in this period.</p>
+              ) : (
+                <div className="mt-2 h-56">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie data={stats.cats} dataKey="value" nameKey="name" innerRadius={55} outerRadius={85} paddingAngle={2}>
+                        {stats.cats.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} stroke="var(--bg)" />)}
+                      </Pie>
+                      <Tooltip formatter={(v: number) => money(v)} contentStyle={{ background: "var(--tooltip-bg)", border: "1px solid var(--hairline-strong)", borderRadius: 10, fontSize: 12, color: "var(--text)" }} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
+            </div>
 
-        <div className="rounded-2xl glass p-5">
-          <div className="text-sm font-semibold text-ink">Top categories</div>
-          <ul className="mt-3 space-y-2">
-            {stats.cats.slice(0, 6).map((c, i) => (
-              <li key={c.name} className="flex items-center gap-3 text-sm">
-                <span className="h-3 w-3 shrink-0 rounded-sm" style={{ background: COLORS[i % COLORS.length] }} />
-                <span className="flex-1 truncate text-ink-dim">{c.name}</span>
-                <span className="shrink-0 font-medium text-ink">{money(c.value)}</span>
-              </li>
-            ))}
-            {stats.cats.length === 0 && <li className="text-sm text-ink-faint">—</li>}
-          </ul>
-        </div>
-      </div>
+            <div className="rounded-2xl glass p-5">
+              <div className="text-sm font-semibold text-ink">Top categories</div>
+              <ul className="mt-3 space-y-2">
+                {stats.cats.slice(0, 6).map((c, i) => (
+                  <li key={c.name} className="flex items-center gap-3 text-sm">
+                    <span className="h-3 w-3 shrink-0 rounded-sm" style={{ background: COLORS[i % COLORS.length] }} />
+                    <span className="flex-1 truncate text-ink-dim">{c.name}</span>
+                    <span className="shrink-0 font-medium text-ink">{money(c.value)}</span>
+                  </li>
+                ))}
+                {stats.cats.length === 0 && <li className="text-sm text-ink-faint">—</li>}
+              </ul>
+            </div>
+          </div>
 
-      {/* Top merchants */}
-      <div className="rounded-2xl glass p-5">
-        <div className="text-sm font-semibold text-ink">Top merchants</div>
-        <ul className="mt-3 space-y-2">
-          {stats.merchants.map((m) => (
-            <li key={m.name} className="flex items-center justify-between text-sm">
-              <span className="truncate text-ink-dim">{m.name}</span>
-              <span className="shrink-0 font-medium text-ink">{money(m.value)}</span>
-            </li>
-          ))}
-          {stats.merchants.length === 0 && <li className="text-sm text-ink-faint">—</li>}
-        </ul>
-      </div>
+          {/* Top merchants */}
+          <div className="rounded-2xl glass p-5">
+            <div className="text-sm font-semibold text-ink">Top merchants</div>
+            <ul className="mt-3 space-y-2">
+              {stats.merchants.map((m) => (
+                <li key={m.name} className="flex items-center justify-between text-sm">
+                  <span className="truncate text-ink-dim">{m.name}</span>
+                  <span className="shrink-0 font-medium text-ink">{money(m.value)}</span>
+                </li>
+              ))}
+              {stats.merchants.length === 0 && <li className="text-sm text-ink-faint">—</li>}
+            </ul>
+          </div>
+        </>
+      )}
 
       <p className="text-[11px] text-ink-faint">
         Based on your linked accounts from {range.from} to {range.to}. Transfers and excluded transactions are not counted.

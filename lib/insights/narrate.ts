@@ -67,6 +67,8 @@ export function templateFor(kind: string, slots: Record<string, number | string>
       return { headline: "{name} is drifting off pace", body: "At your recent saving rate, {name} is tracking about {monthsLate} months past your target date. Adding {extra} a month would put it back on schedule — only if it feels doable." };
     case "power_overlap":
       return { headline: "{person} traded {ticker} — a stock you own", body: "{person} recently {action} {ticker}, which is in your portfolio (you hold about {held}). Just context on a name you're already exposed to — worth a look." };
+    case "flow_shift":
+      return { headline: "{category} took a bigger slice this month", body: "{category} was about {thisPct}% of your income this month, versus your usual {usualPct}%. Not a problem on its own — just a shift worth seeing in your cash flow." };
     default:
       return { headline: "A money note for you", body: "There's something worth a look in your accounts." };
   }

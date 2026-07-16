@@ -16,9 +16,11 @@
   "dependencies": {
     "@supabase/ssr": "^0.12.0",
     "@supabase/supabase-js": "^2.108.2",
+    "@types/d3-sankey": "^0.12.5",
     "@types/js-yaml": "^4.0.9",
     "@vercel/speed-insights": "^2.0.0",
     "clsx": "2.1.1",
+    "d3-sankey": "^0.12.3",
     "js-yaml": "^4.2.0",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.8",
