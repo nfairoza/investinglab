@@ -111,6 +111,7 @@ export const MOBILE_TABS: MobileTab[] = [
   { href: "/research", label: "Research", icon: Search, match: ["/research", "/screeners", "/rankings", "/map", "/predictions"] },
   { href: "/power-trades", label: "Power", icon: Landmark, match: ["/power-trades"] },
   { href: "/money", label: "Money", icon: Coins, match: ["/money", "/accounts", "/transactions", "/spending", "/goals", "/recurring", "/insights", "/networth", "/accounts-doctor"] },
+  // (category detail lives under /money/category/* and is covered by the "/money" prefix match)
 ];
 
 // Flat list of every user-facing page (primary sections + secondary + setup),

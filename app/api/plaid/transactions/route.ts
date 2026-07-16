@@ -50,6 +50,7 @@ async function syncToCache(ctx: { supabase: SupabaseClient; userId: string }) {
         date: t.date,
         name: t.name,
         merchant: t.merchant_name ?? null,
+        logo_url: (t as any).logo_url ?? null,   // Plaid merchant logo (persisted per this migration)
         amount: t.amount,
         currency: t.iso_currency_code ?? "USD",
         plaid_category: t.personal_finance_category?.primary ?? (t.category?.[0] ?? null),
@@ -110,6 +111,7 @@ export async function GET(req: NextRequest) {
     plaid_detailed: string | null;
     institution: string | null;
     pending: boolean;
+    logo_url?: string | null;
   }
   const out = (txns ?? []).map((t: TxnRow) => {
     const ov = ovMap.get(t.transaction_id);
@@ -126,6 +128,7 @@ export async function GET(req: NextRequest) {
       date: t.date,
       name: t.name,
       merchant: t.merchant,
+      logoUrl: t.logo_url ?? null,
       amount: Number(t.amount),
       currency: t.currency,
       category: cat,

@@ -6,6 +6,8 @@ import { sankey, sankeyLinkHorizontal, type SankeyGraph as D3Graph } from "d3-sa
 import { X } from "lucide-react";
 import { fetchJson } from "@/lib/fetch-json";
 import { DataTimestamp } from "@/components/data-state";
+import { FlowList } from "./flow-list";
+import type { SankeyGraph as SankeyGraphData } from "@/lib/money/sankey";
 
 // Cash-flow Sankey, skinned entirely to the chart theme (no candy palette).
 // Section-accent colors per category, soft-glow bands, ink-faint labels with
@@ -78,7 +80,13 @@ export function CashflowSankeyImpl({ from, to }: { from: string; to: string }) {
         <span className="ml-auto text-[11px] text-ink-faint"><DataTimestamp asOf={data.asOf} /></span>
       </div>
 
-      <div ref={wrapRef} className="overflow-x-auto rounded-2xl border border-hairline bg-surface p-2" data-no-page-swipe>
+      {/* Mobile (<md): ranked flow list from the identical graph. */}
+      <div className="md:hidden">
+        <FlowList graph={data as unknown as SankeyGraphData} />
+      </div>
+
+      {/* Desktop (md+): the full d3 Sankey. */}
+      <div ref={wrapRef} className="hidden overflow-x-auto rounded-2xl border border-hairline bg-surface p-2 md:block" data-no-page-swipe>
         <svg width={width} height={height} className="min-w-[560px]">
           <defs>
             <filter id="sankey-glow" x="-20%" y="-20%" width="140%" height="140%">
@@ -120,7 +128,7 @@ export function CashflowSankeyImpl({ from, to }: { from: string; to: string }) {
         </svg>
       </div>
 
-      <p className="text-[11px] text-ink-faint">Transfers and card payments are excluded — you see the spending, never the payment. Tap a band for the transactions behind it.</p>
+      <p className="hidden text-[11px] text-ink-faint md:block">Transfers and card payments are excluded — you see the spending, never the payment. Tap a band for the transactions behind it.</p>
 
       {/* Evidence panel */}
       {evidence && (

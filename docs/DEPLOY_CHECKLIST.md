@@ -38,6 +38,7 @@ brokerage" instead of surfacing the error.)
    - PT6 flow views + overlap add NO migration — the `pt-flow` cron caches congressional flow aggregates in `server_cache`; the overlap card + `power_overlap` insight compute at read time from local follows/holdings/trades. Flow views are `pt_flow_views`-gated (Premium; billing-off ships to all)
    - `0041_ai_usage_cache.sql` — AIOPT A2: adds `ai_usage.cached_input_tokens` so the admin cost dashboard shows the prompt-cache hit-rate (chat sends `cache_control` on its static system+tools blocks; cached input bills ~10% of base). Nullable; no backfill
    - `0042_billing.sql` — BILL: `subscriptions` (per-user, webhook-written), `billing_events` (webhook idempotency ledger), `app_config` (billing master switch + trial-reconcile flag). Card-free trial tracked in `subscriptions.trial_started_at`
+   - `0043_txn_logo.sql` — adds `plaid_transactions.logo_url` (Plaid merchant logo, was dropped). The next incremental sync backfills it as transactions re-appear; merchant rows show the logo with the category icon as fallback
 2. **Set new env vars** in Vercel (and locally in `.env.local`):
    - **Stripe (BILL)** — `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`,
      `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`, and the price ids

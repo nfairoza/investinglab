@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildSankey, type SankeyTxn, type SankeyIncomeStream } from "@/lib/money/sankey";
+import { buildSankey, toFlowList, merchantRowsFor, type SankeyTxn, type SankeyIncomeStream } from "@/lib/money/sankey";
 
 const streams: SankeyIncomeStream[] = [
   { source: "ACME PAYROLL", matchKey: "acme payroll" },
@@ -103,5 +103,49 @@ describe("buildSankey — reconciliation", () => {
     const g = buildSankey(txns, streams, 4900);
     const incomeEv = g.links.filter((l) => l.target === "total:income").flatMap((l) => l.evidence);
     expect(incomeEv.every((e) => e.label !== "Refund")).toBe(true);
+  });
+});
+
+describe("toFlowList — mobile list reconciles to Sankey + totals", () => {
+  const txns: SankeyTxn[] = [
+    t({ merchant: "ACME PAYROLL", amount: -4000, isIncome: true }),
+    t({ merchant: "Side gig", amount: -1000, isIncome: true }),
+    t({ merchant: "Rent Co", amount: 1800, category: "Rent & Mortgage" }),
+    t({ merchant: "Whole Foods", amount: 200, category: "Groceries" }),
+    t({ merchant: "Trader Joe's", amount: 150, category: "Groceries" }),
+  ];
+  const g = buildSankey(txns, streams, 2850);
+
+  it("income rows sum to total income (= Sankey income links)", () => {
+    const list = toFlowList(g, "category");
+    const listIncome = list.income.reduce((s, r) => s + r.amount, 0);
+    const sankeyIncome = g.links.filter((l) => l.target === "total:income").reduce((s, l) => s + l.value, 0);
+    expect(listIncome).toBe(g.totalIncome);
+    expect(listIncome).toBe(sankeyIncome);
+  });
+
+  it("expense category rows sum to total spending (= Sankey category links)", () => {
+    const list = toFlowList(g, "category");
+    const listSpend = list.expenses.reduce((s, r) => s + r.amount, 0);
+    const sankeySpend = g.links.filter((l) => l.source === "total:income" && l.target.startsWith("cat:")).reduce((s, l) => s + l.value, 0);
+    expect(listSpend).toBe(g.totalSpending);
+    expect(listSpend).toBe(sankeySpend);
+  });
+
+  it("percentages are % of INCOME, not % of spending", () => {
+    const list = toFlowList(g, "category");
+    const rent = list.expenses.find((r) => r.category === "Rent & Mortgage")!;
+    // 1800 / 5000 income = 36%, NOT 1800/2150 spending (84%).
+    expect(rent.pctOfIncome).toBe(36);
+  });
+
+  it("merchant scope flattens + still reconciles to total spending", () => {
+    const list = toFlowList(g, "merchant");
+    expect(list.expenses.reduce((s, r) => s + r.amount, 0)).toBe(g.totalSpending);
+  });
+
+  it("merchant drill-down sums to its category total", () => {
+    const rows = merchantRowsFor(g, "cat:Groceries");
+    expect(rows.reduce((s, r) => s + r.amount, 0)).toBe(350);
   });
 });

@@ -172,3 +172,78 @@ function catEvidence(byMerchant: Map<string, { total: number; evidence: Evidence
   for (const v of byMerchant.values()) all.push(...v.evidence);
   return all;
 }
+
+// ---- Mobile flow list ----------------------------------------------------
+// The same graph, projected into ranked rows for the <md flow list. Percentages
+// are ALWAYS % of INCOME (the meaningful anchor: "Mortgage 41% of income"),
+// matching the desktop Sankey's framing. Row sums reconcile to the graph totals.
+
+export interface FlowRow {
+  id: string;
+  label: string;
+  category?: string;      // for expense rows, the owning category (icon/accent)
+  amount: number;
+  pctOfIncome: number;    // 0..100
+  evidence: EvidenceTxn[];
+}
+export interface FlowList {
+  income: FlowRow[];      // income streams, ranked
+  expenses: FlowRow[];    // categories, ranked (incl. Savings as a positive row? No — savings shown separately)
+  savings: number;
+  savingsRate: number;
+  totalIncome: number;
+  totalSpending: number;
+}
+
+// Build the ranked flow list from a Sankey graph. `scope` selects the expense
+// grain: "category" (default) or "merchant" (all merchants flattened, ranked).
+export function toFlowList(graph: SankeyGraph, scope: "category" | "merchant" = "category"): FlowList {
+  const inc = graph.totalIncome || 1;
+  const pct = (v: number) => Math.round((v / inc) * 100);
+
+  const income: FlowRow[] = graph.links
+    .filter((l) => l.target === "total:income")
+    .map((l) => {
+      const node = graph.nodes.find((n) => n.id === l.source)!;
+      return { id: l.source, label: node.label, amount: l.value, pctOfIncome: pct(l.value), evidence: l.evidence };
+    })
+    .sort((a, b) => b.amount - a.amount);
+
+  let expenses: FlowRow[];
+  if (scope === "merchant") {
+    // Flatten every category → merchant link into ranked merchant rows.
+    expenses = graph.links
+      .filter((l) => l.source.startsWith("cat:") && l.target.startsWith("merchant:"))
+      .map((l) => {
+        const node = graph.nodes.find((n) => n.id === l.target)!;
+        return { id: l.target, label: node.label, category: node.category, amount: l.value, pctOfIncome: pct(l.value), evidence: l.evidence };
+      })
+      .sort((a, b) => b.amount - a.amount);
+  } else {
+    expenses = graph.links
+      .filter((l) => l.source === "total:income" && l.target.startsWith("cat:"))
+      .map((l) => {
+        const node = graph.nodes.find((n) => n.id === l.target)!;
+        return { id: l.target, label: node.label, category: node.category, amount: l.value, pctOfIncome: pct(l.value), evidence: l.evidence };
+      })
+      .sort((a, b) => b.amount - a.amount);
+  }
+
+  return {
+    income, expenses,
+    savings: graph.savings, savingsRate: graph.savingsRate,
+    totalIncome: graph.totalIncome, totalSpending: graph.totalSpending,
+  };
+}
+
+// Merchant rows for one category (the drill-down when a category row is tapped).
+export function merchantRowsFor(graph: SankeyGraph, categoryNodeId: string): FlowRow[] {
+  const inc = graph.totalIncome || 1;
+  return graph.links
+    .filter((l) => l.source === categoryNodeId && l.target.startsWith("merchant:"))
+    .map((l) => {
+      const node = graph.nodes.find((n) => n.id === l.target)!;
+      return { id: l.target, label: node.label, category: node.category, amount: l.value, pctOfIncome: Math.round((l.value / inc) * 100), evidence: l.evidence };
+    })
+    .sort((a, b) => b.amount - a.amount);
+}

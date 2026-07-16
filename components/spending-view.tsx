@@ -9,6 +9,8 @@ import { ErrorState } from "./data-state";
 import { CategoryTargets } from "./money/category-targets";
 import { CashflowSankey } from "./money/cashflow-sankey";
 import { PieChart as PieIcon, Waves, Table as TableIcon } from "lucide-react";
+import { categorySlug } from "@/lib/categories";
+import { MerchantIcon } from "./money/merchant-icon";
 
 interface Txn {
   id: string; date: string; name: string; merchant: string | null;
@@ -152,9 +154,9 @@ export function SpendingView() {
                 <tr><th className="pb-2 text-left">Category</th><th className="pb-2 text-right">Amount</th><th className="pb-2 text-right">Share</th></tr>
               </thead>
               <tbody className="divide-y divide-white/5">
-                {stats.cats.map((c, i) => (
+                {stats.cats.map((c) => (
                   <tr key={c.name} className="text-ink-dim">
-                    <td className="py-1.5"><span className="mr-2 inline-block h-2.5 w-2.5 rounded-sm align-middle" style={{ background: COLORS[i % COLORS.length] }} />{c.name}</td>
+                    <td className="py-1.5"><Link href={`/money/category/${categorySlug(c.name)}`} className="inline-flex items-center gap-2 hover:text-ink"><MerchantIcon merchant={c.name} category={c.name} size={20} /> {c.name}</Link></td>
                     <td className="py-1.5 text-right font-medium text-ink">{money(c.value)}</td>
                     <td className="py-1.5 text-right text-ink-faint">{stats.expenses > 0 ? Math.round((c.value / stats.expenses) * 100) : 0}%</td>
                   </tr>
@@ -188,11 +190,13 @@ export function SpendingView() {
             <div className="rounded-2xl glass p-5">
               <div className="text-sm font-semibold text-ink">Top categories</div>
               <ul className="mt-3 space-y-2">
-                {stats.cats.slice(0, 6).map((c, i) => (
-                  <li key={c.name} className="flex items-center gap-3 text-sm">
-                    <span className="h-3 w-3 shrink-0 rounded-sm" style={{ background: COLORS[i % COLORS.length] }} />
-                    <span className="flex-1 truncate text-ink-dim">{c.name}</span>
-                    <span className="shrink-0 font-medium text-ink">{money(c.value)}</span>
+                {stats.cats.slice(0, 6).map((c) => (
+                  <li key={c.name}>
+                    <Link href={`/money/category/${categorySlug(c.name)}`} className="flex items-center gap-3 text-sm hover:text-ink">
+                      <MerchantIcon merchant={c.name} category={c.name} size={22} />
+                      <span className="flex-1 truncate text-ink-dim">{c.name}</span>
+                      <span className="shrink-0 font-medium text-ink">{money(c.value)}</span>
+                    </Link>
                   </li>
                 ))}
                 {stats.cats.length === 0 && <li className="text-sm text-ink-faint">—</li>}
