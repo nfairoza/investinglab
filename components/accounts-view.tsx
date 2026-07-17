@@ -3,13 +3,26 @@
 import { useState } from "react";
 import useSWR from "swr";
 import Link from "next/link";
-import { Landmark, RefreshCw, ChevronDown } from "lucide-react";
+import { Landmark, RefreshCw, ChevronDown, AlertTriangle, Clock } from "lucide-react";
 import { fetchJson } from "@/lib/fetch-json";
 import { ErrorState } from "./data-state";
+import { ReconnectButton } from "./money/reconnect-button";
 
 interface Account { account_id: string; name: string; mask: string | null; type: string; subtype: string | null; current: number | null; available: number | null; currency: string }
-interface Item { itemId: string; institution: string; accounts: Account[]; error?: string }
+interface Item {
+  itemId: string; institution: string; accounts: Account[]; error?: string;
+  // Plaid item-health (0046): reauth flags a de-authed bank; itemStale = >48h silent.
+  status?: string; lastSyncedAt?: string | null; errorCode?: string | null;
+  statusChangedAt?: string | null; itemStale?: boolean;
+}
 interface Balances { items: Item[]; totalCash: number; configured?: boolean }
+
+// Friendly "since Jul 9" for the reauth banner.
+function sinceLabel(iso: string | null | undefined): string {
+  if (!iso) return "recently";
+  const d = new Date(iso);
+  return isNaN(d.getTime()) ? "recently" : d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
 
 const money = (n: number | null, c = "USD") => n == null ? "—" : new Intl.NumberFormat(undefined, { style: "currency", currency: c, maximumFractionDigits: 2 }).format(n);
 
@@ -48,6 +61,11 @@ export function AccountsView() {
     if (a.type === "credit" || a.type === "loan") debts += v; else assets += v;
   }
 
+  // Item-health surfaces from the RAW item list (a reauth item may have no
+  // accounts to show, so we don't read the filtered `items` here).
+  const reauth = (data?.items ?? []).filter((it) => it.status === "reauth_required");
+  const staleItems = (data?.items ?? []).filter((it) => it.status !== "reauth_required" && it.itemStale);
+
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -64,6 +82,28 @@ export function AccountsView() {
           </button>
         </div>
       </div>
+
+      {/* Item-health: a de-authed bank paused data — clear banner + Reconnect. */}
+      {reauth.map((it) => (
+        <div key={it.itemId} className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-500/30 bg-amber-500/[0.06] p-4">
+          <div className="flex items-start gap-2.5">
+            <AlertTriangle size={18} className="mt-0.5 shrink-0 text-amber-400" />
+            <div>
+              <div className="text-sm font-medium text-ink">{it.institution ?? "A bank"} needs to be reconnected</div>
+              <div className="text-xs text-ink-dim">Data paused since {sinceLabel(it.statusChangedAt)}. Reconnecting keeps all your history — you won&apos;t re-pick accounts.</div>
+            </div>
+          </div>
+          <ReconnectButton itemId={it.itemId} onDone={() => mutate()} />
+        </div>
+      ))}
+
+      {/* Stale-item honesty: a linked bank has gone quiet for >48h. */}
+      {staleItems.map((it) => (
+        <div key={it.itemId} className="flex items-center gap-2 rounded-xl border border-amber-500/20 bg-amber-500/[0.04] px-4 py-2.5 text-xs text-amber-200/80">
+          <Clock size={14} className="shrink-0" />
+          <span>{it.institution ?? "A bank"} hasn&apos;t updated since {sinceLabel(it.lastSyncedAt)} — these numbers may be behind. Try Refresh.</span>
+        </div>
+      ))}
 
       {error && <ErrorState error={error} onRetry={() => mutate()} />}
       {data && data.configured === false && (

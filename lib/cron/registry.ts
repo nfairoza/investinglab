@@ -47,6 +47,21 @@ async function releaseLock(id: string): Promise<void> {
   await writeServerCache(LOCK_KEY(id), { until: 0 }).catch(() => {});
 }
 
+// Per-job last-run status for the /admin pipeline card. Reads cron:lastrun:${id}
+// from server_cache (written by setLastRun) — no job runs; pure inspection.
+export interface JobStatus { id: string; everyMinutes: number; lastRunAt: number | null; dueInMs: number | null; overdue: boolean }
+export async function getJobStatuses(jobs: CronJob[], nowMs = Date.now()): Promise<JobStatus[]> {
+  return Promise.all(jobs.map(async (job) => {
+    const last = await lastRunAt(job.id);
+    const lastRunAtMs = last > 0 ? last : null;
+    const periodMs = job.everyMinutes * 60_000;
+    const dueInMs = lastRunAtMs != null ? Math.max(0, lastRunAtMs + periodMs - nowMs) : 0;
+    // "Overdue" = more than 2 periods since the last run (a signal something's stuck).
+    const overdue = lastRunAtMs != null && nowMs - lastRunAtMs > periodMs * 2;
+    return { id: job.id, everyMinutes: job.everyMinutes, lastRunAt: lastRunAtMs, dueInMs, overdue };
+  }));
+}
+
 // Run all jobs that are due. `nowMs` injectable for tests.
 export async function runDueJobs(jobs: CronJob[], nowMs = Date.now()): Promise<JobResult[]> {
   const results: JobResult[] = [];

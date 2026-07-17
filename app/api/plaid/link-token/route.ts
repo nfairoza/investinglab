@@ -1,6 +1,6 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { CountryCode, Products } from "plaid";
-import { getPlaid, plaidConfigured, plaidCapReached } from "@/lib/plaid";
+import { getPlaid, plaidConfigured, plaidCapReached, selectPlaidItems, resolvePlaidToken } from "@/lib/plaid";
 import { getUserClient } from "@/lib/supabase-data";
 import { requirePlan } from "@/lib/billing/plan";
 
@@ -8,7 +8,12 @@ export const dynamic = "force-dynamic";
 
 // POST /api/plaid/link-token — creates a short-lived link_token the browser uses
 // to open Plaid Link. Scoped to the current user. Blocked at the app-wide cap.
-export async function POST() {
+//
+// ?update=<itemId> → UPDATE MODE: creates a link token carrying the existing
+// item's access_token so the user re-authenticates a de-authed bank WITHOUT
+// re-picking accounts and WITHOUT losing data (no new Item is created). The cap
+// doesn't apply to update mode (it's not a new connection).
+export async function POST(req: NextRequest) {
   const ctx = await getUserClient();
   if (!ctx) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   // BILL B2 — the free tier excludes Plaid entirely (linked banks are the marginal
@@ -18,6 +23,32 @@ export async function POST() {
   if (!plaidConfigured()) {
     return NextResponse.json({ error: "Plaid is not configured." }, { status: 400 });
   }
+
+  const updateItemId = req.nextUrl.searchParams.get("update");
+  if (updateItemId) {
+    // Update mode: resolve the item's token and mint an access_token-scoped link
+    // token. No `products`, no cap check — this re-auths an existing Item.
+    const { rows } = await selectPlaidItems(ctx.supabase, "item_id, institution_name");
+    const item = (rows ?? []).find((r: any) => r.item_id === updateItemId);
+    if (!item) return NextResponse.json({ error: "item_not_found" }, { status: 404 });
+    const token = resolvePlaidToken(item as any);
+    if (!token) return NextResponse.json({ error: "no_token" }, { status: 400 });
+    try {
+      const resp = await getPlaid().linkTokenCreate({
+        user: { client_user_id: ctx.userId },
+        client_name: "rukMoney",
+        access_token: token,
+        country_codes: [CountryCode.Us],
+        language: "en",
+        ...(process.env.PLAID_REDIRECT_URI ? { redirect_uri: process.env.PLAID_REDIRECT_URI } : {}),
+      });
+      return NextResponse.json({ link_token: resp.data.link_token, update: true });
+    } catch (e) {
+      const msg = (e as { response?: { data?: { error_message?: string } } })?.response?.data?.error_message ?? (e instanceof Error ? e.message : "Failed to create update link token");
+      return NextResponse.json({ error: msg }, { status: 500 });
+    }
+  }
+
   // App-wide connection cap (Plaid Trial = 10 Items ever created). Server-side
   // block — never rely on hiding the button. Existing connections keep working.
   if (await plaidCapReached()) {

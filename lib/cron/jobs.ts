@@ -15,6 +15,7 @@ import { runInsiderClusters } from "@/lib/power-trades/clusters-run";
 import { runRatesRefresh } from "@/lib/money/rates";
 import { runPtFlow } from "@/lib/power-trades/flow-run";
 import { runBatchCollect } from "@/lib/ai/batch-run";
+import { runPlaidSync } from "@/lib/plaid/sync-run";
 
 // The job registry. Each job owns its cadence; the dispatcher (/api/cron/tick)
 // runs whatever is due on each tick, so ANY external trigger interval works.
@@ -170,6 +171,17 @@ export const JOBS: CronJob[] = [
     id: "pt-flow",
     everyMinutes: 6 * 60,
     run: async () => { const r = await runPtFlow(); return { ok: r.ok, note: r.note }; },
+  },
+  {
+    // Plaid freshness: hourly transactions/sync for every linked item from the
+    // stored cursor (new/modified/removed), refresh balance/liability snapshots
+    // past their 6h TTL, flip de-authed items to reauth_required + deliver the
+    // reconnect nudge, and rebuild the ledger on new activity. Chunked over the
+    // user list (cursor in server_cache) for the Hobby 10s cap. Also invoked
+    // on-demand by the read path (/api/plaid/transactions) and /api/plaid/refresh.
+    id: "plaid-sync",
+    everyMinutes: 60,
+    run: async () => { const r = await runPlaidSync({ sliceSize: 25 }); return { ok: true, note: `+${r.added} txns / ${r.reauth} reauth-needed, ${r.users} users${r.wrapped ? " (full pass)" : ""}` }; },
   },
   {
     // F1: after Power Trades data refreshes, notify followers of new filings from

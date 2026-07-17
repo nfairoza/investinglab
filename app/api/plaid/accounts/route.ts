@@ -33,7 +33,7 @@ export async function GET(req: NextRequest) {
   const debug = req.nextUrl.searchParams.get("debug") === "1" && ctx.isAdmin;
   const force = req.nextUrl.searchParams.get("refresh") === "1";
 
-  const { rows: items, error: itemsErr } = await selectPlaidItems(ctx.supabase, "item_id, institution_name");
+  const { rows: items, error: itemsErr } = await selectPlaidItems(ctx.supabase, "item_id, institution_name, status, last_synced_at, error_code, status_changed_at");
   if (itemsErr) return NextResponse.json({ error: "db_error", message: itemsErr.message }, { status: 500 });
   if (!items || items.length === 0) return NextResponse.json({ items: [], totalCash: 0 });
 
@@ -67,13 +67,29 @@ export async function GET(req: NextRequest) {
   const debugRows: Record<string, unknown>[] = [];
   let anyStale = false;
 
+  // Stale-item honesty: an item whose last successful sync is older than 48h is
+  // surfaced with the amber freshness treatment (distinct from the 6h balance
+  // snapshot TTL — this is about the item feed going quiet, not a cache refresh).
+  const STALE_ITEM_MS = 48 * 60 * 60 * 1000;
+  const nowMs = Date.now();
+  const health = (it: any) => {
+    const lastSynced = it.last_synced_at ? new Date(it.last_synced_at).getTime() : null;
+    return {
+      status: (it.status as string) ?? "active",
+      lastSyncedAt: it.last_synced_at ?? null,
+      errorCode: it.error_code ?? null,
+      statusChangedAt: it.status_changed_at ?? null,
+      itemStale: lastSynced != null && nowMs - lastSynced > STALE_ITEM_MS,
+    };
+  };
+
   const out = items.map((it) => {
     const live = liveById.get(it.item_id);
     const snap = snapById.get(it.item_id);
     const accts: AccountBase[] | null = live ?? (snap ? snap.payload : null);
     if (snap && snap.stale) anyStale = true;
     if (!accts) {
-      return { itemId: it.item_id, institution: it.institution_name, accounts: [], error: "fetch_failed" };
+      return { itemId: it.item_id, institution: it.institution_name, accounts: [], error: "fetch_failed", ...health(it) };
     }
     if (debug) {
       for (const a of accts) {
@@ -89,7 +105,7 @@ export async function GET(req: NextRequest) {
       if (a.type === "depository") totalCash += a.balances?.available ?? bal ?? 0;
       return shapeAccount(a);
     });
-    return { itemId: it.item_id, institution: it.institution_name, accounts };
+    return { itemId: it.item_id, institution: it.institution_name, accounts, ...health(it) };
   });
 
   if (debug) return NextResponse.json({ debug: debugRows });

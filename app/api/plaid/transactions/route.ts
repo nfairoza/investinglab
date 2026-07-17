@@ -1,71 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getPlaid, plaidConfigured, selectPlaidItems, resolvePlaidToken } from "@/lib/plaid";
+import { plaidConfigured } from "@/lib/plaid";
 import { getUserClient } from "@/lib/supabase-data";
 import { parseBody } from "@/lib/validate";
 import { z } from "zod";
 import { categorize } from "@/lib/money/categorize";
-import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Transaction } from "plaid";
+import { syncAllItems } from "@/lib/plaid/sync";
 
 export const dynamic = "force-dynamic";
 
 function merchantKey(name: string | null, fallback: string): string {
   return (name || fallback || "").toLowerCase().trim();
-}
-
-// Pull new activity from Plaid (incremental) and upsert into the cache. Plaid's
-// cursor only returns NEW transactions, so we persist them to read history later.
-async function syncToCache(ctx: { supabase: SupabaseClient; userId: string }) {
-  const { rows: items } = await selectPlaidItems(ctx.supabase, "item_id, institution_name, cursor");
-  if (!items?.length) return;
-  const plaid = getPlaid();
-
-  // Sync all linked institutions concurrently. Each item's own pagination stays
-  // sequential (Plaid's cursor is inherently ordered), but items don't block
-  // each other. allSettled so one failing item doesn't abort the rest.
-  await Promise.allSettled(items.map(async (it) => {
-    const token = resolvePlaidToken(it as any);
-    if (!token) return;
-    let cursor: string | undefined = it.cursor ?? undefined;
-    const added: Transaction[] = [];
-    const removed: string[] = [];
-    let hasMore = true;
-    // Higher page guard so the FIRST sync pulls the full available history
-    // (Plaid returns up to ~24 months; each page is 100–500 txns). Past
-    // transactions never change, so once cached they're permanent — only the
-    // latest activity arrives on subsequent (incremental) syncs via the cursor.
-    for (let guard = 0; guard < 50 && hasMore; guard++) {
-      const resp = await plaid.transactionsSync({ access_token: token, cursor });
-      added.push(...resp.data.added, ...resp.data.modified);
-      removed.push(...resp.data.removed.map((r) => r.transaction_id).filter(Boolean) as string[]);
-      cursor = resp.data.next_cursor;
-      hasMore = resp.data.has_more;
-    }
-    if (added.length) {
-      const rows = added.map((t) => ({
-        user_id: ctx.userId,
-        transaction_id: t.transaction_id,
-        item_id: it.item_id,
-        account_id: t.account_id,
-        date: t.date,
-        name: t.name,
-        merchant: t.merchant_name ?? null,
-        logo_url: (t as any).logo_url ?? null,   // Plaid merchant logo (persisted per this migration)
-        amount: t.amount,
-        currency: t.iso_currency_code ?? "USD",
-        plaid_category: t.personal_finance_category?.primary ?? (t.category?.[0] ?? null),
-        plaid_detailed: t.personal_finance_category?.detailed ?? null,
-        institution: it.institution_name,
-        pending: t.pending ?? false,
-        removed: false,
-      }));
-      await ctx.supabase.from("plaid_transactions").upsert(rows, { onConflict: "user_id,transaction_id" });
-    }
-    if (removed.length) {
-      await ctx.supabase.from("plaid_transactions").update({ removed: true }).in("transaction_id", removed);
-    }
-    await ctx.supabase.from("plaid_items").update({ cursor, updated_at: new Date().toISOString() }).eq("item_id", it.item_id);
-  }));
 }
 
 // GET /api/plaid/transactions — syncs, then returns cached transactions with
@@ -77,7 +21,9 @@ export async function GET(req: NextRequest) {
 
   const sp = req.nextUrl.searchParams;
   const skipSync = sp.get("sync") === "0";
-  if (!skipSync) await syncToCache(ctx).catch(() => {});
+  // Error-aware sync: flips a de-authed item to reauth_required + delivers the
+  // nudge, refreshes stale snapshots, and rebuilds the ledger on new activity.
+  if (!skipSync) await syncAllItems(ctx.supabase, ctx.userId).catch(() => {});
 
   // Read cache + the two override layers.
   const [{ data: txns, error: txnErr }, { data: rules }, { data: overrides }] = await Promise.all([
