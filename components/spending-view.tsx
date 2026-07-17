@@ -6,7 +6,7 @@ import Link from "next/link";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { fetchJson } from "@/lib/fetch-json";
 import { ErrorState } from "./data-state";
-import { CategoryTargets } from "./money/category-targets";
+import { BudgetsSummary } from "./money/budgets-view";
 import { CashflowSankey } from "./money/cashflow-sankey";
 import { PieChart as PieIcon, Waves, Table as TableIcon } from "lucide-react";
 import { categorySlug } from "@/lib/categories";
@@ -130,8 +130,8 @@ export function SpendingView() {
         <Stat label="Net" value={money(stats.net)} tone={stats.net >= 0 ? "emerald" : "rose"} />
       </div>
 
-      {/* MV2: opt-in category targets — progress rings + pace + suggestion flow. */}
-      <CategoryTargets />
+      {/* H1: budgets summary — progress + pace, links to the Budgets tab. */}
+      <BudgetsSummary />
 
       {/* View-mode toggle: existing chart | cash-flow Sankey | table. */}
       <div className="flex items-center gap-1.5">

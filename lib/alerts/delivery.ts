@@ -11,15 +11,17 @@ import { resolveUserEmail } from "@/lib/alerts/email";
 //   2. a delivery ledger row (alert_deliveries) carrying read-tracking + outcomes
 //   3. web push if the user is subscribed
 //   4. for SEVERITY 3 (critical): an immediate email too — both channels for the
-//      moment it matters. Severity 1 (routine) never emails here; the
-//      alert-escalate cron handles the 2h-unseen fallback.
+//      moment it matters. Severity 1 (routine) and 2 (important) never email
+//      here; the alert-escalate cron handles the 2h-unseen fallback (sev-1 only).
 // Severity-1 escalation lives in lib/alerts/escalate.ts, not here.
 // =============================================================================
 
 export interface DeliveryInput {
   alertId: string | null;   // null for non-alert deliveries (e.g. Insights)
   userId: string;
-  severity: 1 | 3;          // 1 = routine (push only), 3 = critical (push + email now)
+  // 1 = routine (push only), 2 = important (push + in-app, no immediate email —
+  // e.g. a bank needs reconnecting), 3 = critical (push + email now).
+  severity: 1 | 2 | 3;
   kind: string;             // notification kind, e.g. "alert" | "insight"
   title: string;
   body: string;

@@ -12,6 +12,7 @@ import { detectPowerOverlap } from "./generators/power-overlap";
 import type { OverlapHolding, OverlapTrade } from "@/lib/power-trades/overlap";
 import { detectClosures, type PriorOpenInsight } from "./closure";
 import { loadLedgerInputs, writeLedger, writeInsights, loadPriorInsights } from "./persist";
+import { evaluateBudgetThresholds } from "@/lib/money/budget-alerts";
 
 // =============================================================================
 // Insights nightly build — cross-user, service-role (bypasses RLS). For each
@@ -63,8 +64,10 @@ export async function buildAndPersistForUser(
   const fresh = generateInsights(ledger, liveRate);
   fresh.push(...detectFlowShift(ledger, new Date(nowMs)));
 
-  const { data: targetRows } = await db.from("category_targets").select("category, monthly_target").eq("user_id", userId);
-  const targets: TargetInput[] = (targetRows ?? []).map((r: any) => ({ category: String(r.category), target: Number(r.monthly_target) }));
+  // H1: budgets (formerly MV2 category_targets — same generators, new table).
+  const { data: budgetRows } = await db.from("budgets")
+    .select("category, monthly_amount").eq("owner_id", userId).eq("scope", "personal").eq("status", "active");
+  const targets: TargetInput[] = (budgetRows ?? []).map((r: any) => ({ category: String(r.category), target: Number(r.monthly_amount) }));
   if (targets.length) {
     const targetedCats = new Set(targets.map((t) => t.category));
     for (let i = fresh.length - 1; i >= 0; i--) {
@@ -73,6 +76,8 @@ export async function buildAndPersistForUser(
     fresh.push(...detectTargetPace(ledger, targets, new Date(nowMs)));
     fresh.push(...detectTargetMonthResult(ledger, targets, {}, new Date(nowMs)));
   }
+  // H1: budget threshold alerts (80%/100%) — deduped per threshold/month/budget.
+  await evaluateBudgetThresholds(db, userId, ledger, nowMs).catch(() => {});
 
   const { data: goalRows } = await db.from("goals").select("id, name, target_amount, target_date, linked_kind, account_id").eq("user_id", userId).eq("status", "active");
   if (goalRows && goalRows.length) {

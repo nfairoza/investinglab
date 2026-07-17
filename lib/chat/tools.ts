@@ -247,23 +247,28 @@ async function execRecurring(ctx: ToolContext): Promise<ToolResult> {
   return { rows, count: rows.length, monthlyTotal: monthly };
 }
 
-// MV2/MV3 — targets + goals tools (RLS-scoped; degrade to available:false if the
-// tables aren't migrated). set_target upserts; the model confirms before calling.
+// H1 budgets + MV3 goals tools (RLS-scoped; degrade to available:false if the
+// tables aren't migrated). set_target upserts a budget; the model confirms first.
+// (Tool names kept as get_targets/set_target for continuity; they now read/write
+// the `budgets` table — a budget IS the evolution of an MV2 target.)
 async function execGetTargets(ctx: ToolContext): Promise<ToolResult> {
-  const { data, error } = await ctx.supabase.from("category_targets")
-    .select("category, monthly_target").eq("user_id", ctx.userId).order("monthly_target", { ascending: false });
+  const { data, error } = await ctx.supabase.from("budgets")
+    .select("category, monthly_amount").eq("owner_id", ctx.userId).eq("scope", "personal").eq("status", "active")
+    .order("monthly_amount", { ascending: false });
   if (error) return { available: false };
-  return { rows: (data ?? []).map((r: any) => ({ category: r.category, target: num(r.monthly_target) })), count: (data ?? []).length };
+  return { rows: (data ?? []).map((r: any) => ({ category: r.category, target: num(r.monthly_amount) })), count: (data ?? []).length };
 }
 
 async function execSetTarget(input: { category?: string; monthly_target?: number }, ctx: ToolContext): Promise<ToolResult> {
   const category = String(input.category ?? "").trim();
   const target = num(input.monthly_target);
   if (!category || !(target > 0)) return { error: "invalid_target" };
-  const { error } = await ctx.supabase.from("category_targets").upsert(
-    { user_id: ctx.userId, category, monthly_target: target, updated_at: new Date().toISOString() },
-    { onConflict: "user_id,category" },
-  );
+  // Update the active budget for this category if one exists, else insert.
+  const { data: existing } = await ctx.supabase.from("budgets").select("id")
+    .eq("owner_id", ctx.userId).eq("scope", "personal").eq("category", category).eq("status", "active").maybeSingle();
+  const { error } = existing?.id
+    ? await ctx.supabase.from("budgets").update({ monthly_amount: target, updated_at: new Date().toISOString() }).eq("id", existing.id)
+    : await ctx.supabase.from("budgets").insert({ scope: "personal", owner_id: ctx.userId, category, monthly_amount: target });
   if (error) return { available: false };
   return { ok: true, category, target };
 }

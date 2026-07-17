@@ -47,6 +47,25 @@ export const CATEGORY_STYLE: Record<DisplayCategory, CategoryStyle> = {
 
 const FALLBACK: CategoryStyle = { icon: CircleDollarSign, color: C.slate };
 
+// Budgetable categories, grouped for the H1 budget-picker. Income/Transfers/
+// Cash & ATM are excluded (they aren't spending you budget against). Order is the
+// display order in the picker; each entry maps to a canonical DisplayCategory.
+export const CATEGORY_GROUPS: { group: string; categories: DisplayCategory[] }[] = [
+  { group: "Housing", categories: ["Rent & Mortgage", "Loan Payments"] },
+  { group: "Utilities & Bills", categories: ["Bills & Utilities", "Taxes & Fees"] },
+  { group: "Groceries", categories: ["Groceries"] },
+  { group: "Dining", categories: ["Food & Dining"] },
+  { group: "Transport", categories: ["Transportation"] },
+  { group: "Subscriptions", categories: ["Subscriptions"] },
+  { group: "Travel", categories: ["Travel"] },
+  { group: "Health", categories: ["Health & Medical", "Personal Care"] },
+  { group: "Shopping", categories: ["Shopping", "Entertainment"] },
+  { group: "Other", categories: ["Education", "Gifts & Donations", "Business Services", "Other"] },
+];
+
+// Flat list of budgetable categories (picker + validation).
+export const BUDGETABLE_CATEGORIES: DisplayCategory[] = CATEGORY_GROUPS.flatMap((g) => g.categories);
+
 export function categoryStyle(category: string): CategoryStyle {
   return (CATEGORY_STYLE as Record<string, CategoryStyle>)[category] ?? FALLBACK;
 }

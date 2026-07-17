@@ -4,11 +4,11 @@ import { useMemo, useState } from "react";
 import useSWR from "swr";
 import Link from "next/link";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
-import { Landmark, ChevronDown, Receipt, PieChart as PieIcon, Scale, ArrowRight, RefreshCw, Repeat, PiggyBank, Stethoscope } from "lucide-react";
+import { Landmark, ChevronDown, Receipt, PieChart as PieIcon, Scale, ArrowRight, RefreshCw, Repeat, PiggyBank, Stethoscope, Wallet } from "lucide-react";
 import { GradientStat } from "./dashboard-extras";
 import { MoneyInsights } from "./money-insights";
 import { SafeToSpendHero } from "./money/safe-to-spend-hero";
-import { CategoryTargets } from "./money/category-targets";
+import { BudgetsSummary } from "./money/budgets-view";
 import { GoalHomeCard } from "./money/goal-home-card";
 import { ConnectEmptyState } from "./connect-empty-state";
 import { fetchJson } from "@/lib/fetch-json";
@@ -86,8 +86,8 @@ export function MoneyDashboard() {
       {/* 1. Safe-to-Spend hero (includes the 30-day cash-flow calendar strip). */}
       <SafeToSpendHero />
 
-      {/* 2. Category targets progress row (opt-in; self-hides when none). */}
-      <CategoryTargets />
+      {/* 2. Budgets summary row (opt-in; self-hides when none). */}
+      <BudgetsSummary />
 
       {/* 3. Nearest-dated savings goal (self-hides when none). */}
       <GoalHomeCard />
@@ -211,6 +211,7 @@ export function MoneyDashboard() {
         <NavCard href="/accounts" icon={Landmark} label="Accounts" />
         <NavCard href="/transactions" icon={Receipt} label="Transactions" />
         <NavCard href="/spending" icon={PieIcon} label="Spending" />
+        <NavCard href="/money/budgets" icon={Wallet} label="Budgets" />
       </div>
 
       <p className="text-[11px] text-ink-faint">Based on your linked accounts. Educational insights only — not financial advice.</p>
