@@ -56,8 +56,12 @@ export function CashflowSankeyImpl({ from, to }: { from: string; to: string }) {
   }, [data, width]);
 
   if (isLoading && !data) return <div className="h-[420px] animate-pulse rounded-2xl bg-surface-raised" />;
-  if (!data || !layout || !data.nodes.length) {
-    return <div className="rounded-2xl border border-hairline bg-surface p-6 text-center text-sm text-ink-faint">Not enough categorized cash flow in this period to draw a flow.</div>;
+  // The builder always emits the "Income" total node, so nodes.length is never 0.
+  // Gate the empty state on actual FLOW (links) instead — no income streams and no
+  // spending categories = nothing to draw. Otherwise we'd render a blank canvas
+  // for an empty period (e.g. the current month before any transactions post).
+  if (!data || !layout || !data.links?.length || (data.totalIncome <= 0 && data.totalSpending <= 0)) {
+    return <div className="rounded-2xl border border-hairline bg-surface p-6 text-center text-sm text-ink-faint">No categorized cash flow in this period yet — try a wider range like Last month or 90d.</div>;
   }
 
   const { graph, height } = layout;
