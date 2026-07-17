@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import useSWR from "swr";
+import useSWR, { mutate as globalMutate } from "swr";
 import Link from "next/link";
 import { Landmark, RefreshCw, ChevronDown, AlertTriangle, Clock } from "lucide-react";
 import { fetchJson } from "@/lib/fetch-json";
@@ -41,8 +41,15 @@ export function AccountsView() {
     if (refreshing) return;
     setRefreshing(true);
     try {
+      // /api/plaid/refresh now syncs TRANSACTIONS + balances, so revalidate both
+      // the accounts view and every transactions/spending SWR key so new spending
+      // shows up without a page reload.
       await fetch("/api/plaid/refresh", { method: "POST" }).catch(() => {});
-      await mutate();
+      await Promise.all([
+        mutate(),
+        globalMutate((key) => typeof key === "string" && key.startsWith("/api/plaid/transactions")),
+        globalMutate((key) => typeof key === "string" && key.startsWith("/api/money/")),
+      ]);
       setRefreshedAt(new Date());
     } finally { setRefreshing(false); }
   }
