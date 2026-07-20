@@ -102,10 +102,20 @@ function isUndefinedColumn(err: { code?: string; message?: string } | null): boo
   return err.code === "42703" || /column .* does not exist/i.test(err.message ?? "");
 }
 
+// Columns added by later migrations that may not exist yet on an un-migrated DB.
+// On an undefined-column error we strip these from the request and retry, so a
+// pending migration degrades to "feature off" rather than breaking the page.
+// (0046 item-health: status/last_synced_at/error_code/status_changed_at.)
+const OPTIONAL_COLUMNS = ["status", "last_synced_at", "error_code", "status_changed_at"];
+
+function stripCols(list: string, drop: string[]): string {
+  return list.split(",").map((c) => c.trim()).filter((c) => c && !drop.includes(c)).join(", ");
+}
+
 // Select plaid_items with the given extra columns + the token columns, resilient
-// to the enc columns not existing yet. Returns { rows, error } where a REAL DB
-// error (anything but a missing-enc-column) is surfaced so callers can 500 —
-// never silently treated as "no linked accounts" (P0.2).
+// to newer columns (encryption pair OR item-health) not existing yet. Returns
+// { rows, error } where a REAL DB error (not a missing-optional-column) is
+// surfaced so callers can 500 — never silently treated as "no linked accounts".
 export async function selectPlaidItems(
   supabase: { from: (t: string) => any },
   extraCols: string,
@@ -114,7 +124,10 @@ export async function selectPlaidItems(
   const first = await supabase.from("plaid_items").select(cols);
   if (!first.error) return { rows: first.data ?? [], error: null };
   if (isUndefinedColumn(first.error)) {
-    const legacyCols = extraCols ? `${extraCols}, ${PLAID_TOKEN_COLUMNS_LEGACY}` : PLAID_TOKEN_COLUMNS_LEGACY;
+    // Retry with the enc-token pair dropped to plaintext AND the optional
+    // item-health columns removed (either could be the missing column).
+    const safeExtra = stripCols(extraCols, OPTIONAL_COLUMNS);
+    const legacyCols = safeExtra ? `${safeExtra}, ${PLAID_TOKEN_COLUMNS_LEGACY}` : PLAID_TOKEN_COLUMNS_LEGACY;
     const retry = await supabase.from("plaid_items").select(legacyCols);
     if (!retry.error) return { rows: retry.data ?? [], error: null };
     return { rows: null, error: { message: retry.error.message } };
