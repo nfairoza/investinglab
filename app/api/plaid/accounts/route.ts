@@ -111,11 +111,26 @@ export async function GET(req: NextRequest) {
   if (debug) return NextResponse.json({ debug: debugRows });
   // `asOf` = oldest snapshot time we served, so the UI freshness chip is honest.
   const oldest = snaps.length ? snaps.reduce((m, s) => Math.min(m, new Date(s.fetchedAt).getTime()), Date.now()) : null;
+
+  // Data-recency diagnostic: the newest transaction date on file + the most
+  // recent time any item completed a sync. Distinguishes "the bank hasn't posted
+  // recent activity yet" (newestTxnDate is recent) from "sync is stuck" (a stale
+  // lastSyncedAt). Surfaced on the Accounts page so freshness is legible.
+  const { data: newest } = await ctx.supabase
+    .from("plaid_transactions").select("date")
+    .eq("removed", false).order("date", { ascending: false }).limit(1).maybeSingle();
+  const lastSyncedAt = items.reduce<string | null>((max, it: any) => {
+    const t = it.last_synced_at as string | null;
+    if (!t) return max;
+    return !max || t > max ? t : max;
+  }, null);
+
   return NextResponse.json({
     items: out,
     totalCash: +totalCash.toFixed(2),
     stale: anyStale,
     asOf: oldest ? new Date(oldest).toISOString() : null,
     ttlMs: SNAPSHOT_TTL_MS,
+    freshness: { newestTxnDate: newest?.date ?? null, lastSyncedAt },
   });
 }

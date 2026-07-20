@@ -15,7 +15,26 @@ interface Item {
   status?: string; lastSyncedAt?: string | null; errorCode?: string | null;
   statusChangedAt?: string | null; itemStale?: boolean;
 }
-interface Balances { items: Item[]; totalCash: number; configured?: boolean }
+interface Freshness { newestTxnDate: string | null; lastSyncedAt: string | null }
+interface Balances { items: Item[]; totalCash: number; configured?: boolean; freshness?: Freshness }
+
+// "Jun 23" from a YYYY-MM-DD date.
+function fmtDay(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  const d = new Date(`${iso}T00:00:00`);
+  return isNaN(d.getTime()) ? String(iso) : d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+}
+// "3h ago" from an ISO timestamp.
+function fmtAgo(iso: string | null | undefined): string {
+  if (!iso) return "not yet";
+  const t = new Date(iso).getTime();
+  if (isNaN(t)) return "not yet";
+  const s = Math.max(0, Math.round((Date.now() - t) / 1000));
+  if (s < 60) return "just now";
+  const m = Math.round(s / 60); if (m < 60) return `${m}m ago`;
+  const h = Math.round(m / 60); if (h < 48) return `${h}h ago`;
+  return `${Math.round(h / 24)}d ago`;
+}
 
 // Friendly "since Jul 9" for the reauth banner.
 function sinceLabel(iso: string | null | undefined): string {
@@ -89,6 +108,16 @@ export function AccountsView() {
           </button>
         </div>
       </div>
+
+      {/* Data-recency readout: newest transaction on file + last sync. Makes the
+          freshness gap legible ("bank hasn't posted recent activity" vs "stuck"). */}
+      {hasAny && data?.freshness && (
+        <p className="text-[11px] text-ink-faint">
+          Latest transaction: <span className="text-ink-dim">{fmtDay(data.freshness.newestTxnDate)}</span>
+          <span className="mx-1.5">·</span>
+          Last synced <span className="text-ink-dim">{fmtAgo(data.freshness.lastSyncedAt)}</span>
+        </p>
+      )}
 
       {/* Item-health: a de-authed bank paused data — clear banner + Reconnect. */}
       {reauth.map((it) => (
