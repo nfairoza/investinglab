@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getPlaid, plaidConfigured, selectPlaidItems, resolvePlaidToken } from "@/lib/plaid";
+import { getPlaid, plaidConfigured, selectPlaidItems, resolvePlaidToken, plaidWebhookUrl } from "@/lib/plaid";
 import { getUserClient } from "@/lib/supabase-data";
 import { writeSnapshot } from "@/lib/plaid-snapshot";
 import { syncAllItems } from "@/lib/plaid/sync";
@@ -30,6 +30,18 @@ export async function POST() {
 
   const plaid = getPlaid();
 
+  // Ensure existing items have our webhook registered (items linked before the
+  // webhook existed won't have one, so Plaid never pushes SYNC_UPDATES_AVAILABLE).
+  // Best-effort; idempotent — Plaid just overwrites with the same URL.
+  const webhookUrl = plaidWebhookUrl();
+  if (webhookUrl) {
+    await Promise.allSettled(items.map((it) => {
+      const token = resolvePlaidToken(it as any);
+      if (!token) return Promise.resolve();
+      return plaid.itemWebhookUpdate({ access_token: token, webhook: webhookUrl });
+    }));
+  }
+
   // (0) Force Plaid to pull fresh transactions from each bank NOW. transactionsSync
   // only returns Plaid's cache (refreshed on its own ~daily cadence), so this is
   // what surfaces activity newer than Plaid's last background pull. On a plan/
@@ -53,13 +65,24 @@ export async function POST() {
     }
     return null;
   })();
-  // Plaid populates the refreshed transactions asynchronously — give it a few
-  // seconds so the sync below picks them up on THIS request (rather than the next).
-  if (forced) await new Promise((res) => setTimeout(res, 6000));
-
-  // (1) Transactions sync + ledger rebuild (error-aware; never throws).
-  const syncResults = await syncAllItems(ctx.supabase, ctx.userId).catch(() => []);
-  const added = syncResults.reduce((s, r) => s + r.added, 0);
+  // (1) transactionsRefresh is ASYNC — Plaid fetches from the bank in the
+  // background (often 10–30s in production) and the new data only becomes
+  // available on a LATER sync. So we POLL: sync, and if the forced refresh got
+  // nothing yet, wait and sync again, until new data lands or we approach the
+  // function budget. (The webhook path keeps things fresh between manual
+  // refreshes; this makes the button itself reliably surface new activity.)
+  const startedAt = Date.now();
+  const BUDGET_MS = 45_000;   // stay well under maxDuration (60s)
+  const POLL_DELAYS = [0, 4000, 5000, 6000, 8000, 8000, 8000];
+  let added = 0;
+  for (let i = 0; i < POLL_DELAYS.length; i++) {
+    if (POLL_DELAYS[i] > 0) await new Promise((res) => setTimeout(res, POLL_DELAYS[i]));
+    const syncResults = await syncAllItems(ctx.supabase, ctx.userId).catch(() => []);
+    added += syncResults.reduce((s, r) => s + r.added, 0);
+    // Stop as soon as anything landed, or if we didn't force a refresh (nothing
+    // async to wait for), or once we're near the time budget.
+    if (added > 0 || !forced || Date.now() - startedAt > BUDGET_MS) break;
+  }
 
   // (2) Fresh balances snapshot for immediate cash updates.
   const balResults = await Promise.allSettled(

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { CountryCode, Products } from "plaid";
-import { getPlaid, plaidConfigured, plaidCapReached, selectPlaidItems, resolvePlaidToken } from "@/lib/plaid";
+import { getPlaid, plaidConfigured, plaidCapReached, selectPlaidItems, resolvePlaidToken, plaidWebhookUrl } from "@/lib/plaid";
 import { getUserClient } from "@/lib/supabase-data";
 import { requirePlan } from "@/lib/billing/plan";
 
@@ -72,6 +72,10 @@ export async function POST(req: NextRequest) {
       required_if_supported_products: [Products.Investments, Products.Liabilities],
       country_codes: [CountryCode.Us],
       language: "en",
+      // Webhook so Plaid pushes SYNC_UPDATES_AVAILABLE when new activity is ready
+      // (the async result of background pulls + on-demand refresh). Without it,
+      // new transactions only appear on the next manual/cron sync.
+      ...(plaidWebhookUrl() ? { webhook: plaidWebhookUrl() } : {}),
       // Required for bank OAuth flows (Chase, etc.). Must exactly match an
       // allowed redirect URI registered in the Plaid dashboard.
       ...(process.env.PLAID_REDIRECT_URI ? { redirect_uri: process.env.PLAID_REDIRECT_URI } : {}),

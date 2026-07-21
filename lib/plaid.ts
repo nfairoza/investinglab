@@ -27,6 +27,18 @@ export function plaidConfigured(): boolean {
   return Boolean(process.env.PLAID_CLIENT_ID && plaidSecret());
 }
 
+// The public URL Plaid POSTs item webhooks to (SYNC_UPDATES_AVAILABLE etc.).
+// Prefer an explicit override; else derive from the app URL. Returns undefined
+// when we can't build an https URL (Plaid rejects non-https), so callers just
+// omit the webhook rather than send a bad one.
+export function plaidWebhookUrl(): string | undefined {
+  const explicit = process.env.PLAID_WEBHOOK_URL;
+  if (explicit && explicit.startsWith("https://")) return explicit;
+  const base = process.env.NEXT_PUBLIC_APP_URL;
+  if (base && base.startsWith("https://")) return `${base.replace(/\/$/, "")}/api/plaid/webhook`;
+  return undefined;
+}
+
 let _client: PlaidApi | null = null;
 let _clientEnv: PlaidEnv | null = null;
 

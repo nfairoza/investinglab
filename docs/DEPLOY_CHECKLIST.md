@@ -67,6 +67,17 @@ brokerage" instead of surfacing the error.)
      push. Generate with `npx web-push generate-vapid-keys`. Optional
      `WEB_PUSH_SUBJECT` (default `mailto:alerts@rukmoney.com`). Without them,
      alert push is a graceful no-op (in-app + client polling still work).
+   - **Plaid transaction freshness (webhook)** — set `NEXT_PUBLIC_APP_URL` to the
+     public https origin (e.g. `https://rukmoney.com`); the app registers
+     `${APP_URL}/api/plaid/webhook` on every item so Plaid pushes
+     `SYNC_UPDATES_AVAILABLE` when new activity is ready (the async result of
+     background pulls + on-demand `/transactions/refresh`). Optional
+     `PLAID_WEBHOOK_URL` overrides the derived URL. Existing items get the webhook
+     registered the next time Refresh is hit (or a link/relink). **Also enable
+     the Transactions webhook + on-demand refresh for your app in the Plaid
+     Dashboard.** Without a webhook, new transactions still arrive — just only on
+     the next manual Refresh (which now POLLS Plaid) or the hourly `plaid-sync`
+     cron, not the instant a purchase posts.
 3. **Run one-time backfills** after the matching migration is applied:
    - `node scripts/backfill-plaid-tokens.mjs` — encrypts existing Plaid tokens
      and nulls the plaintext column (needs `SECRETS_ENCRYPTION_KEY` +
