@@ -53,23 +53,31 @@ export function AccountsView() {
   const { data, error, isLoading, mutate } = useSWR<Balances>("/api/plaid/accounts", fetchJson, { revalidateOnFocus: false });
   const [refreshing, setRefreshing] = useState(false);
   const [refreshedAt, setRefreshedAt] = useState<Date | null>(null);
+  const [refreshNote, setRefreshNote] = useState<string | null>(null);
 
-  // Refresh = force a LIVE Plaid pull (balances snapshot), then re-read. Gives the
-  // button real feedback: spinner while syncing + a "just now" timestamp after.
+  // Refresh = force a LIVE Plaid pull (on-demand transactions/refresh + balances),
+  // then re-read. Gives the button real feedback and, if Plaid rejects the
+  // on-demand refresh (plan without it), the reason.
   async function refresh() {
     if (refreshing) return;
     setRefreshing(true);
+    setRefreshNote(null);
     try {
       // /api/plaid/refresh now syncs TRANSACTIONS + balances, so revalidate both
       // the accounts view and every transactions/spending SWR key so new spending
       // shows up without a page reload.
-      await fetch("/api/plaid/refresh", { method: "POST" }).catch(() => {});
+      const r = await fetch("/api/plaid/refresh", { method: "POST" }).then((x) => x.json()).catch(() => null);
       await Promise.all([
         mutate(),
         globalMutate((key) => typeof key === "string" && key.startsWith("/api/plaid/transactions")),
         globalMutate((key) => typeof key === "string" && key.startsWith("/api/money/")),
       ]);
       setRefreshedAt(new Date());
+      // Honest outcome: Plaid accepted the pull (added N), or it rejected it
+      // (on-demand refresh not on the plan) — show the code so it's diagnosable.
+      if (r?.refreshError) setRefreshNote(`Plaid didn't allow an on-demand refresh (${r.refreshError}). Your bank's data updates on Plaid's daily schedule.`);
+      else if (r?.forcedRefresh && (r?.added ?? 0) === 0) setRefreshNote("Asked your bank for new activity — nothing new has posted since the last sync.");
+      else setRefreshNote(null);
     } finally { setRefreshing(false); }
   }
 
@@ -118,6 +126,7 @@ export function AccountsView() {
           Last synced <span className="text-ink-dim">{fmtAgo(data.freshness.lastSyncedAt)}</span>
         </p>
       )}
+      {refreshNote && <p className="text-[11px] text-amber-200/80">{refreshNote}</p>}
 
       {/* Item-health: a de-authed bank paused data — clear banner + Reconnect. */}
       {reauth.map((it) => (

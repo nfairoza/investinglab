@@ -30,20 +30,32 @@ export async function POST() {
 
   const plaid = getPlaid();
 
-  // (0) Force Plaid to pull fresh transactions from each bank NOW. Fire in
-  // parallel; on a plan/product without on-demand refresh Plaid 4xxs — swallow it
-  // (the item still syncs whatever's cached). Then wait briefly so the freshly
-  // fetched transactions are available to the sync below (Plaid populates them
-  // asynchronously, typically within a couple seconds).
-  const anyRefreshed = await Promise.allSettled(
+  // (0) Force Plaid to pull fresh transactions from each bank NOW. transactionsSync
+  // only returns Plaid's cache (refreshed on its own ~daily cadence), so this is
+  // what surfaces activity newer than Plaid's last background pull. On a plan/
+  // product WITHOUT on-demand refresh Plaid 4xxs (e.g. PRODUCTS_NOT_SUPPORTED) —
+  // we capture that code so the UI can say why the newest txn isn't advancing.
+  const refreshResults = await Promise.allSettled(
     items.map((it) => {
       const token = resolvePlaidToken(it as any);
       if (!token) return Promise.reject(new Error("no token"));
       return plaid.transactionsRefresh({ access_token: token });
     }),
   );
-  const forced = anyRefreshed.some((r) => r.status === "fulfilled");
-  if (forced) await new Promise((res) => setTimeout(res, 2500));
+  const forced = refreshResults.some((r) => r.status === "fulfilled");
+  // The first distinct Plaid error_code (if every item failed), for diagnosis.
+  const refreshError = forced ? null : (() => {
+    for (const r of refreshResults) {
+      if (r.status === "rejected") {
+        const code = (r.reason as { response?: { data?: { error_code?: string } } })?.response?.data?.error_code;
+        if (typeof code === "string") return code;
+      }
+    }
+    return null;
+  })();
+  // Plaid populates the refreshed transactions asynchronously — give it a few
+  // seconds so the sync below picks them up on THIS request (rather than the next).
+  if (forced) await new Promise((res) => setTimeout(res, 6000));
 
   // (1) Transactions sync + ledger rebuild (error-aware; never throws).
   const syncResults = await syncAllItems(ctx.supabase, ctx.userId).catch(() => []);
@@ -65,5 +77,8 @@ export async function POST() {
     }
   }));
 
-  return NextResponse.json({ ok: true, refreshed, added });
+  // `forcedRefresh` = Plaid accepted the on-demand pull. `refreshError` = the code
+  // it rejected with (e.g. PRODUCTS_NOT_SUPPORTED) when on-demand refresh isn't on
+  // the plan — the honest reason the newest transaction may not advance.
+  return NextResponse.json({ ok: true, refreshed, added, forcedRefresh: forced, refreshError });
 }
