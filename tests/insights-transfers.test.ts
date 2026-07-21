@@ -44,6 +44,26 @@ describe("detectTransfers", () => {
     expect(r.transferIds.get("cc-pay")).toBeNull();
   });
 
+  it("does NOT flag real income/spending whose NAME contains generic bank verbs (regression)", () => {
+    // The bug: pass-2 pairless marking used a broad name regex, so a payroll ACH
+    // deposit and an online bill payment with no matching leg were silently
+    // marked as transfers — zeroing real cash flow out of the Sankey while the
+    // KPI cards (which don't use detected transfers) still counted them.
+    const txns: LedgerTxn[] = [
+      txn({ transactionId: "salary", accountId: "chk", amount: -4200, date: "2026-07-01", name: "ACH DEPOSIT PAYROLL ACME" }),
+      txn({ transactionId: "elec", accountId: "chk", amount: 130.5, date: "2026-07-05", name: "ONLINE PAYMENT ELECTRIC CO" }),
+      txn({ transactionId: "atm", accountId: "chk", amount: 60, date: "2026-07-06", name: "POS WITHDRAWAL" }),
+      txn({ transactionId: "ach-bill", accountId: "chk", amount: 90, date: "2026-07-07", name: "ACH PMT COMCAST" }),
+    ];
+    const r = detectTransfers(txns);
+    // None of these have a Plaid category hint OR a matching opposite leg, so
+    // none should be treated as transfers.
+    expect(r.transferIds.has("salary")).toBe(false);
+    expect(r.transferIds.has("elec")).toBe(false);
+    expect(r.transferIds.has("atm")).toBe(false);
+    expect(r.transferIds.has("ach-bill")).toBe(false);
+  });
+
   it("does NOT pair a coincidental opposite amount on the SAME account", () => {
     const txns: LedgerTxn[] = [
       txn({ transactionId: "buy", accountId: "checking", amount: 50, date: "2026-03-01", name: "Store" }),

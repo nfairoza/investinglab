@@ -39,14 +39,25 @@ function amountsMatch(a: number, b: number, hinted: boolean): boolean {
 }
 
 const CATEGORY_HINT = /TRANSFER_IN|TRANSFER_OUT|CREDIT_CARD_PAYMENT|ACCOUNT_TRANSFER|WIRE/i;
-// Name signals that a txn is a transfer/payment between the user's own accounts.
-// This lets us catch real transfers that lack a Plaid category hint (e.g. a
-// manual "Transfer to savings") WITHOUT pairing coincidental equal-and-opposite
-// amounts (a paycheck landing near an equal rent charge — neither name matches).
-const NAME_HINT = /\b(transfer|xfer|to savings|from savings|from checking|to checking|autopay|auto ?pay|card ?payment|payment (to|received)|pymt|bill ?pay|ach|wire|withdrawal|deposit to)\b/i;
+// STRUCTURED category signal from Plaid — reliable enough to mark a transfer even
+// WITHOUT a matching opposite leg (pass 2, pairless).
+function isCategoryHint(t: LedgerTxn): boolean {
+  return CATEGORY_HINT.test(`${t.plaidCategory ?? ""} ${t.plaidDetailed ?? ""}`);
+}
+// NAME signals that a txn LOOKS like a transfer. These are NARROW, transfer-
+// specific phrases only. Deliberately EXCLUDES generic bank verbs like "ach",
+// "payment", "deposit", "withdrawal" — real income/spending is named exactly
+// those ("ACH DEPOSIT PAYROLL", "ONLINE PAYMENT", "POS WITHDRAWAL"), and marking
+// them as transfers silently zeroed real cash flow out of the Sankey.
+const NAME_HINT = /\b(transfer|xfer|to savings|from savings|to checking|from checking|autopay|auto ?pay|card ?payment|bill ?pay|zelle|venmo)\b/i;
+function isNameHint(t: LedgerTxn): boolean {
+  return NAME_HINT.test(`${t.name ?? ""} ${t.merchant ?? ""}`);
+}
+// Combined hint used ONLY for PAIRING (pass 1), where a matching equal-and-
+// opposite leg corroborates the name — so a loose name match can't cause a false
+// transfer on its own.
 function isHint(t: LedgerTxn): boolean {
-  return CATEGORY_HINT.test(`${t.plaidCategory ?? ""} ${t.plaidDetailed ?? ""}`)
-    || NAME_HINT.test(`${t.name ?? ""} ${t.merchant ?? ""}`);
+  return isCategoryHint(t) || isNameHint(t);
 }
 
 // Detect transfers over a list of the user's transactions. Pure + deterministic:
@@ -104,13 +115,15 @@ export function detectTransfers(txns: LedgerTxn[]): TransferResult {
     }
   }
 
-  // Pass 2 — pairless category hints. A CREDIT_CARD_PAYMENT / TRANSFER whose
-  // opposing leg isn't in our data (the other account isn't linked) is still a
-  // transfer, not spending. Mark it pairless (null) so the caller can surface
-  // "unlinked account suspected" instead of counting it.
+  // Pass 2 — pairless CATEGORY hints ONLY. A CREDIT_CARD_PAYMENT / TRANSFER_*
+  // whose opposing leg isn't in our data (the other account isn't linked) is
+  // still a transfer, not spending. We require Plaid's STRUCTURED category here —
+  // NOT a name match — because a name like "ACH DEPOSIT" or "ONLINE PAYMENT" with
+  // no matching opposite leg is almost always real income/spending, and marking
+  // it pairless silently zeroed the user's cash flow out of the Sankey.
   for (const t of live) {
     if (used.has(t.transactionId)) continue;
-    if (isHint(t)) {
+    if (isCategoryHint(t)) {
       transferIds.set(t.transactionId, null);
       used.add(t.transactionId);
     }

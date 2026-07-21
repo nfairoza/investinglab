@@ -9,6 +9,7 @@ import { GradientStat } from "./dashboard-extras";
 import { MoneyInsights } from "./money-insights";
 import { SafeToSpendHero } from "./money/safe-to-spend-hero";
 import { BudgetsSummary } from "./money/budgets-view";
+import { CashflowSankey } from "./money/cashflow-sankey";
 import { GoalHomeCard } from "./money/goal-home-card";
 import { ConnectEmptyState } from "./connect-empty-state";
 import { fetchJson } from "@/lib/fetch-json";
@@ -70,6 +71,14 @@ export function MoneyDashboard() {
   const recurring = adv?.spending?.recurring ?? [];
   const recurringTotal = recurring.reduce((s, r) => s + r.amount, 0);
 
+  // Cash-flow window for the dashboard Sankey: trailing 90 days (the most
+  // reliably-populated recent range, robust to a still-empty current month).
+  const flowRange = useMemo(() => {
+    const to = new Date();
+    const from = new Date(); from.setDate(from.getDate() - 90);
+    return { from: from.toISOString().slice(0, 10), to: to.toISOString().slice(0, 10) };
+  }, []);
+
   if (bal?.configured === false) {
     return <Empty>Bank connections aren&apos;t available yet.</Empty>;
   }
@@ -105,6 +114,18 @@ export function MoneyDashboard() {
           value={runway != null ? `${runway.toFixed(1)} mo` : "—"}
           sub={runway != null ? "of expenses in cash" : hasAccounts ? "need a full month of spending" : "link a bank"} />
       </div>
+
+      {/* 6. Cash-flow — where money comes in and goes out (last 90 days, the most
+             reliably-populated recent window). Self-hides if there's no flow. */}
+      {hasAccounts && (
+        <div className="rounded-2xl glass p-4">
+          <div className="mb-2 flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-ink">Cash flow</h2>
+            <Link href="/spending" className="inline-flex items-center gap-1 text-[11px] text-ink-faint hover:text-ink">Full spending <ArrowRight size={12} /></Link>
+          </div>
+          <CashflowSankey from={flowRange.from} to={flowRange.to} />
+        </div>
+      )}
 
       {/* Connected accounts + balances (history / drill-down). */}
       <div className="space-y-2">
